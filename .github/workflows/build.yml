@@ -401,7 +401,6 @@ jobs:
         name: traintastic-server-test-code-coverage
         path: ${{github.workspace}}/server/build/ccov/*
 
-
   build-data:
     name: shared data ${{matrix.config.name}}
     runs-on: ${{matrix.config.os}}

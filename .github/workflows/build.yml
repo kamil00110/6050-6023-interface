@@ -39,30 +39,30 @@ jobs:
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Unix Makefiles"
+          generator: "Ninja"
           arch: ""
           target: traintastic-client
-          jobs: 4
+          jobs: 8
           build_type: Release
           build_deb: true
           defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Unix Makefiles"
+          generator: "Ninja"
           arch: ""
           target: traintastic-client
-          jobs: 4
+          jobs: 8
           build_type: Release
           build_deb: true
           defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
 
         - name: "macos-14"
           os: "macos-14"
-          generator: "Unix Makefiles"
+          generator: "Ninja"
           arch: ""
           target: traintastic-client
-          jobs: 4
+          jobs: 8
           build_type: Release
           build_deb: false
           defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
@@ -143,7 +143,7 @@ jobs:
         if not exist "%GITHUB_WORKSPACE%\client\deploy" mkdir "%GITHUB_WORKSPACE%\client\deploy"
         windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw --dir "%GITHUB_WORKSPACE%\client\deploy" traintastic-client.exe
 
-    # Non-Windows platforms
+    # Non-Windows platforms (Linux/macOS)
     - name: Configure CMake
       if: "! startswith(matrix.config.os, 'windows')"
       shell: bash
@@ -159,11 +159,7 @@ jobs:
       shell: bash
       working-directory: ${{github.workspace}}/client/build
       run: |
-        if [ "${{matrix.config.generator}}" = "Unix Makefiles" ]; then
-          make -j${{matrix.config.jobs}} ${{matrix.config.target}}
-        else
-          cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
-        fi
+        cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
 
     # Linux: Build deb
     - name: Build debian package
@@ -186,7 +182,6 @@ jobs:
       with:
         name: traintastic-client-deb-${{matrix.config.name}}
         path: ${{github.workspace}}/client/build/*.deb
-
 
   build-server:
     name: server ${{matrix.config.name}}

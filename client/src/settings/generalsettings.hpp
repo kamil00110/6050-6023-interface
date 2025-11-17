@@ -47,6 +47,7 @@ class GeneralSettings  : public SettingsBase
     Setting<bool> showIntroductionWizard;
     Setting<QString> language;
     Setting<bool> connectAutomaticallyToDiscoveredServer;
+    SettingBool modernWindowsStyle;
 };
 
 #endif

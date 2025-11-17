@@ -285,6 +285,14 @@ jobs:
           ${{ env.VCPKG_ROOT }}/buildtrees
         key: vcpkg-deps-${{ matrix.config.os }}-${{ hashFiles('**/vcpkg.json') }}
 
+    # Cache Windows Ninja build artifacts
+    - name: Cache Windows build
+      if: startswith(matrix.config.os, 'windows')
+      uses: actions/cache@v3
+      with:
+        path: ${{github.workspace}}/server/build
+        key: build-${{ matrix.config.os }}-${{ matrix.config.name }}-${{ hashFiles('**/server/CMakeLists.txt') }}
+
     - name: Set VCPKG_ROOT
       if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
       uses: actions/github-script@v7

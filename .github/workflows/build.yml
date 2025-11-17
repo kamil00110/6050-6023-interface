@@ -137,7 +137,9 @@ jobs:
           -DCMAKE_C_COMPILER_LAUNCHER=ccache ^
           ${{matrix.config.defines}}
         cmake --build . --config ${{matrix.config.build_type}} --parallel %NUMBER_OF_PROCESSORS%
-        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw traintastic-client.exe
+        rem Create a dedicated deploy folder
+        if not exist "%GITHUB_WORKSPACE%\client\deploy" mkdir "%GITHUB_WORKSPACE%\client\deploy"
+        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw --dir "%GITHUB_WORKSPACE%\client\deploy" traintastic-client.exe
 
     # Non-Windows platforms
     - name: Configure CMake
@@ -164,7 +166,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}/**
+        path: ${{github.workspace}}/client/deploy/**
 
     # Linux: Upload debian package
     - name: Upload debian package artifact
@@ -173,6 +175,7 @@ jobs:
       with:
         name: traintastic-client-deb-${{matrix.config.name}}
         path: ${{github.workspace}}/client/build/*.deb
+
 
 
   build-server:

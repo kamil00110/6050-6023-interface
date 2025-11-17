@@ -74,6 +74,34 @@ GeneralSettingsWidget::GeneralSettingsWidget(QWidget* parent)
   }
 
   addSetting(s.connectAutomaticallyToDiscoveredServer);
+  // Window style (Windows only)
+#ifdef Q_OS_WIN
+{
+    QComboBox* cb = new QComboBox(this);
+
+    cb->addItem("Fusion", "Fusion");
+    cb->addItem("Windows Classic", "Windows");
+    cb->addItem("Windows Modern (11-like)", "Fusion11");
+
+    // Select currently active style
+    QString current = s.windowStyle.value();
+    int idx = cb->findData(current);
+    if (idx >= 0)
+        cb->setCurrentIndex(idx);
+
+    connect(cb, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+        [cb](int index)
+        {
+            QString selected = cb->itemData(index).toString();
+            GeneralSettings::instance().windowStyle.setValue(selected);
+            QMessageBox::information(cb, Locale::tr("qtapp.settings:restart_required"),
+                                         Locale::tr("qtapp.settings.general:style_changed_restart_required"));
+        });
+
+    add("window_style", cb);
+}
+#endif
+
 
   done();
 }

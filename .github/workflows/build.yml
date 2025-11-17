@@ -198,7 +198,7 @@ jobs:
           generator: "Visual Studio 17 2022"
           arch: "-A x64"
           toolset: "-T ClangCL"
-          target: ALL_BUILD
+          target: traintastic-server.exe
           jobs: 4
           build_type: Release
           build_deb: false
@@ -293,6 +293,11 @@ jobs:
         path: ${{github.workspace}}/server/build
         key: build-${{ matrix.config.os }}-${{ matrix.config.name }}-${{ hashFiles('**/server/CMakeLists.txt') }}
 
+    # Windows only: install sccache
+    - name: Install sccache (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      run: choco install sccache
+
     - name: Set VCPKG_ROOT
       if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
       uses: actions/github-script@v7
@@ -331,7 +336,13 @@ jobs:
       shell: bash
       working-directory: ${{github.workspace}}/server/build
       run: |
-        export CCACHE_SCCACHE=sccache
+        if [ "${{matrix.config.os}}" = "windows-latest" ]; then
+          set CCACHE_SCCACHE=sccache
+          set CC=cl
+          set CXX=cl
+        else
+          export CCACHE_SCCACHE=sccache
+        fi
         cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} \
           -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
           -DCMAKE_AUTOGEN_PARALLEL=${{matrix.config.jobs}} \
@@ -391,6 +402,7 @@ jobs:
       with:
         name: traintastic-server-test-code-coverage
         path: ${{github.workspace}}/server/build/ccov/*
+
 
   build-data:
     name: shared data ${{matrix.config.name}}

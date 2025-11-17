@@ -87,7 +87,6 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1
       with:
         key: windows-msvc
-        cache-directory: ${{ github.workspace }}/.ccache
 
     - name: Install Qt 5
       if: startswith(matrix.config.os, 'windows')
@@ -165,7 +164,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}
+        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}/**
 
     # Linux: Upload debian package
     - name: Upload debian package artifact
@@ -174,6 +173,7 @@ jobs:
       with:
         name: traintastic-client-deb-${{matrix.config.name}}
         path: ${{github.workspace}}/client/build/*.deb
+
 
   build-server:
     name: server ${{matrix.config.name}}

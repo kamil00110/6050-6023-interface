@@ -12,7 +12,9 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     : Interface(world, objId),
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store), // default 2400
-      centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store) 
+      centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      s88amount(this, "s88amount", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store) 
 {
     name = "Märklin 6050";
 
@@ -46,20 +48,36 @@ static const std::vector<std::string_view> labels = {
     "6223",
     "6027", "6029", "6030", "6032"
 };
-
 Attributes::addCategory(centralUnitVersion, "Märklin 6050");
 Attributes::addDisplayName(centralUnitVersion, "Central Unit Version");
 Attributes::addHelp(centralUnitVersion, "CUversion");
-
 Attributes::addEnabled(centralUnitVersion, true);
 Attributes::addVisible(centralUnitVersion, true);
 m_interfaceItems.insertBefore(centralUnitVersion, notes);
-
 Attributes::addValues(centralUnitVersion, options);
 Attributes::addAliases(centralUnitVersion, &options, &labels);
 
+Attributes::addDisplayName(s88amount, "s88 module amount");
+Attributes::addHelp(s88amount, "CU.s88amount");
+Attributes::addEnabled(s88amount, !online);
+Attributes::addVisible(s88amount, true);
+m_interfaceItems.insertBefore(s88amount, notes);
+Attributes::addMinMax(s88amount, 0u, 61u); 
 
-}
+static const std::vector<unsigned int> intervals = {
+    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
+};
+static const std::vector<std::string_view> intervallabels = {
+    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
+};
+Attributes::addDisplayName(s88interval, "s88 module amount");
+Attributes::addHelp(s88interval, "CU.s88intervall");
+Attributes::addEnabled(s88interval, !online);
+Attributes::addVisible(s88interval, true);
+m_interfaceItems.insertBefore(s88interval, notes);
+Attributes::addValues(s88interval, intervals);
+Attributes::addAliases(s88interval, &intervals, &intervallabels);
+
 
 
 void Marklin6050Interface::addToWorld()

@@ -31,13 +31,13 @@ jobs:
         config:
         - name: "windows_x64_msvc"
           os: windows-latest
-          generator: "Visual Studio 17 2022"
-          arch: "-A x64"
+          generator: "Ninja"
+          arch: ""
           target: traintastic-client
-          jobs: 4
+          jobs: 8
           build_type: Release
           build_deb: false
-          defines: ""
+          defines: "-DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_FLAGS=/MP -DCMAKE_C_FLAGS=/MP -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache"
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
@@ -97,6 +97,18 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
+
+    - name: Install Ninja
+      if: startswith(matrix.config.os, 'windows')
+      uses: seanmiddleditch/gha-setup-ninja@v3
+
+    # Windows: ccache
+    - name: Setup ccache
+      if: startswith(matrix.config.os, 'windows')
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: windows-msvc
+
 
     # Windows only:
     - name: Install Qt 5

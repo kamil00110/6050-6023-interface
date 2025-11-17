@@ -207,11 +207,11 @@ jobs:
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Ninja"
+          generator: "Unix Makefiles"
           arch: ""
           toolset: ""
           target: all
-          jobs: 8
+          jobs: 4
           build_type: Release
           build_deb: true
           defines: "-DINSTALL_SYSTEMD_SERVICE=ON"
@@ -219,11 +219,11 @@ jobs:
 
         - name: "ubuntu_24.04 (debug+ccov)"
           os: ubuntu-24.04
-          generator: "Ninja"
+          generator: "Unix Makefiles"
           arch: ""
           toolset: ""
           target: traintastic-server-test
-          jobs: 8
+          jobs: 4
           build_type: Debug
           build_deb: false
           defines: "-DCODE_COVERAGE=ON"
@@ -231,23 +231,47 @@ jobs:
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Ninja"
+          generator: "Unix Makefiles"
           arch: ""
           toolset: ""
           target: all
-          jobs: 8
+          jobs: 4
           build_type: Release
           build_deb: true
           defines: "-DINSTALL_SYSTEMD_SERVICE=ON"
           ccov: false
 
+        # - name: "raspberrypios_arm7"
+         #  os: [self-hosted, ARM, RaspberryPi]
+          #  generator: "Unix Makefiles"
+          # arch: ""
+          # toolset: ""
+          # target: all
+          # jobs: 3
+          # build_type: Release
+          # build_deb: true
+          # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+          # ccov: false
+
+        # - name: "raspberrypios_arm64"
+          # os: [self-hosted, ARM64, RaspberryPi]
+          # generator: "Unix Makefiles"
+          # arch: ""
+          # toolset: ""
+         #  target: all
+          # jobs: 3
+          # build_type: Release
+          # build_deb: true
+          # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+          # ccov: false
+
         - name: "macos-14"
           os: "macos-14"
-          generator: "Ninja"
+          generator: "Unix Makefiles"
           arch: ""
           toolset: ""
           target: all
-          jobs: 8
+          jobs: 4
           build_type: Release
           build_deb: false
           defines: ""
@@ -291,47 +315,56 @@ jobs:
     # Ubuntu only:
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install libboost-program-options-dev libboost-url-dev liblua5.4-dev lcov libarchive-dev clang-tidy libsystemd-dev -y
+      run: sudo apt install libboost-program-options-dev libboost-url-dev liblua5.4-dev lcov libarchive-dev clang-tidy libsystemd-dev
 
     # MacOS only:
     - name: Install brew packages
       if: startswith(matrix.config.os, 'macos')
-      run: brew install libarchive lua@5.4 sccache
+      run: brew install libarchive lua@5.4
 
     # All:
     - name: Create Build Environment
+      # Some projects don't allow in-source building, so create a separate build directory
+      # We'll use this as our working directory for all subsequent commands
       run: cmake -E make_directory ${{github.workspace}}/server/build
 
-    # All: Configure CMake
+    # All:
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/server/build
-      run: |
-        export CCACHE_SCCACHE=sccache
-        cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} \
-          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
-          -DCMAKE_AUTOGEN_PARALLEL=${{matrix.config.jobs}} \
-          ${{matrix.config.defines}}
+      # Note the current convention is to use the -S and -B options here to specify source
+      # and build directories, but this is only available with CMake 3.13 and higher.
+      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
+      run: cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
 
-    # All: Build
+    # All:
     - name: Build
       working-directory: ${{github.workspace}}/server/build
       shell: bash
+      # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
 
-    # All: Run tests
+    # mingw only
+    #- name: Run tests (mingw)
+    #  if: matrix.config.name == 'windows_x64_mingw'
+    #  working-directory: ${{github.workspace}}/server/build
+    #  run: |
+    #    $env:PATH += ';C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
+    #    ctest --output-on-failure
+
+    # All:
     - name: Run tests
       if: matrix.config.name != 'windows_x64_mingw'
       working-directory: ${{github.workspace}}/server/build
       run: ctest --output-on-failure
 
-    # Linux only: Build deb
+    # Linux only:
     - name: Build debian package
       if: matrix.config.build_deb
       working-directory: ${{github.workspace}}/server/build
       run: cpack
 
-    # Windows only: Upload artifact
+    # Windows only:
     - name: Upload artifact
       if: matrix.config.name == 'windows_x64_clang'
       uses: actions/upload-artifact@v4
@@ -339,7 +372,7 @@ jobs:
         name: traintastic-server-windows
         path: ${{github.workspace}}/server/build/Release/traintastic-server.exe
 
-    # Linux only: Upload debian package
+    # Linux only:
     - name: Upload debian package artifact
       if: matrix.config.build_deb
       uses: actions/upload-artifact@v4
@@ -367,7 +400,7 @@ jobs:
       with:
         name: traintastic-server-test-code-coverage
         path: ${{github.workspace}}/server/build/ccov/*
-
+        
   build-data:
     name: shared data ${{matrix.config.name}}
     runs-on: ${{matrix.config.os}}

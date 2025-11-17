@@ -46,7 +46,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: true
-          defines: ""
+          defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
@@ -56,7 +56,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: true
-          defines: ""
+          defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
 
         - name: "macos-14"
           os: "macos-14"
@@ -66,7 +66,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: false
-          defines: ""
+          defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -118,13 +118,18 @@ jobs:
 
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev
+      run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev sccache -y
+
+    # macOS only: Install sccache
+    - name: Install sccache (macOS)
+      if: startswith(matrix.config.os, 'macos')
+      run: brew install sccache
 
     # All:
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/client/build
 
-    # Windows: Configure, Build, and Deploy in one step
+    # Windows: Configure, Build, and Deploy
     - name: Build (Windows)
       if: startswith(matrix.config.os, 'windows')
       shell: cmd
@@ -137,7 +142,6 @@ jobs:
           -DCMAKE_C_COMPILER_LAUNCHER=ccache ^
           ${{matrix.config.defines}}
         cmake --build . --config ${{matrix.config.build_type}} --parallel %NUMBER_OF_PROCESSORS%
-        rem Create a dedicated deploy folder
         if not exist "%GITHUB_WORKSPACE%\client\deploy" mkdir "%GITHUB_WORKSPACE%\client\deploy"
         windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw --dir "%GITHUB_WORKSPACE%\client\deploy" traintastic-client.exe
 
@@ -175,8 +179,6 @@ jobs:
       with:
         name: traintastic-client-deb-${{matrix.config.name}}
         path: ${{github.workspace}}/client/build/*.deb
-
-
 
   build-server:
     name: server ${{matrix.config.name}}

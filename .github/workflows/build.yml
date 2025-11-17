@@ -8,7 +8,6 @@ on:
         default: 'no'
         type: choice
         options: [ "yes", "no" ]
-        
       tag_name:
         description: 'Release tag (e.g., v1.0.0)'
         required: false
@@ -71,13 +70,12 @@ jobs:
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
 
-    # All:
     - name: Checkout
       uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    # Windows specific steps
+    # Windows only
     - name: Install Ninja
       if: startswith(matrix.config.os, 'windows')
       uses: seanmiddleditch/gha-setup-ninja@v3
@@ -95,7 +93,7 @@ jobs:
         cache: true
         version: 5.15
 
-    # macOS only:
+    # macOS only
     - name: Install Qt 6.5
       if: startswith(matrix.config.os, 'macos')
       uses: jurplel/install-qt-action@v4
@@ -111,7 +109,7 @@ jobs:
         script: |
           core.exportVariable('CMAKE_OSX_ARCHITECTURES', 'x86_64');
 
-    # Ubuntu only:
+    # Ubuntu only
     - name: apt update
       if: startswith(matrix.config.os, 'ubuntu')
       run: sudo apt update
@@ -125,7 +123,7 @@ jobs:
       if: startswith(matrix.config.os, 'macos')
       run: brew install sccache
 
-    # All:
+    # All platforms
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/client/build
 
@@ -150,13 +148,22 @@ jobs:
       if: "! startswith(matrix.config.os, 'windows')"
       shell: bash
       working-directory: ${{github.workspace}}/client/build
-      run: cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
+      run: |
+        export CCACHE_SCCACHE=sccache
+        cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} \
+          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
+          ${{matrix.config.defines}}
 
     - name: Build
       if: "! startswith(matrix.config.os, 'windows')"
-      working-directory: ${{github.workspace}}/client/build
       shell: bash
-      run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
+      working-directory: ${{github.workspace}}/client/build
+      run: |
+        if [ "${{matrix.config.generator}}" = "Unix Makefiles" ]; then
+          make -j${{matrix.config.jobs}} ${{matrix.config.target}}
+        else
+          cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
+        fi
 
     # Linux: Build deb
     - name: Build debian package
@@ -179,6 +186,7 @@ jobs:
       with:
         name: traintastic-client-deb-${{matrix.config.name}}
         path: ${{github.workspace}}/client/build/*.deb
+
 
   build-server:
     name: server ${{matrix.config.name}}

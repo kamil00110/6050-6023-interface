@@ -57,6 +57,7 @@ m_interfaceItems.insertBefore(centralUnitVersion, notes);
 Attributes::addValues(centralUnitVersion, options);
 Attributes::addAliases(centralUnitVersion, &options, &labels);
 
+Attributes::addCategory(centralUnitVersion, "Märklin 6050");
 Attributes::addDisplayName(s88amount, "s88 module amount");
 Attributes::addHelp(s88amount, "CU.s88amount");
 Attributes::addEnabled(s88amount, !online);
@@ -70,7 +71,8 @@ static const std::vector<unsigned int> intervals = {
 static const std::vector<std::string_view> intervallabels = {
     "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
 };
-Attributes::addDisplayName(s88interval, "s88 module amount");
+Attributes::addCategory(centralUnitVersion, "Märklin 6050");
+Attributes::addDisplayName(s88interval, "s88 call intervall");
 Attributes::addHelp(s88interval, "CU.s88intervall");
 Attributes::addEnabled(s88interval, !online);
 Attributes::addVisible(s88interval, true);

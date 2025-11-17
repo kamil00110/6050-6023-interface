@@ -34,6 +34,7 @@ class GeneralSettings  : public SettingsBase
       , showIntroductionWizard{*this, "show_introduction_wizard", true}
       , language{*this, "language", "en-us"}
       , connectAutomaticallyToDiscoveredServer{*this, "connect_automatically_to_discovered_server", true}
+      , windowStyle{*this, "windowStyle", "Fusion"} 
     {
     }
 
@@ -47,7 +48,8 @@ class GeneralSettings  : public SettingsBase
     Setting<bool> showIntroductionWizard;
     Setting<QString> language;
     Setting<bool> connectAutomaticallyToDiscoveredServer;
-    SettingBool modernWindowsStyle;
+    Setting<QString> windowStyle {"windowStyle", "Fusion"};
+
 };
 
 #endif

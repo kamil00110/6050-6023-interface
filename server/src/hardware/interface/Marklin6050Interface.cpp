@@ -77,7 +77,7 @@ Attributes::addVisible(s88interval, true);
 m_interfaceItems.insertBefore(s88interval, notes);
 Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
-
+}
 
 
 void Marklin6050Interface::addToWorld()

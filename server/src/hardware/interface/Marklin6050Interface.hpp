@@ -17,6 +17,8 @@ private:
   SerialDeviceProperty serialPort;
   Property<uint32_t> baudrate;
   Property<unsigned int> centralUnitVersion;
+  Property<unsigned int> s88amount;
+  Property<unsigned int> s88interval;
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);

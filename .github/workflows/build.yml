@@ -195,10 +195,10 @@ jobs:
         config:
         - name: "windows_x64_clang"
           os: windows-latest
-          generator: "Visual Studio 17 2022"
+          generator: "Ninja"
           arch: "-A x64"
-          toolset: "-T ClangCL"
-          target: traintastic-server.exe
+          toolset: "ClangCL"
+          target: traintastic-server
           jobs: 4
           build_type: Release
           build_deb: false
@@ -338,8 +338,6 @@ jobs:
       run: |
         if [ "${{matrix.config.os}}" = "windows-latest" ]; then
           set CCACHE_SCCACHE=sccache
-          set CC=cl
-          set CXX=cl
         else
           export CCACHE_SCCACHE=sccache
         fi

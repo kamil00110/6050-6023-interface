@@ -269,6 +269,22 @@ jobs:
           core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
           core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
+    # Cache vcpkg packages
+    - name: Cache vcpkg packages
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.VCPKG_ROOT }}/packages
+        key: vcpkg-${{ matrix.config.os }}-${{ hashFiles('**/vcpkg.json') }}
+
+    # Cache vcpkg downloads/buildtrees
+    - name: Cache vcpkg downloads and buildtrees
+      uses: actions/cache@v3
+      with:
+        path: |
+          ${{ env.VCPKG_ROOT }}/downloads
+          ${{ env.VCPKG_ROOT }}/buildtrees
+        key: vcpkg-deps-${{ matrix.config.os }}-${{ hashFiles('**/vcpkg.json') }}
+
     - name: Set VCPKG_ROOT
       if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
       uses: actions/github-script@v7

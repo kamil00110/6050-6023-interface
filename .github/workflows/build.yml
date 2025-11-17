@@ -148,14 +148,33 @@ jobs:
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/client/build
 
-    # All:
+    - name: Configure CMake (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: cmd
+      working-directory: ${{github.workspace}}/client/build
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cmake %GITHUB_WORKSPACE%\client -G "Ninja" ^
+          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ^
+          ${{matrix.config.defines}}
+
+    - name: Build (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: cmd
+      working-directory: ${{github.workspace}}/client/build
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cmake --build . --config ${{matrix.config.build_type}} --parallel ${{matrix.config.jobs}}
+
+
     - name: Configure CMake
+      if: "! startswith(matrix.config.os, 'windows')"
       shell: bash
       working-directory: ${{github.workspace}}/client/build
       run: cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
 
-    # All:
     - name: Build
+      if: "! startswith(matrix.config.os, 'windows')"
       working-directory: ${{github.workspace}}/client/build
       shell: bash
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}

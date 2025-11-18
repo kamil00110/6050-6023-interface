@@ -230,17 +230,40 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
     }
 }
 std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
-    static std::vector<OutputChannel> channels; // empty for now
+    static std::vector<OutputChannel> channels = {
+        OutputChannel::Accessory,  // or whatever enum your system uses
+        // OutputChannel::Locomotive  -- optional
+    };
     return channels;
 }
 
-std::pair<uint32_t, uint32_t>
-Marklin6050Interface::outputAddressMinMax(OutputChannel) const {
-    return {1, 256};
+
+std::pair<uint32_t, uint32_t> 
+Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
+    if (channel == OutputChannel::Accessory)
+        return {1, 256};
+
+    if (channel == OutputChannel::Locomotive)
+        return {1, 80};
+
+    return {0, 0};
 }
 
-bool Marklin6050Interface::setOutputValue(OutputChannel, uint32_t, OutputValue) {
+
+bool Marklin6050Interface::setOutputValue(OutputChannel channel,
+                                          uint32_t address,
+                                          OutputValue value) 
+{
+    if (channel == OutputChannel::Accessory) {
+        return sendAccessoryCommand(address, value.on); 
+    }
+
+    if (channel == OutputChannel::Locomotive) {
+        return sendLocomotiveCommand(address, value.speed, value.direction);
+    }
+
     return false;
 }
+
 
 

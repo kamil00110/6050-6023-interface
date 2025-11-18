@@ -234,12 +234,13 @@ std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
     return channels;
 }
 
-std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
-    return {1, 256}; // placeholder
+std::pair<uint32_t, uint32_t>
+Marklin6050Interface::outputAddressMinMax(OutputChannel) const {
+    return {1, 256};
 }
 
-bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value) {
-    // placeholder implementation
+bool Marklin6050Interface::setOutputValue(OutputChannel, uint32_t, OutputValue) {
     return false;
 }
+
 

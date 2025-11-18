@@ -92,7 +92,7 @@ Attributes::addDisplayName(extensions, "Feedback Module");
 Attributes::addEnabled(extensions, !online);
 Attributes::addVisible(extensions, true);
 m_interfaceItems.insertBefore(extensions, notes);
-Attributes::addValues(expensions, false);
+Attributes::addValues(extensions, false);
 
 Attributes::addCategory(debug, "Märklin 6050");
 Attributes::addDisplayName(debug, "Seiral Activity");

@@ -93,7 +93,7 @@ m_interfaceItems.insertBefore(extensions, notes);
 Attributes::addCategory(debug, "Märklin 6050");
 Attributes::addDisplayName(debug, "s88 call intervall");
 Attributes::addEnabled(debug, !online);
-Attributes::addVisible(edebug, true);
+Attributes::addVisible(debug, true);
 m_interfaceItems.insertBefore(debug, notes);
 
 Attributes::addCategory(programmer, "Programmer");

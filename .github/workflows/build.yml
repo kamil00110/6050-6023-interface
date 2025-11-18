@@ -1,4 +1,5 @@
 name: Build
+#modified file
 on:
   workflow_dispatch:
     inputs:
@@ -8,6 +9,7 @@ on:
         default: 'no'
         type: choice
         options: [ "yes", "no" ]
+        
       tag_name:
         description: 'Release tag (e.g., v1.0.0)'
         required: false
@@ -27,170 +29,186 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - name: "windows_x64_msvc"
-            os: windows-latest
-            generator: "Ninja"
-            arch: ""
-            target: traintastic-client
-            jobs: 8
-            build_type: Release
-            build_deb: false
-            defines: "-DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl -DCMAKE_C_FLAGS=/MP -DCMAKE_CXX_FLAGS=/MP -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache"
+        - name: "windows_x64_msvc"
+          os: windows-latest
+          generator: "Ninja"
+          arch: ""
+          target: traintastic-client
+          jobs: 8
+          build_type: Release
+          build_deb: false
+          defines: "-DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_FLAGS=/MP -DCMAKE_C_FLAGS=/MP -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache"
 
-          - name: "ubuntu_24.04"
-            os: ubuntu-24.04
-            generator: "Ninja"
-            arch: ""
-            target: traintastic-client
-            jobs: 8
-            build_type: Release
-            build_deb: true
-            defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
+        - name: "ubuntu_24.04"
+          os: ubuntu-24.04
+          generator: "Unix Makefiles"
+          arch: ""
+          target: traintastic-client
+          jobs: 4
+          build_type: Release
+          build_deb: true
+          defines: ""
 
-          - name: "ubuntu_24.04_arm64"
-            os: ubuntu-24.04-arm
-            generator: "Ninja"
-            arch: ""
-            target: traintastic-client
-            jobs: 8
-            build_type: Release
-            build_deb: true
-            defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
+        - name: "ubuntu_24.04_arm64"
+          os: ubuntu-24.04-arm
+          generator: "Unix Makefiles"
+          arch: ""
+          target: traintastic-client
+          jobs: 4
+          build_type: Release
+          build_deb: true
+          defines: ""
 
-          - name: "macos-14"
-            os: "macos-14"
-            generator: "Ninja"
-            arch: ""
-            target: traintastic-client
-            jobs: 8
-            build_type: Release
-            build_deb: false
-            defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_C_COMPILER_LAUNCHER=sccache"
+       # - name: "raspberrypios_arm7"
+          # os: [self-hosted, ARM, RaspberryPi]
+          # generator: "Unix Makefiles"
+          # arch: ""
+          # target: traintastic-client
+          # jobs: 4
+         #  build_type: Release
+          # build_deb: true
+          # defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+
+        # - name: "raspberrypios_arm64"
+         #  os: [self-hosted, ARM64, RaspberryPi]
+         #  generator: "Unix Makefiles"
+         #  arch: ""
+         #  target: traintastic-client
+         #  jobs: 4
+          # build_type: Release
+         #  build_deb: true
+         #  defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
+
+        - name: "macos-14"
+          os: "macos-14"
+          generator: "Unix Makefiles"
+          arch: ""
+          target: traintastic-client
+          jobs: 4
+          build_type: Release
+          build_deb: false
+          defines: ""
 
     steps:
-      - uses: FranzDiebold/github-env-vars-action@v2
+    - uses: FranzDiebold/github-env-vars-action@v2
 
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
+    # All:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
-      # Windows only
-      - name: Install Ninja
-        if: startswith(matrix.config.os, 'windows')
-        uses: seanmiddleditch/gha-setup-ninja@v3
+    - name: Install Ninja
+      if: startswith(matrix.config.os, 'windows')
+      uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Setup ccache
-        if: startswith(matrix.config.os, 'windows')
-        uses: hendrikmuhs/ccache-action@v1
-        with:
-          key: windows-msvc
+    # Windows: ccache
+    - name: Setup ccache
+      if: startswith(matrix.config.os, 'windows')
+      uses: hendrikmuhs/ccache-action@v1
+      with:
+        key: windows-msvc
 
-      - name: Install Qt 5
-        if: startswith(matrix.config.os, 'windows')
-        uses: jurplel/install-qt-action@v4
-        with:
-          cache: true
-          version: 5.15
 
-      # macOS only
-      - name: Install Qt 6.5
-        if: startswith(matrix.config.os, 'macos')
-        uses: jurplel/install-qt-action@v4
-        with:
-          cache: true
-          modules: qtwebsockets
-          version: 6.5.*
+    # Windows only:
+    - name: Install Qt 5
+      if: startswith(matrix.config.os, 'windows')
+      uses: jurplel/install-qt-action@v4
+      with:
+        cache: true
+        version: 5.15
 
-      - name: Set CMAKE_OSX_ARCHITECTURES
-        if: startswith(matrix.config.os, 'macos')
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('CMAKE_OSX_ARCHITECTURES', 'x86_64');
+    # macOS only:
+    - name: Install Qt 6.5
+      if: startswith(matrix.config.os, 'macos')
+      uses: jurplel/install-qt-action@v4
+      with:
+        cache: true
+        modules: qtwebsockets
+        version: 6.5.*
 
-      # Ubuntu only
-      - name: apt update
-        if: startswith(matrix.config.os, 'ubuntu')
-        run: sudo apt update
+    - name: Set CMAKE_OSX_ARCHITECTURES
+      if: startswith(matrix.config.os, 'macos')
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('CMAKE_OSX_ARCHITECTURES', 'x86_64');
 
-      - name: Install packages
-        if: startswith(matrix.config.os, 'ubuntu')
-        run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev sccache -y
+    # Ubuntu only:
+    - name: apt update
+      if: startswith(matrix.config.os, 'ubuntu')
+      run: sudo apt update
 
-      # macOS only: Install sccache
-      - name: Install sccache (macOS)
-        if: startswith(matrix.config.os, 'macos')
-        run: brew install sccache
+    # Ubuntu only:
+    - name: Install packages
+      if: startswith(matrix.config.os, 'ubuntu')
+      run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev
 
-      # All platforms: Create build directory
-      - name: Create Build Environment
-        run: cmake -E make_directory ${{github.workspace}}/client/build
+    # All:
+    - name: Create Build Environment
+      run: cmake -E make_directory ${{github.workspace}}/client/build
 
-      # Windows: Configure, Build, and Deploy
-      - name: Build (Windows)
-        if: startswith(matrix.config.os, 'windows')
-        shell: cmd
-        working-directory: ${{github.workspace}}/client/build
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          cmake %GITHUB_WORKSPACE%\client -G "Ninja" ^
-            -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ^
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ^
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache ^
-            ${{matrix.config.defines}}
-          cmake --build . --config ${{matrix.config.build_type}} --parallel %NUMBER_OF_PROCESSORS%
+    - name: Configure CMake (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: cmd
+      working-directory: ${{github.workspace}}/client/build
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cmake %GITHUB_WORKSPACE%\client -G "Ninja" ^
+          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ^
+          ${{matrix.config.defines}}
 
-          rem Ensure deploy folder exists
-          if not exist "%GITHUB_WORKSPACE%\client\deploy" mkdir "%GITHUB_WORKSPACE%\client\deploy"
+    - name: Build (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: cmd
+      working-directory: ${{github.workspace}}/client/build
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        cmake --build . --config ${{matrix.config.build_type}} --parallel ${{matrix.config.jobs}}
 
-          rem Copy main exe to deploy folder (correct Ninja path)
-          copy "%GITHUB_WORKSPACE%\client\build\traintastic-client.exe" "%GITHUB_WORKSPACE%\client\deploy\"
 
-          rem Deploy Qt dependencies into the same folder
-          windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw --dir "%GITHUB_WORKSPACE%\client\deploy" "%GITHUB_WORKSPACE%\client\deploy\traintastic-client.exe"
+    - name: Configure CMake
+      if: "! startswith(matrix.config.os, 'windows')"
+      shell: bash
+      working-directory: ${{github.workspace}}/client/build
+      run: cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
 
-      # Linux/macOS: Configure, enable parallel Qt autogen
-      - name: Configure CMake
-        if: "! startswith(matrix.config.os, 'windows')"
-        shell: bash
-        working-directory: ${{github.workspace}}/client/build
-        run: |
-          export CCACHE_SCCACHE=sccache
-          export CMAKE_AUTOGEN_PARALLEL=${{matrix.config.jobs}}
-          cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} \
-            -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
-            -DCMAKE_AUTOGEN_PARALLEL=${{matrix.config.jobs}} \
-            ${{matrix.config.defines}}
+    - name: Build
+      if: "! startswith(matrix.config.os, 'windows')"
+      working-directory: ${{github.workspace}}/client/build
+      shell: bash
+      run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
 
-      - name: Build
-        if: "! startswith(matrix.config.os, 'windows')"
-        shell: bash
-        working-directory: ${{github.workspace}}/client/build
-        run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
+    # Windows only:
+    - name: Run windeployqt
+      if: startswith(matrix.config.os, 'windows')
+      shell: cmd
+      run: |
+        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/${{matrix.config.build_type}}/traintastic-client.exe
 
-      # Linux: Build deb
-      - name: Build debian package
-        if: matrix.config.build_deb
-        working-directory: ${{github.workspace}}/client/build
-        run: cpack
+    # Linux only:
+    - name: Build debian package
+      if: matrix.config.build_deb
+      working-directory: ${{github.workspace}}/client/build
+      run: cpack
 
-      # Windows: Upload artifact
-      - name: Upload artifact
-        if: startswith(matrix.config.os, 'windows')
-        uses: actions/upload-artifact@v4
-        with:
-          name: traintastic-client-windows
-          path: ${{github.workspace}}/client/deploy/**
+    # Windows only:
+    - name: Upload artifact
+      if: startswith(matrix.config.os, 'windows')
+      uses: actions/upload-artifact@v4
+      with:
+        name: traintastic-client-windows
+        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}
 
-      # Linux: Upload debian package
-      - name: Upload debian package artifact
-        if: matrix.config.build_deb
-        uses: actions/upload-artifact@v4
-        with:
-          name: traintastic-client-deb-${{matrix.config.name}}
-          path: ${{github.workspace}}/client/build/*.deb
-
+    # Linux only:
+    - name: Upload debian package artifact
+      if: matrix.config.build_deb
+      uses: actions/upload-artifact@v4
+      with:
+        name: traintastic-client-deb-${{matrix.config.name}}
+        path: ${{github.workspace}}/client/build/*.deb
+        
   build-server:
     name: server ${{matrix.config.name}}
     runs-on: ${{matrix.config.os}}

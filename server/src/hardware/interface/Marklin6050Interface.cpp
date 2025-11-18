@@ -18,7 +18,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store)
+      programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      OutputController(static_cast<IdObject&>(*this))
   
 {
     name = "Märklin 6050";

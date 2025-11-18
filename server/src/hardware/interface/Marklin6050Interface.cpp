@@ -85,19 +85,19 @@ Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
 
 Attributes::addCategory(extensions, "Märklin 6050");
-Attributes::addDisplayName(extensions, "s88 call intervall");
+Attributes::addDisplayName(extensions, "Feedback Module");
 Attributes::addEnabled(extensions, !online);
 Attributes::addVisible(extensions, true);
 m_interfaceItems.insertBefore(extensions, notes);
 
 Attributes::addCategory(debug, "Märklin 6050");
-Attributes::addDisplayName(debug, "s88 call intervall");
+Attributes::addDisplayName(debug, "Seiral Activity");
 Attributes::addEnabled(debug, !online);
 Attributes::addVisible(debug, true);
 m_interfaceItems.insertBefore(debug, notes);
 
 Attributes::addCategory(programmer, "Programmer");
-Attributes::addDisplayName(programmer, "s88 call intervall");
+Attributes::addDisplayName(programmer, "Programer");
 Attributes::addEnabled(programmer, !online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);

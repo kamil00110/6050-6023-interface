@@ -21,7 +21,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      VectorProperty<bool> checkboxes(*this, "options", {false, false, false, false}, PropertyFlags::ReadWrite | PropertyFlags::Store)
+      checkboxes(*this, "options", {false, false, false, false}, PropertyFlags::ReadWrite | PropertyFlags::Store)
  
 {
     name = "Märklin 6050";

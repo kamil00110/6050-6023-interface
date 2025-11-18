@@ -19,6 +19,9 @@ private:
   Property<unsigned int> centralUnitVersion;
   Property<unsigned int> s88amount;
   Property<unsigned int> s88interval;
+  Property<unsigned int> extensions;
+  Property<unsigned int> debug;
+  Property<unsigned int> programmer;
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);

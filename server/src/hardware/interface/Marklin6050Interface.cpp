@@ -212,7 +212,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
     return true;
 }
 
-
 void Marklin6050Interface::updateEnabled()
 {
     // Disable serialPort while online (same UX as LocoNet)
@@ -230,5 +229,18 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
             setOnline(val, false);
         }
     }
+}
+std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
+    static std::vector<OutputChannel> channels; // empty for now
+    return channels;
+}
+
+std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
+    return {1, 256}; // placeholder
+}
+
+bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value) {
+    // placeholder implementation
+    return false;
 }
 

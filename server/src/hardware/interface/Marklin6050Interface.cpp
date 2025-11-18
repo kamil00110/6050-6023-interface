@@ -17,7 +17,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      extensions(this, "extensions", fasle, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store)
       

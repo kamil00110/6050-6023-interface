@@ -231,39 +231,33 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 }
 std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
     static std::vector<OutputChannel> channels = {
-        OutputChannel::Accessory,  // or whatever enum your system uses
-        // OutputChannel::Locomotive  -- optional
+        OutputChannel::Accessory,
+        OutputChannel::OutputPair,
+        OutputChannel::Function
     };
     return channels;
 }
 
-
-std::pair<uint32_t, uint32_t> 
-Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
-    if (channel == OutputChannel::Accessory)
-        return {1, 256};
-
-    if (channel == OutputChannel::Locomotive)
-        return {1, 80};
-
-    return {0, 0};
-}
-
-
-bool Marklin6050Interface::setOutputValue(OutputChannel channel,
-                                          uint32_t address,
-                                          OutputValue value) 
+std::pair<uint32_t, uint32_t>
+Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
 {
-    if (channel == OutputChannel::Accessory) {
-        return sendAccessoryCommand(address, value.on); 
+    // Accessories often use 1..256, others use 1..2048
+    switch (channel) {
+        case OutputChannel::Accessory:
+            return {1, 256};
+        case OutputChannel::OutputPair:
+        case OutputChannel::Function:
+        default:
+            return {1, 2048};
     }
-
-    if (channel == OutputChannel::Locomotive) {
-        return sendLocomotiveCommand(address, value.speed, value.direction);
-    }
-
-    return false;
 }
+
+bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
+{
+    // Dummy implementation — simply accept any value
+    return true;
+}
+
 
 
 

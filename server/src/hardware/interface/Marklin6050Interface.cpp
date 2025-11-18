@@ -14,7 +14,11 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store), // default 2400
       centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store) 
+      s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      extensions(this, "extensions", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+  
 {
     name = "Märklin 6050";
 
@@ -79,6 +83,24 @@ Attributes::addVisible(s88interval, true);
 m_interfaceItems.insertBefore(s88interval, notes);
 Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
+
+Attributes::addCategory(extensions, "Märklin 6050");
+Attributes::addDisplayName(extensions, "s88 call intervall");
+Attributes::addEnabled(extensions, !online);
+Attributes::addVisible(extensions, true);
+m_interfaceItems.insertBefore(extensions, notes);
+
+Attributes::addCategory(debug, "Märklin 6050");
+Attributes::addDisplayName(debug, "s88 call intervall");
+Attributes::addEnabled(debug, !online);
+Attributes::addVisible(edebug, true);
+m_interfaceItems.insertBefore(debug, notes);
+
+Attributes::addCategory(programmer, "Programmer");
+Attributes::addDisplayName(programmer, "s88 call intervall");
+Attributes::addEnabled(programmer, !online);
+Attributes::addVisible(programmer, true);
+m_interfaceItems.insertBefore(programmer, notes);
 }
 
 

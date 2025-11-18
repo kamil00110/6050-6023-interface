@@ -17,7 +17,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      extensions(this, "extensions", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      extensions(this, "extensions", fasle, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store)
       
@@ -92,7 +92,6 @@ Attributes::addDisplayName(extensions, "Feedback Module");
 Attributes::addEnabled(extensions, !online);
 Attributes::addVisible(extensions, true);
 m_interfaceItems.insertBefore(extensions, notes);
-Attributes::addValues(extensions, false);
 
 Attributes::addCategory(debug, "Märklin 6050");
 Attributes::addDisplayName(debug, "Seiral Activity");

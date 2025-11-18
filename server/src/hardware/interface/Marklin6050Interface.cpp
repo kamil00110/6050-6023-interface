@@ -89,6 +89,7 @@ Attributes::addDisplayName(extensions, "Feedback Module");
 Attributes::addEnabled(extensions, !online);
 Attributes::addVisible(extensions, true);
 m_interfaceItems.insertBefore(extensions, notes);
+Attributes::addValues(expensions, false);
 
 Attributes::addCategory(debug, "Märklin 6050");
 Attributes::addDisplayName(debug, "Seiral Activity");
@@ -101,6 +102,7 @@ Attributes::addDisplayName(programmer, "Programer");
 Attributes::addEnabled(programmer, !online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);
+Attributes::addValues(programmer, false);
 }
 
 

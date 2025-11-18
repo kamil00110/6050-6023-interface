@@ -3,6 +3,7 @@
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"   
 #include "../../world/world.hpp"
+#include "../output/list/outputlist.hpp"
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 
@@ -103,6 +104,8 @@ Attributes::addEnabled(programmer, !online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);
 Attributes::addValues(programmer, false);
+
+m_interfaceItems.insertBefore(outputs, notes);
 }
 
 

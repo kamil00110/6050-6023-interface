@@ -21,7 +21,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      checkboxes(this, "options", {false, false, false, false}, PropertyFlags::ReadWrite | PropertyFlags::Store);
+      checkboxes(this, "options", PropertyFlags::ReadWrite | PropertyFlags::Store);
       
   
 {
@@ -109,7 +109,7 @@ m_interfaceItems.insertBefore(programmer, notes);
 
 
 m_interfaceItems.insertBefore(outputs, notes);
-
+checkboxes.setValues(std::vector<bool>{false, false, false, false});
 Attributes::addCategory(checkboxes, "Märklin 6050");
 Attributes::addDisplayName(checkboxes, "Options");
 Attributes::addEnabled(checkboxes, true);

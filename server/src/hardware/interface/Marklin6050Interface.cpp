@@ -104,7 +104,7 @@ Attributes::addDisplayName(programmer, "Programer");
 Attributes::addEnabled(programmer, !online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);
-Attributes::addValues(programmer, false);
+
 
 m_interfaceItems.insertBefore(outputs, notes);
 }

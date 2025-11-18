@@ -11,6 +11,7 @@ CREATE_IMPL(Marklin6050Interface)
 
 Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     : Interface(world, objId),
+      OutputController(static_cast<IdObject&>(*this)),
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store), // default 2400
       centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
@@ -18,8 +19,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      OutputController(static_cast<IdObject&>(*this))
+      programmer(this, "programmer", 0, PropertyFlags::ReadWrite | PropertyFlags::Store)
+      
   
 {
     name = "Märklin 6050";

@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include "../../hardware/interface/Marklin6050Interface.hpp" 
+
 
 namespace Marklin6050 {
 

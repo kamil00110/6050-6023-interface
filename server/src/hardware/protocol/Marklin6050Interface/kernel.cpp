@@ -1,5 +1,5 @@
 #include "kernel.hpp"
-#include "../../hardware/interface/Marklin6050Interface.hpp"
+#include "../../interface/Marklin6050Interface.hpp"
 #if defined(_WIN32)
 #include <windows.h>
 #else

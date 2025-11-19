@@ -257,15 +257,20 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 }
 bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
 {
-    (void)channel; // silence unused if not used in all branches
-    (void)address;
-    (void)value;
-
     if(channel == OutputChannel::Accessory && m_kernel)
     {
         return m_kernel->setAccessory(address, value);
     }
-    return OutputController::setOutputValue(channel, address, value);
+
+    // implement default OutputController logic here directly
+    auto it = m_outputs.find({channel, address});
+    if(it != m_outputs.end()) {
+        it->second->setValue(value);
+        updateOutputValue(channel, address, value);
+        return true;
+    }
+
+    return false;
 }
 
 

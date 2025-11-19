@@ -10,6 +10,8 @@
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 
+std::unique_ptr<Marklin6050::Kernel> m_kernel;
+
 class Marklin6050Interface 
 : public Interface
 , public OutputController

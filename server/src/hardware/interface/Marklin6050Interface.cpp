@@ -126,7 +126,7 @@ m_interfaceItems.insertBefore(outputs, notes);
 
 }
 
-
+constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
 void Marklin6050Interface::addToWorld()
 {
     Interface::addToWorld();

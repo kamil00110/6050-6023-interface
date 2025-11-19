@@ -302,8 +302,7 @@ std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
 }
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const
 {
-    // return the list of input channels your device supports
-    static const auto values = makeArray(InputChannel::S88, InputChannel::Other); // adjust as needed
+    static const auto values = makeArray(InputChannel::S88); // only valid channels
     return values;
 }
 
@@ -312,18 +311,21 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     switch(channel)
     {
         case InputChannel::S88:
-            return {1, 32}; // or actual range
+            return {1, 32}; // S88 module range
         default:
-            return {0, 0};
+            return {0, 0}; // unknown channel
     }
 }
 
+
 void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action)
 {
-    // implement simulation logic for input changes if needed
-    // or leave empty if simulation not used
-}
+    (void)channel;
+    (void)address;
+    (void)action;
 
+    // If you want to simulate input changes later, add logic here
+}
 
 
 

@@ -244,10 +244,11 @@ bool Marklin6050Interface::setOutputValue(
     uint32_t address,
     OutputValue value
 ) {
+    (void)channel; // silence unused parameter warning
+
     if (!m_kernel)
         return false;
 
-    // Extract TriState if that's the variant currently used
     if (auto state = std::get_if<TriState>(&value)) {
         uint8_t command = (*state == TriState::True) ? 33 : 34;
         m_kernel->sendByte(command);
@@ -255,11 +256,8 @@ bool Marklin6050Interface::setOutputValue(
         return true;
     }
 
-    // Handle other OutputValue types (OutputPairValue, etc.) if needed
     return false;
 }
-
-
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
     if (channel == OutputChannel::Accessory)

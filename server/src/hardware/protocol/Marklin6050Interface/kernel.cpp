@@ -7,9 +7,9 @@
 #include <unistd.h>
 #include <termios.h>
 #include <cstdint> 
-#endif
+#include "../../output/outputvalue.hpp"
 
-enum class OutputValue : uint8_t; 
+#endif
 
 using namespace Marklin6050;
 
@@ -120,13 +120,26 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
         return false;
 
     // Märklin 6050 accessory command format: 0xB0 + (address-1)
-    // Value: 0 = off, 1 = on
-    unsigned char cmd = 0xB0 | ((address - 1) & 0x0F); 
-    unsigned char state = (value == OutputValue::On) ? 1 : 0;
+    unsigned char cmd = 0xB0 | ((address - 1) & 0x0F);
 
-    // Send command byte and state byte
+    // Convert OutputValue to a byte
+    unsigned char state = std::visit([](auto&& v) -> unsigned char {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, TriState>)
+            return (v == TriState::On) ? 1 : 0;
+        else if constexpr (std::is_same_v<T, uint8_t>)
+            return v;
+        else if constexpr (std::is_same_v<T, OutputPairValue>)
+            return v.first; // or however you want to convert it
+        else if constexpr (std::is_same_v<T, int16_t>)
+            return static_cast<unsigned char>(v);
+        else
+            return 0;
+    }, value);
+
     return sendByte(cmd) && sendByte(state);
 }
+
 
 
 bool Kernel::sendByte(unsigned char byte)

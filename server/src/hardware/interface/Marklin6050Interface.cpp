@@ -19,6 +19,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       centralUnitVersion(this, "centralUnitVersion", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      turnouttime(this, "turnouttime", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
@@ -86,6 +87,21 @@ Attributes::addVisible(s88interval, true);
 m_interfaceItems.insertBefore(s88interval, notes);
 Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
+
+static const std::vector<unsigned int> turnouttimes = {
+    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
+};
+static const std::vector<std::string_view> turnouttimelabels = {
+    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
+};
+Attributes::addCategory(turnouttime, "Märklin 6050");
+Attributes::addDisplayName(turnouttime, "s88 call intervall");
+Attributes::addHelp(turnouttime, "CU.s88intervall");
+Attributes::addEnabled(turnouttime, !online);
+Attributes::addVisible(turnouttime, true);
+m_interfaceItems.insertBefore(turnouttime, notes);
+Attributes::addValues(turnouttime, turnouttimes);
+Attributes::addAliases(turnouttime, &turnouttimes, &turnouttimelabels);
 
 Attributes::addCategory(extensions, "Märklin 6050");
 Attributes::addDisplayName(extensions, "Feedback Module");
@@ -230,20 +246,25 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 
     uint8_t command = 0;
 
-    switch (channel) {
-        case OutputChannel::Accessory:
-            command = (value == OutputValue::On) ? 33 : 34;
-            break;
-
-        default:
-            return false;
+    // Märklin 6050 only supports single ON/OFF outputs → TriState
+    if (auto state = std::get_if<TriState>(&value))
+    {
+        // 33 = ON, 34 = OFF
+        command = (*state == TriState::On) ? 33 : 34;
+    }
+    else
+    {
+        // Unsupported value type for this interface
+        return false;
     }
 
-    m_kernel->sendByte(command);
+    // Märklin protocol: send command first, then address
+    m_kernel->sendByte(command);  
     m_kernel->sendByte(address);
 
     return true;
 }
+
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
     if (channel == OutputChannel::Accessory)

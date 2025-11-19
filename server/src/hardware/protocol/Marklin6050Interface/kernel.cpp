@@ -111,6 +111,20 @@ void Kernel::stop()
 
     m_isOpen = false;
 }
+bool Kernel::setAccessory(uint32_t address, OutputValue value)
+{
+    if (!m_isOpen || address < 1 || address > 32)
+        return false;
+
+    // Märklin 6050 accessory command format: 0xB0 + (address-1)
+    // Value: 0 = off, 1 = on
+    unsigned char cmd = 0xB0 | ((address - 1) & 0x0F); 
+    unsigned char state = (value == OutputValue::On) ? 1 : 0;
+
+    // Send command byte and state byte
+    return sendByte(cmd) && sendByte(state);
+}
+
 
 bool Kernel::sendByte(unsigned char byte)
 {

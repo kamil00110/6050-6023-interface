@@ -10,6 +10,14 @@
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 
+#include "../../core/attributes.hpp"
+#include "../../core/eventloop.hpp"
+#include "../../core/method.tpp"
+#include "../../core/objectproperty.tpp"
+#include "../../log/log.hpp"
+#include "../../log/logmessageexception.hpp"
+#include "../../utils/inrange.hpp"
+
 constexpr auto inputListColumns = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
 

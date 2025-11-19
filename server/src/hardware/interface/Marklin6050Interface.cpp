@@ -17,6 +17,10 @@
 #include "../../log/log.hpp"
 #include "../../log/logmessageexception.hpp"
 #include "../../utils/inrange.hpp"
+#if defined(_WIN32)
+#include <winsock2.h>
+#include <windows.h>
+#endif
 
 constexpr auto inputListColumns = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;

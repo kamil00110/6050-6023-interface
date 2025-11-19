@@ -26,7 +26,6 @@ private:
   Property<unsigned int> extensions;
   Property<unsigned int> debug;
   Property<unsigned int> programmer;
-  VectorProperty<bool> checkboxes;
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);

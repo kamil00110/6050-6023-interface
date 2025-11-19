@@ -22,15 +22,9 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       checkboxes(*this, "options", PropertyFlags::ReadWrite | PropertyFlags::Store)
-      checkboxes.set({false, false, false, false});
-
-
-);
-
-
- 
-{
+{    
     name = "Märklin 6050";
+ checkboxes.set({false, false, false, false}); 
 
     Attributes::addDisplayName(serialPort, DisplayName::Serial::device);
     Attributes::addEnabled(serialPort, !online);

@@ -262,10 +262,11 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
         return m_kernel->setAccessory(address, value);
     }
 
-    // implement default OutputController logic here directly
+    // Default OutputController behavior
     auto it = m_outputs.find({channel, address});
-    if(it != m_outputs.end()) {
-        it->second->setValue(value);
+    if(it != m_outputs.end())
+    {
+        // notify the base OutputController about the value change
         updateOutputValue(channel, address, value);
         return true;
     }

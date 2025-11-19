@@ -239,31 +239,26 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
         }
     }
 }
-bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
-{
+bool Marklin6050Interface::setOutputValue(
+    OutputChannel channel,
+    uint32_t address,
+    OutputValue value
+) {
     if (!m_kernel)
         return false;
 
-    uint8_t command = 0;
-
-    // Märklin 6050 only supports single ON/OFF outputs → TriState
-    if (auto state = std::get_if<TriState>(&value))
-    {
-        // 33 = ON, 34 = OFF
-        command = (*state == TriState::On) ? 33 : 34;
-    }
-    else
-    {
-        // Unsupported value type for this interface
-        return false;
+    // Extract TriState if that's the variant currently used
+    if (auto state = std::get_if<TriState>(&value)) {
+        uint8_t command = (*state == TriState::True) ? 33 : 34;
+        m_kernel->sendByte(command);
+        m_kernel->sendByte(static_cast<uint8_t>(address));
+        return true;
     }
 
-    // Märklin protocol: send command first, then address
-    m_kernel->sendByte(command);  
-    m_kernel->sendByte(address);
-
-    return true;
+    // Handle other OutputValue types (OutputPairValue, etc.) if needed
+    return false;
 }
+
 
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {

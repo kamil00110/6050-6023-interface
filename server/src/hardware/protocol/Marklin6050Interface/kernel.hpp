@@ -13,6 +13,8 @@ public:
 
     bool sendByte(unsigned char byte);
 
+    bool setAccessory(uint32_t address, OutputValue value);
+
     void setBaudRate(unsigned int baud) { m_baudrate = baud; }
 
 private:

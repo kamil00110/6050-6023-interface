@@ -1,5 +1,4 @@
 #include "kernel.hpp"
-#include "../../interface/Marklin6050Interface.hpp"
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -8,6 +7,8 @@
 #include <termios.h>
 #include <cstdint> 
 #include "../../output/outputvalue.hpp"
+#include <type_traits>
+#include <variant>
 
 #endif
 
@@ -119,27 +120,27 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
     if (!m_isOpen || address < 1 || address > 32)
         return false;
 
-    // Märklin 6050 accessory command format: 0xB0 + (address-1)
-    unsigned char cmd = 0xB0 | ((address - 1) & 0x0F);
+    // Märklin 6050 accessory command format: 0xB0 + (address-1 low nibble)
+    unsigned char cmd = 0xB0 | static_cast<unsigned char>((address - 1) & 0x0F);
 
-    // Convert OutputValue to a byte
+    // Convert OutputValue -> byte using visit
     unsigned char state = std::visit([](auto&& v) -> unsigned char {
         using T = std::decay_t<decltype(v)>;
-        if constexpr (std::is_same_v<T, TriState>)
-            return (v == TriState::On) ? 1 : 0;
-        else if constexpr (std::is_same_v<T, uint8_t>)
+        if constexpr (std::is_same_v<T, TriState>) {
+            return (v == TriState::True) ? 1 : 0;
+        } else if constexpr (std::is_same_v<T, uint8_t>) {
             return v;
-        else if constexpr (std::is_same_v<T, OutputPairValue>)
-            return v.first; // or however you want to convert it
-        else if constexpr (std::is_same_v<T, int16_t>)
-            return static_cast<unsigned char>(v);
-        else
-            return 0;
+        } else if constexpr (std::is_same_v<T, int16_t>) {
+            return static_cast<unsigned char>(v & 0xFF);
+        } else {
+            // OutputPairValue is likely an enum class or small struct — convert to underlying byte
+            // If OutputPairValue is an enum class:
+            return static_cast<unsigned char>(static_cast<uint8_t>(v));
+        }
     }, value);
 
     return sendByte(cmd) && sendByte(state);
 }
-
 
 
 bool Kernel::sendByte(unsigned char byte)

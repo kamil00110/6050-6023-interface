@@ -21,7 +21,13 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      checkboxes(*this, "options", {false, false, false, false}, PropertyFlags::ReadWrite | PropertyFlags::Store)
+      // Use a proper std::vector<bool> conversion for JSON
+VectorProperty<bool> checkboxes(*this, "options",
+    std::vector<bool>{false, false, false, false},
+    PropertyFlags::ReadWrite | PropertyFlags::Store
+);
+
+
  
 {
     name = "Märklin 6050";
@@ -235,15 +241,24 @@ std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
     return channels;
 }
 
-std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel) const {
-    // Dummy = no valid address range
-    return {0, 0};
+std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax([[maybe_unused]] OutputChannel channel) const {
+    return {0, 0}; // dummy
 }
 
-bool Marklin6050Interface::setOutputValue(OutputChannel, uint32_t, OutputValue) {
-    // Dummy = nothing to output
-    return false;
+bool Marklin6050Interface::setOutputValue(
+    [[maybe_unused]] OutputChannel channel,
+    [[maybe_unused]] uint32_t address,
+    [[maybe_unused]] OutputValue value
+) {
+    return false; // dummy
 }
+
+
+std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
+    static const std::vector<OutputChannel> channels; // empty
+    return channels;
+}
+
 
 
 

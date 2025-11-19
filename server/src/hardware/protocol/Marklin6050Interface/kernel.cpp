@@ -1,12 +1,15 @@
 #include "kernel.hpp"
-
+#include "../../hardware/interface/Marklin6050Interface.hpp"
 #if defined(_WIN32)
 #include <windows.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
+#include <cstdint> 
 #endif
+
+enum class OutputValue : uint8_t; 
 
 using namespace Marklin6050;
 

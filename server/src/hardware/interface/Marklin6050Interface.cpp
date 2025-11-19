@@ -2,7 +2,8 @@
 
 #include "../../core/attributes.hpp"
 #include "../../core/vectorproperty.hpp"
-#include "../../utils/displayname.hpp"   
+#include "../../utils/displayname.hpp"  
+#include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../../core/serialdeviceproperty.hpp"

@@ -130,6 +130,7 @@ m_interfaceItems.insertBefore(outputs, notes);
 void Marklin6050Interface::addToWorld()
 {
     Interface::addToWorld();
+    OutputController::addToWorld(outputListColumns);
 }
 
 void Marklin6050Interface::loaded()
@@ -239,18 +240,12 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
         }
     }
 }
-bool Marklin6050Interface::setOutputValue(
-    OutputChannel channel,
-    uint32_t address,
-    OutputValue value
-) {
-    (void)channel; // silence unused parameter warning
+bool Marklin6050Interface::setOutputValue(OutputChannel /*channel*/, uint32_t address, OutputValue value)
+{
+    if(!m_kernel) return false;
 
-    if (!m_kernel)
-        return false;
-
-    if (auto state = std::get_if<TriState>(&value)) {
-        uint8_t command = (*state == TriState::True) ? 33 : 34;
+    if(auto state = std::get_if<TriState>(&value)) {
+        uint8_t command = (*state == TriState::True) ? 33 : 34; // your 33/34 protocol
         m_kernel->sendByte(command);
         m_kernel->sendByte(static_cast<uint8_t>(address));
         return true;
@@ -259,18 +254,24 @@ bool Marklin6050Interface::setOutputValue(
     return false;
 }
 
+
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const {
-    if (channel == OutputChannel::Accessory)
-        return {1, 256};
-    return {0, 0};
+    switch(channel) {
+        case OutputChannel::Accessory:
+            return {1, 128}; // example for turnouts
+        case OutputChannel::Turnout:
+            return {1, 128};
+        default:
+            return {0, 0};
+    }
 }
 
-
-
-std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
-    static const auto values = makeArray(OutputChannel::Accessory);
+std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
+{
+    static const auto values = makeArray(OutputChannel::Accessory, OutputChannel::Turnout);
     return values;
 }
+
 
 
 

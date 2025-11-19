@@ -257,15 +257,14 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 }
 bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
 {
-    if(channel == OutputChannel::Accessory)
+    if(channel == OutputChannel::Accessory && m_kernel)
     {
-        // send the correct command to Märklin 6050
-        return m_board->setAccessory(address, value); // pseudo-code
+        return m_kernel->setAccessory(address, value);
     }
 
-    // fallback for Turnout/Output
     return OutputController::setOutputValue(channel, address, value);
 }
+
 
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const

@@ -21,7 +21,10 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      checkboxes(*this, "options", std::vector<bool>{false,false,false,false}, PropertyFlags::ReadWrite | PropertyFlags::Store)
+      checkboxes(*this, "options", PropertyFlags::ReadWrite | PropertyFlags::Store)
+      checkboxes.set({false, false, false, false});
+
+
 );
 
 
@@ -231,11 +234,6 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
             setOnline(val, false);
         }
     }
-}
-std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
-    // Dummy = no channels supported
-    static const std::vector<OutputChannel> channels;
-    return channels;
 }
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax([[maybe_unused]] OutputChannel channel) const {

@@ -8,8 +8,7 @@
 #include "../input/inputcontroller.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial.hpp"
 #include "../../core/serialdeviceproperty.hpp"
-
-namespace Marklin6050 { class Kernel; }
+#include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 
 class Marklin6050Interface 
 : public Interface

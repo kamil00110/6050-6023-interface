@@ -230,33 +230,21 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
     }
 }
 std::span<const OutputChannel> Marklin6050Interface::outputChannels() const {
-    static std::vector<OutputChannel> channels = {
-        OutputChannel::Accessory,
-        OutputChannel::OutputPair,
-        OutputChannel::Function
-    };
+    // Dummy = no channels supported
+    static const std::vector<OutputChannel> channels;
     return channels;
 }
 
-std::pair<uint32_t, uint32_t>
-Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
-{
-    // Accessories often use 1..256, others use 1..2048
-    switch (channel) {
-        case OutputChannel::Accessory:
-            return {1, 256};
-        case OutputChannel::OutputPair:
-        case OutputChannel::Function:
-        default:
-            return {1, 2048};
-    }
+std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel) const {
+    // Dummy = no valid address range
+    return {0, 0};
 }
 
-bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
-{
-    // Dummy implementation — simply accept any value
-    return true;
+bool Marklin6050Interface::setOutputValue(OutputChannel, uint32_t, OutputValue) {
+    // Dummy = nothing to output
+    return false;
 }
+
 
 
 

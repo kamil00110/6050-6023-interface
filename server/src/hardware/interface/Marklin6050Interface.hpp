@@ -5,6 +5,7 @@
 #include "../../core/objectproperty.hpp"
 #include "../../core/vectorproperty.hpp"
 #include "../output/outputcontroller.hpp"
+#include "../input/inputcontroller.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial.hpp"
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
@@ -12,6 +13,7 @@
 class Marklin6050Interface 
 : public Interface
 , public OutputController
+, public InputController
 {
   CLASS_ID("interface.marklin6050")
   DEFAULT_ID("marklin6050")
@@ -42,6 +44,11 @@ protected:
 
 public:
   Marklin6050Interface(World& world, std::string_view id);
+
+  // InputController:
+    std::span<const InputChannel> inputChannels() const final;
+    std::pair<uint32_t, uint32_t> inputAddressMinMax(InputChannel channel) const final;
+    void inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action) final;
   // OutputController:
     std::span<const OutputChannel> outputChannels() const final;
     std::pair<uint32_t, uint32_t> outputAddressMinMax(OutputChannel channel) const final;

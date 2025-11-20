@@ -33,6 +33,8 @@ private:
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);
+  void startS88();
+  void stopS88();
 
 protected:
   void addToWorld() final;
@@ -45,7 +47,8 @@ protected:
 
 public:
   Marklin6050Interface(World& world, std::string_view id);
-
+  
+ 
    // DecoderController:
     std::span<const DecoderProtocol> decoderProtocols() const final;
     std::pair<uint16_t, uint16_t> decoderAddressMinMax(DecoderProtocol protocol) const final;
@@ -55,6 +58,7 @@ public:
     std::span<const InputChannel> inputChannels() const final;
     std::pair<uint32_t, uint32_t> inputAddressMinMax(InputChannel channel) const final;
     void inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action) final;
+
   // OutputController:
     std::span<const OutputChannel> outputChannels() const final;
     std::pair<uint32_t, uint32_t> outputAddressMinMax(OutputChannel channel) const final;

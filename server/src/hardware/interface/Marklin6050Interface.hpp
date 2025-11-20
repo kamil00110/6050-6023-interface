@@ -46,6 +46,11 @@ protected:
 public:
   Marklin6050Interface(World& world, std::string_view id);
 
+   // DecoderController:
+    std::span<const DecoderProtocol> decoderProtocols() const final;
+    std::pair<uint16_t, uint16_t> decoderAddressMinMax(DecoderProtocol protocol) const final;
+    std::span<const uint8_t> decoderSpeedSteps(DecoderProtocol protocol) const final;
+    void decoderChanged(const Decoder& decoder, DecoderChangeFlags changes, uint32_t functionNumber) final;
   // InputController:
     std::span<const InputChannel> inputChannels() const final;
     std::pair<uint32_t, uint32_t> inputAddressMinMax(InputChannel channel) const final;

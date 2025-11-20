@@ -1,15 +1,11 @@
 #include "Marklin6050Interface.hpp"
-
-#include "../../core/attributes.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
-#include "../../core/vectorproperty.hpp"
 #include "../../utils/displayname.hpp"  
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
-
 #include "../../core/attributes.hpp"
 #include "../../core/eventloop.hpp"
 #include "../../core/method.tpp"

@@ -267,10 +267,10 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputCh
     switch(channel)
     {
         case OutputChannel::Accessory:
-            return {1, 32}; // adjust to your Märklin accessory range
+            return {1, 256};
         case OutputChannel::Turnout:
         case OutputChannel::Output:
-            return {1, 32}; // or whatever your board supports
+            return {1, 256}; 
         default:
             return OutputController::outputAddressMinMax(channel);
     }
@@ -297,7 +297,7 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     switch(channel)
     {
         case InputChannel::S88:
-            return {1, 32}; // S88 module range
+            return {1, 61}; // S88 module range
         default:
             return {0, 0}; // unknown channel
     }

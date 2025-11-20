@@ -123,26 +123,26 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
     if (!m_isOpen || address < 1 || address > 32)
         return false;
 
-    // Märklin 6050 accessory command format: 0xB0 + (address-1 low nibble)
-    unsigned char cmd = 0xB0 | static_cast<unsigned char>((address - 1) & 0x0F);
+    unsigned char cmd;
 
-    // Convert OutputValue -> byte using visit
-    unsigned char state = std::visit([](auto&& v) -> unsigned char {
+    std::visit([&](auto&& v) {
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, TriState>) {
-            return (v == TriState::True) ? 1 : 0;
+            cmd = (v == TriState::True) ? 34 : 33;
+        } else if constexpr (std::is_same_v<T, OutputPairValue>) {
+            // Assume OutputPairValue can be converted to On/Off via first element
+            cmd = (v.first) ? 34 : 33;
         } else if constexpr (std::is_same_v<T, uint8_t>) {
-            return v;
+            cmd = (v != 0) ? 34 : 33;
         } else if constexpr (std::is_same_v<T, int16_t>) {
-            return static_cast<unsigned char>(v & 0xFF);
+            cmd = (v != 0) ? 34 : 33;
         } else {
-            // OutputPairValue is likely an enum class or small struct — convert to underlying byte
-            // If OutputPairValue is an enum class:
-            return static_cast<unsigned char>(static_cast<uint8_t>(v));
+            cmd = 33; // fallback to Off
         }
     }, value);
 
-    return sendByte(cmd) && sendByte(state);
+    // Send first byte: 33/34, then second byte: address
+    return sendByte(cmd) && sendByte(static_cast<unsigned char>(address));
 }
 
 

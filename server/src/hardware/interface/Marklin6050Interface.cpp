@@ -1,6 +1,8 @@
 #include "Marklin6050Interface.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
+#include "../decoder/list/decoderlist.hpp"
+#include "../decoder/list/decoderlisttablemodel.hpp"
 #include "../../utils/displayname.hpp"  
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
@@ -11,6 +13,7 @@
 
 constexpr auto inputListColumns = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
+constexpr auto decoderListColumns = DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 
 
 CREATE_IMPL(Marklin6050Interface)
@@ -19,6 +22,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     : Interface(world, objId),
       OutputController(static_cast<IdObject&>(*this)),
       InputController(static_cast<IdObject&>(*this)),
+      DecoderController(*this, decoderListColumns),
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store), // default 2400
       centralUnitVersion(this, "centralUnitVersion", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store),
@@ -129,6 +133,8 @@ m_interfaceItems.insertBefore(programmer, notes);
 m_interfaceItems.insertBefore(inputs, notes);
     
 m_interfaceItems.insertBefore(outputs, notes);
+
+m_interfaceItems.insertBefore(decoders, notes);
 
 }
 

@@ -191,9 +191,10 @@ void Marklin6050Interface::onlineChanged(bool /*value*/)
 bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 {
     std::string port = serialPort;
-
+    
     if (value)
     {
+        startS88();
         if (port.empty() || !Marklin6050::Serial::isValidPort(port))
         {
             value = false;
@@ -219,6 +220,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
     }
     else
     {
+        stopS88();
         if (m_kernel)
         {
             m_kernel->stop();
@@ -400,6 +402,24 @@ void Marklin6050Interface::decoderChanged(
 {
     // No operation
 }
+void Marklin6050Interface::startS88() {
+    if (!m_kernel) return;
+
+    uint32_t moduleCount = s88amount.value();
+    unsigned int intervalMs = s88interval.value();
+
+    m_kernel->onS88Data = [this](uint32_t moduleIndex, uint16_t bits) {
+        // moduleIndex is 0-based
+        for (uint32_t i = 0; i < 16; ++i) {
+            bool value = bits & (1 << i);
+            uint32_t address = moduleIndex * 16 + i + 1; // S88 addresses start at 1
+            updateInputValue(InputChannel::S88, address, value ? SimulateInputAction::Set : SimulateInputAction::Reset);
+        }
+    };
+
+    m_kernel->startS88Polling(moduleCount, intervalMs);
+}
+
 
 
 

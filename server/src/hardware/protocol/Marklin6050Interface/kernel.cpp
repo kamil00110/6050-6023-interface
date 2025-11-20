@@ -6,6 +6,8 @@
 //#include <variant>
 
 #include "kernel.hpp"
+#include <thread>
+#include <chrono>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -118,17 +120,20 @@ void Kernel::stop()
 
     m_isOpen = false;
 }
-bool Kernel::setAccessory(uint32_t address, OutputValue value)
+#include <thread>
+#include <chrono>
+
+bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int timeMs)
 {
     if (!m_isOpen || address < 1 || address > 32)
         return false;
 
     unsigned char cmd = 0;
 
-    // Your ORIGINAL mapping (unchanged)
     std::visit([&](auto&& v){
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, OutputPairValue>) {
+            // Map First -> 34, Second -> 33
             cmd = (v == OutputPairValue::First) ? 34 : 33;
         }
         else if constexpr (std::is_same_v<T, TriState>) {
@@ -139,27 +144,15 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
         }
     }, value);
 
-    // Send the ON command (34 or 33)
+    // Send the initial command (turn on)
     if (!sendByte(cmd) || !sendByte(static_cast<unsigned char>(address)))
         return false;
 
-    // ---------------------------
-    // NEW: Auto-OFF timer (32)
-    // ---------------------------
-
-    // Get turnout time somewhere — replace this line with your actual setting:
-    unsigned int pulseTime = m_turnoutTimeMs;   // e.g. 50–1000 ms
-
-    if (pulseTime > 0) {
-        std::thread([this, address, pulseTime]() {
-            std::this_thread::sleep_for(std::chrono::milliseconds(pulseTime));
-
-            if (m_isOpen) {
-                unsigned char offCmd = 32;
-                sendByte(offCmd);
-                sendByte(static_cast<unsigned char>(address));
-            }
-        }).detach();
+    // If a delay is requested, wait and send 32 (turn off)
+    if (timeMs > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
+        if (!sendByte(32) || !sendByte(static_cast<unsigned char>(address)))
+            return false;
     }
 
     return true;

@@ -125,7 +125,7 @@ void Kernel::stop()
 
 bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int timeMs)
 {
-    if (!m_isOpen || address < 1 || address > 32)
+    if (!m_isOpen || address < 1 || address > 256)
         return false;
 
     unsigned char cmd = 0;

@@ -419,6 +419,10 @@ void Marklin6050Interface::startS88() {
 
     m_kernel->startS88Polling(moduleCount, intervalMs);
 }
+void Marklin6050Interface::stopS88() {
+    if (m_kernel)
+        m_kernel->stopS88Polling();
+}
 
 
 

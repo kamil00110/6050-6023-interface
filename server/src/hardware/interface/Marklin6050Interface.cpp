@@ -257,17 +257,6 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 }
 
 
-    // Default OutputController behavior
-    auto it = m_outputs.find({channel, address});
-    if(it != m_outputs.end())
-    {
-        updateOutputValue(channel, address, value);
-        return true;
-    }
-
-    return false;
-}
-
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
 {
     switch(channel)

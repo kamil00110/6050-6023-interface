@@ -300,11 +300,16 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     switch(channel)
     {
         case InputChannel::S88:
-            return {1, 61}; // S88 module range
+        {
+            uint32_t moduleCount = s88amount.value();   // get number of modules from property
+            uint32_t maxAddress = moduleCount * 16;     // each S88 module has 16 inputs
+            return {1, maxAddress};                      // min is always 1
+        }
         default:
             return {0, 0}; // unknown channel
     }
 }
+
 
 
 void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action)

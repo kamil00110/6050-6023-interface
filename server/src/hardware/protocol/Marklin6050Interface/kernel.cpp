@@ -133,14 +133,13 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
     std::visit([&](auto&& v){
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, OutputPairValue>) {
-            // Map First -> 34, Second -> 33
             cmd = (v == OutputPairValue::First) ? 34 : 33;
         }
         else if constexpr (std::is_same_v<T, TriState>) {
             cmd = (v == TriState::True) ? 34 : 33;
         }
         else {
-            cmd = static_cast<unsigned char>(v); // fallback
+            cmd = static_cast<unsigned char>(v);
         }
     }, value);
 
@@ -148,17 +147,17 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
     if (!sendByte(cmd) || !sendByte(static_cast<unsigned char>(address)))
         return false;
 
-    // If a delay is requested, wait and send 32 (turn off)
+    // Schedule the off command if delay is set
     if (timeMs > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
-        if (!sendByte(32) || !sendByte(static_cast<unsigned char>(address)))
-            return false;
+        std::thread([this, address, timeMs]{
+            std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
+            sendByte(32);
+            sendByte(static_cast<unsigned char>(address));
+        }).detach();
     }
 
     return true;
 }
-
-
 
 bool Kernel::sendByte(unsigned char byte)
 {

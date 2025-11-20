@@ -51,7 +51,7 @@ public:
   // OutputController:
     std::span<const OutputChannel> outputChannels() const final;
     std::pair<uint32_t, uint32_t> outputAddressMinMax(OutputChannel channel) const final;
-    [[nodiscard]] bool setOutputValue(OutputChannel channel, uint32_t address, OutputValue value, unsigned int timeMs) final;
+    [[nodiscard]] bool setOutputValue(OutputChannel channel, uint32_t address, OutputValue value) final;
 };
 
 #endif

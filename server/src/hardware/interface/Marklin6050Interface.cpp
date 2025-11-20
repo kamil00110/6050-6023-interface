@@ -196,13 +196,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             return false;
         }
 
-        m_kernel = std::make_unique<Marklin6050::Kernel>(port);
-        if (!m_kernel->start())
-        {
-            m_kernel.reset();
-            value = false;
-            return false;
-        }
         
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
        if (!m_kernel->start())
@@ -250,14 +243,20 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 {
     if(channel == OutputChannel::Accessory && m_kernel)
     {
-        return m_kernel->setAccessory(address, value);
+        // Märklin 6050: one address, two buttons (On/Off)
+        uint32_t realAddress = (value == OutputValue::On) ? address : address; // same address
+        bool result = m_kernel->setAccessory(realAddress, value);
+
+        if(result)
+            updateOutputValue(channel, address, value);  // update internal state so UI shows it correctly
+
+        return result;
     }
 
     // Default OutputController behavior
     auto it = m_outputs.find({channel, address});
     if(it != m_outputs.end())
     {
-        // notify the base OutputController about the value change
         updateOutputValue(channel, address, value);
         return true;
     }

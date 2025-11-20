@@ -366,6 +366,47 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 
     // If you want to simulate input changes later, add logic here
 }
+std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
+{
+    static const auto protos = makeArray(
+        DecoderProtocol::MM,   // Märklin Motorola
+        DecoderProtocol::MM2   // or whatever your project uses
+    );
+    return protos;
+}
+
+std::pair<uint32_t, uint32_t> Marklin6050Interface::decoderAddressMinMax(DecoderProtocol protocol) const
+{
+    switch (protocol)
+    {
+        case DecoderProtocol::MM:
+        case DecoderProtocol::MM2:
+            return {1, 80};   // 1–80 addresses for Märklin 6050
+        default:
+            return {0, 0};
+    }
+}
+
+unsigned int Marklin6050Interface::decoderSpeedSteps(DecoderProtocol protocol) const
+{
+    switch (protocol)
+    {
+        case DecoderProtocol::MM:
+            return 14;     // Motorola supports 14 steps
+        case DecoderProtocol::MM2:
+            return 27;     // sometimes 27 steps
+        default:
+            return 0;
+    }
+}
+
+void Marklin6050Interface::decoderChanged(const Decoder& decoder, DecoderChangeFlags flags, unsigned int property)
+{
+    // If you don't need this yet, leave it empty
+    (void)decoder;
+    (void)flags;
+    (void)property;
+}
 
 
 

@@ -158,6 +158,27 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
     return true;
 }
+void Kernel::startS88Polling(uint8_t moduleCount, unsigned int intervalMs) {
+    if (moduleCount == 0) return;
+
+    m_s88Running = true;
+    m_s88Thread = std::thread([this, moduleCount, intervalMs]() {
+        while (m_s88Running) {
+            uint8_t cmd = 128 + moduleCount;
+            sendByte(cmd);  // send poll command
+
+            // read 2 bytes per module (16 bits)
+            for (uint32_t i = 0; i < moduleCount; ++i) {
+                uint16_t data = read16BitsFromKernel(); // implement read16BitsFromKernel
+                if (onS88Data)
+                    onS88Data(i, data); // callback with module index and bits
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+        }
+    });
+}
+
 
 bool Kernel::sendByte(unsigned char byte)
 {

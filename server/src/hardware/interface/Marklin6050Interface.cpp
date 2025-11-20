@@ -85,7 +85,7 @@ static const std::vector<std::string_view> intervallabels = {
     "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
 };
 Attributes::addCategory(s88interval, "Märklin 6050");
-Attributes::addDisplayName(s88interval, "Accessory OFF time");
+Attributes::addDisplayName(s88interval, "s88 call intervall");
 Attributes::addHelp(s88interval, "CU.s88intervall");
 Attributes::addEnabled(s88interval, !online);
 Attributes::addVisible(s88interval, true);
@@ -100,7 +100,7 @@ static const std::vector<std::string_view> turnouttimelabels = {
     "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
 };
 Attributes::addCategory(turnouttime, "Märklin 6050");
-Attributes::addDisplayName(turnouttime, "s88 call intervall");
+Attributes::addDisplayName(turnouttime, "Accessory OFF time");
 Attributes::addHelp(turnouttime, "CU.s88intervall");
 Attributes::addEnabled(turnouttime, !online);
 Attributes::addVisible(turnouttime, true);

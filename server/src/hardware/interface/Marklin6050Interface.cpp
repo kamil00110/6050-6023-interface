@@ -356,15 +356,6 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     }
 }
 
-std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
-{
-    static const auto protos = makeArray(
-        DecoderProtocol::MM,   // Märklin Motorola
-        DecoderProtocol::MM2   // or whatever your project uses
-    );
-    return protos;
-}
-
 // Dummy decoder protocol list
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {

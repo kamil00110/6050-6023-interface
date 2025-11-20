@@ -356,16 +356,6 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     }
 }
 
-
-
-void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action)
-{
-    (void)channel;
-    (void)address;
-    (void)action;
-
-    // If you want to simulate input changes later, add logic here
-}
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
     static const auto protos = makeArray(

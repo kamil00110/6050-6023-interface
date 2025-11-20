@@ -243,26 +243,19 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 {
     if(channel == OutputChannel::Accessory && m_kernel)
     {
-        // Convert OutputValue to a boolean: true = On, false = Off
-        bool isOn = std::visit([](auto&& v) -> bool {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, TriState>) {
-                return v == TriState::On;  // adjust if your TriState has On/Off
-            } else if constexpr (std::is_same_v<T, OutputPairValue>) {
-                return v.first;            // use first as On/Off
-            } else if constexpr (std::is_same_v<T, unsigned char> || std::is_same_v<T, short>) {
-                return v != 0;
-            } else {
-                return false;
-            }
-        }, value);
+        // Pass the OutputValue directly
+        bool result = m_kernel->setAccessory(address, value);
 
-        bool result = m_kernel->setAccessory(address, isOn);
         if(result)
             updateOutputValue(channel, address, value); // update internal state
 
         return result;
     }
+
+    // fallback for other channels
+    return OutputController::setOutputValue(channel, address, value);
+}
+
 
     // Default OutputController behavior
     auto it = m_outputs.find({channel, address});

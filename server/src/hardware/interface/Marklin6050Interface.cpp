@@ -241,33 +241,23 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 }
 bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
 {
-    if (!m_kernel)
-        return false;
-
-    switch(channel)
+    if(channel == OutputChannel::Accessory && m_kernel)
     {
-        case OutputChannel::Accessory:
-            if (m_kernel->setAccessory(address, value))
-            {
-                updateOutputValue(channel, address, value);
-                return true;
-            }
+        // Only allow addresses in valid range
+        auto [min, max] = outputAddressMinMax(channel);
+        if(address < min || address > max)
             return false;
 
-        case OutputChannel::Turnout:
-        case OutputChannel::Output:
-            // Example: send a generic command
-            unsigned char cmd = (std::visit([](auto&& v){ return v != 0 ? 34 : 33; }, value));
-            if (m_kernel->sendByte(cmd) && m_kernel->sendByte(static_cast<unsigned char>(address)))
-            {
-                updateOutputValue(channel, address, value);
-                return true;
-            }
-            return false;
+        // send to kernel
+        bool result = m_kernel->setAccessory(address, value);
+        if(result)
+            updateOutputValue(channel, address, value);
 
-        default:
-            return false;
+        return result;
     }
+
+    // fallback for unsupported channels
+    return false;
 }
 
 

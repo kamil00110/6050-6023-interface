@@ -7,7 +7,6 @@
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 #include "../../core/attributes.hpp"
-#include "../../core/method.tpp"
 #include "../../core/objectproperty.tpp"
 
 constexpr auto inputListColumns = InputListColumn::Address;

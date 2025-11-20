@@ -18,7 +18,7 @@ public:
 
     // handle accessory outputs (address 1..32)
     bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
-
+    void startS88Polling(uint8_t moduleCount, unsigned int intervalMs);
     void setBaudRate(unsigned int baud) { m_baudrate = baud; }
 
 private:

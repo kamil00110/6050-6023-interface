@@ -248,8 +248,12 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
         if(address < min || address > max)
             return false;
 
-        // send to kernel
-        bool result = m_kernel->setAccessory(address, value);
+        // Get the delay from the UI property
+        unsigned int delayMs = turnouttime.value(); // in milliseconds
+
+        // Send to kernel with the specified delay
+        bool result = m_kernel->setAccessory(address, value, delayMs);
+
         if(result)
             updateOutputValue(channel, address, value);
 
@@ -259,7 +263,6 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
     // fallback for unsupported channels
     return false;
 }
-
 
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const

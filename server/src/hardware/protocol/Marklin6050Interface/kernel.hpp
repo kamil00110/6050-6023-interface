@@ -17,7 +17,7 @@ public:
     bool sendByte(unsigned char byte);
 
     // handle accessory outputs (address 1..32)
-    bool setAccessory(uint32_t address, OutputValue value);
+    bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
 
     void setBaudRate(unsigned int baud) { m_baudrate = baud; }
 

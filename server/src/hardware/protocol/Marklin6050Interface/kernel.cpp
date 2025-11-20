@@ -125,10 +125,10 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
 
     unsigned char cmd = 0;
 
+    // Your ORIGINAL mapping (unchanged)
     std::visit([&](auto&& v){
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, OutputPairValue>) {
-            // Map First -> 34, Second -> 33
             cmd = (v == OutputPairValue::First) ? 34 : 33;
         }
         else if constexpr (std::is_same_v<T, TriState>) {
@@ -139,8 +139,32 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
         }
     }, value);
 
-    return sendByte(cmd) && sendByte(static_cast<unsigned char>(address));
+    // Send the ON command (34 or 33)
+    if (!sendByte(cmd) || !sendByte(static_cast<unsigned char>(address)))
+        return false;
+
+    // ---------------------------
+    // NEW: Auto-OFF timer (32)
+    // ---------------------------
+
+    // Get turnout time somewhere — replace this line with your actual setting:
+    unsigned int pulseTime = m_turnoutTimeMs;   // e.g. 50–1000 ms
+
+    if (pulseTime > 0) {
+        std::thread([this, address, pulseTime]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(pulseTime));
+
+            if (m_isOpen) {
+                unsigned char offCmd = 32;
+                sendByte(offCmd);
+                sendByte(static_cast<unsigned char>(address));
+            }
+        }).detach();
+    }
+
+    return true;
 }
+
 
 
 bool Kernel::sendByte(unsigned char byte)

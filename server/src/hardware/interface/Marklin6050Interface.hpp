@@ -5,6 +5,7 @@
 #include "../../core/objectproperty.hpp"
 #include "../output/outputcontroller.hpp"
 #include "../input/inputcontroller.hpp"
+#include "../decoder/decodercontroller.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial.hpp"
 #include "../../core/serialdeviceproperty.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
@@ -13,6 +14,7 @@ class Marklin6050Interface
 : public Interface
 , public OutputController
 , public InputController
+, public DecoderController
 {
   CLASS_ID("interface.marklin6050")
   DEFAULT_ID("marklin6050")

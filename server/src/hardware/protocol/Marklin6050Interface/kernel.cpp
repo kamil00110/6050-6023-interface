@@ -123,26 +123,26 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
     if (!m_isOpen || address < 1 || address > 32)
         return false;
 
-    unsigned char cmd;
+    unsigned char cmd = 0;
+    unsigned char state = 0;
 
-    std::visit([&](auto&& v) {
+    // Convert OutputValue -> command/state
+    std::visit([&](auto&& v){
         using T = std::decay_t<decltype(v)>;
         if constexpr (std::is_same_v<T, TriState>) {
             cmd = (v == TriState::True) ? 34 : 33;
+            state = static_cast<unsigned char>(address);
         } else if constexpr (std::is_same_v<T, OutputPairValue>) {
-            // Assume OutputPairValue can be converted to On/Off via first element
-            cmd = (v.first) ? 34 : 33;
-        } else if constexpr (std::is_same_v<T, uint8_t>) {
-            cmd = (v != 0) ? 34 : 33;
-        } else if constexpr (std::is_same_v<T, int16_t>) {
-            cmd = (v != 0) ? 34 : 33;
-        } else {
-            cmd = 33; // fallback to Off
+            // map your OutputPairValue to on/off
+            cmd = (v == OutputPairValue::On) ? 34 : 33;
+            state = static_cast<unsigned char>(address);
+        } else if constexpr (std::is_same_v<T, uint8_t> || std::is_same_v<T, int16_t>) {
+            cmd = v; // maybe not used for accessory
+            state = static_cast<unsigned char>(address);
         }
     }, value);
 
-    // Send first byte: 33/34, then second byte: address
-    return sendByte(cmd) && sendByte(static_cast<unsigned char>(address));
+    return sendByte(cmd) && sendByte(state);
 }
 
 

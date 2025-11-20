@@ -241,20 +241,35 @@ void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 }
 bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
 {
-    if(channel == OutputChannel::Accessory && m_kernel)
+    if (!m_kernel)
+        return false;
+
+    switch(channel)
     {
-        // Pass the OutputValue directly
-        bool result = m_kernel->setAccessory(address, value);
+        case OutputChannel::Accessory:
+            if (m_kernel->setAccessory(address, value))
+            {
+                updateOutputValue(channel, address, value);
+                return true;
+            }
+            return false;
 
-        if(result)
-            updateOutputValue(channel, address, value); // update internal state
+        case OutputChannel::Turnout:
+        case OutputChannel::Output:
+            // Example: send a generic command
+            unsigned char cmd = (std::visit([](auto&& v){ return v != 0 ? 34 : 33; }, value));
+            if (m_kernel->sendByte(cmd) && m_kernel->sendByte(static_cast<unsigned char>(address)))
+            {
+                updateOutputValue(channel, address, value);
+                return true;
+            }
+            return false;
 
-        return result;
+        default:
+            return false;
     }
-
-    // fallback for other channels
-    return OutputController::setOutputValue(channel, address, value);
 }
+
 
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const

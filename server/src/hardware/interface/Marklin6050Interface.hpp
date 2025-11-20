@@ -3,7 +3,6 @@
 
 #include "interface.hpp"
 #include "../../core/objectproperty.hpp"
-#include "../../core/vectorproperty.hpp"
 #include "../output/outputcontroller.hpp"
 #include "../input/inputcontroller.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/serial.hpp"

@@ -143,6 +143,7 @@ void Marklin6050Interface::addToWorld()
     Interface::addToWorld();
     InputController::addToWorld(inputListColumns);
     OutputController::addToWorld(outputListColumns);
+    DecoderController::addToWorld();
 }
 
 void Marklin6050Interface::loaded()
@@ -154,6 +155,9 @@ void Marklin6050Interface::loaded()
 void Marklin6050Interface::destroying()
 {
     Interface::destroying();
+    OutputController::destroying();
+    InputController::destroying();
+    DecoderController::destroying(); 
 }
 
 void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)

@@ -1,17 +1,18 @@
+
+
+//#include <cstdint> 
+//#include "../../output/outputvalue.hpp"
+//#include <type_traits>
+//#include <variant>
+
 #include "kernel.hpp"
+
 #if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#define _WINSOCKAPI_  // <--- prevents windows.h from including winsock.h
-#include <windows.h>  // now safe
+#include <windows.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
-#include <cstdint> 
-#include "../../output/outputvalue.hpp"
-#include <type_traits>
-#include <variant>
-
 #endif
 
 using namespace Marklin6050;

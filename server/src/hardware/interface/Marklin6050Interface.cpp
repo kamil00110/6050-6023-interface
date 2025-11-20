@@ -375,40 +375,42 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
     return protos;
 }
 
-std::pair<uint32_t, uint32_t> Marklin6050Interface::decoderAddressMinMax(DecoderProtocol protocol) const
+// Dummy decoder protocol list
+std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
-    switch (protocol)
-    {
-        case DecoderProtocol::MM:
-        case DecoderProtocol::MM2:
-            return {1, 80};   // 1–80 addresses for Märklin 6050
-        default:
-            return {0, 0};
-    }
+    // Use a single safe fallback protocol that always exists
+    static constexpr std::array<DecoderProtocol, 1> protocols{
+        DecoderProtocol::None
+    };
+
+    return std::span<const DecoderProtocol>{protocols.data(), protocols.size()};
 }
 
-unsigned int Marklin6050Interface::decoderSpeedSteps(DecoderProtocol protocol) const
+// Dummy address range — MUST match header signature (uint16_t!)
+std::pair<uint16_t, uint16_t>
+Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
 {
-    switch (protocol)
-    {
-        case DecoderProtocol::MM:
-            return 14;     // Motorola supports 14 steps
-        case DecoderProtocol::MM2:
-            return 27;     // sometimes 27 steps
-        default:
-            return 0;
-    }
+    // Safe fallback range
+    return {1, 255};
 }
 
-void Marklin6050Interface::decoderChanged(const Decoder& decoder, DecoderChangeFlags flags, unsigned int property)
+// Dummy speed steps — MUST match header signature (std::span<const uint8_t>)
+std::span<const uint8_t>
+Marklin6050Interface::decoderSpeedSteps(DecoderProtocol /*protocol*/) const
 {
-    // If you don't need this yet, leave it empty
-    (void)decoder;
-    (void)flags;
-    (void)property;
+    // Minimal valid list containing one element
+    static constexpr uint8_t steps[] = { 14 };
+    return std::span<const uint8_t>(steps, 1);
 }
 
-
+// Dummy implementation to satisfy linker
+void Marklin6050Interface::decoderChanged(
+    const Decoder& /*decoder*/,
+    DecoderChangeFlags /*changes*/,
+    uint32_t /*functionNumber*/)
+{
+    // No operation
+}
 
 
 

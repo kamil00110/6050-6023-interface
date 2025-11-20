@@ -243,12 +243,23 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 {
     if(channel == OutputChannel::Accessory && m_kernel)
     {
-        // Märklin 6050: one address, two buttons (On/Off)
-        uint32_t realAddress = (value == OutputValue::On) ? address : address; // same address
-        bool result = m_kernel->setAccessory(realAddress, value);
+        // Convert OutputValue to a boolean: true = On, false = Off
+        bool isOn = std::visit([](auto&& v) -> bool {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, TriState>) {
+                return v == TriState::On;  // adjust if your TriState has On/Off
+            } else if constexpr (std::is_same_v<T, OutputPairValue>) {
+                return v.first;            // use first as On/Off
+            } else if constexpr (std::is_same_v<T, unsigned char> || std::is_same_v<T, short>) {
+                return v != 0;
+            } else {
+                return false;
+            }
+        }, value);
 
+        bool result = m_kernel->setAccessory(address, isOn);
         if(result)
-            updateOutputValue(channel, address, value);  // update internal state so UI shows it correctly
+            updateOutputValue(channel, address, value); // update internal state
 
         return result;
     }
@@ -263,8 +274,6 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 
     return false;
 }
-
-
 
 std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
 {

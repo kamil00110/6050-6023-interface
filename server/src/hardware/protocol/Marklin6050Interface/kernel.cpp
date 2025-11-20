@@ -1,6 +1,8 @@
 #include "kernel.hpp"
 #if defined(_WIN32)
-#include <windows.h>
+#define WIN32_LEAN_AND_MEAN
+#define _WINSOCKAPI_  // <--- prevents windows.h from including winsock.h
+#include <windows.h>  // now safe
 #else
 #include <fcntl.h>
 #include <unistd.h>

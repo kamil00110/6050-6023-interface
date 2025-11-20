@@ -94,10 +94,10 @@ Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
 
 static const std::vector<unsigned int> turnouttimes = {
-    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
+    25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
 };
 static const std::vector<std::string_view> turnouttimelabels = {
-    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
+    "25ms", "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
 };
 Attributes::addCategory(turnouttime, "Märklin 6050");
 Attributes::addDisplayName(turnouttime, "Accessory OFF time");

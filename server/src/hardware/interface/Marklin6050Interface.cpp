@@ -10,6 +10,10 @@
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
+#include <thread>
+#include <atomic>
+#include <chrono>
+
 
 constexpr auto inputListColumns = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;

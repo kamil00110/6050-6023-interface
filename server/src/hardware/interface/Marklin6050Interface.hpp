@@ -1,5 +1,8 @@
 #ifndef TRAINTASTIC_SERVER_HARDWARE_INTERFACE_MARKLIN6050INTERFACE_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_INTERFACE_MARKLIN6050INTERFACE_HPP
+#include <thread>
+#include <atomic>
+#include <chrono>
 
 #include "interface.hpp"
 #include "../../core/objectproperty.hpp"

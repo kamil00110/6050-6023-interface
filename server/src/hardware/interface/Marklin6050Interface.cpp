@@ -10,6 +10,7 @@
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
+#include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include <thread>
 #include <atomic>
 #include <chrono>
@@ -185,6 +186,8 @@ void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
             break;
     }
 }
+std::thread m_s88Thread;
+std::atomic<bool> m_runS88{false};
 
 
 void Marklin6050Interface::onlineChanged(bool /*value*/)

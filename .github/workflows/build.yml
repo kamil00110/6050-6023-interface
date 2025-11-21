@@ -37,7 +37,6 @@ jobs:
           defines: ""
 
     steps:
-
     - uses: FranzDiebold/github-env-vars-action@v2
 
     - name: Checkout
@@ -45,57 +44,58 @@ jobs:
       with:
         submodules: recursive
 
-    # Install Qt for Android
-    - name: Install Qt 6.5 (Android)
-      uses: jurplel/install-qt-action@v4
-      with:
-        cache: true
-        version: 6.5.*
-        target: android
-        modules: qtbase qtcore qtgui qtwidgets qtwebsockets
-        arch: android_arm64_v8a
+    # Install Python aqtinstall
+    - name: Install aqtinstall
+      run: python3 -m pip install --upgrade pip aqtinstall
 
-    # Set Qt CMake path for Android
-    - name: Set Qt Android CMake path
-      run: echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.5.*/android_arm64_v8a/lib/cmake" >> $GITHUB_ENV
+    # Install Qt for Android (only qtbase)
+    - name: Install Qt 6.5 for Android (qtbase)
+      run: |
+        python3 -m aqt install-qt linux android 6.5.3 android_arm64_v8a \
+          --outputdir $HOME/Qt \
+          --modules qtbase
+
+    # Set CMAKE_PREFIX_PATH for Qt Android
+    - name: Set Qt CMake path
+      run: echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.5.3/android_arm64_v8a/lib/cmake" >> $GITHUB_ENV
 
     # Install Android SDK + NDK
-    - name: Install Android SDK
+    - name: Setup Android SDK
       uses: android-actions/setup-android@v3
 
-    - name: Install NDK 26
+    - name: Install Android NDK 26
       run: sdkmanager "ndk;26.1.10909125"
 
     - name: Set NDK path
       run: echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
 
-    # Create Build Environment
+    # Create build directory
     - name: Create Build Directory
-      run: cmake -E make_directory ${{github.workspace}}/client/build
+      run: cmake -E make_directory ${{ github.workspace }}/client/build
 
     # Configure CMake for Android
-    - name: Configure CMake (Android)
+    - name: Configure CMake
       shell: bash
-      working-directory: ${{github.workspace}}/client/build
+      working-directory: ${{ github.workspace }}/client/build
       run: |
         cmake $GITHUB_WORKSPACE/client \
-          -G "${{matrix.config.generator}}" \
-          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
+          -G "${{ matrix.config.generator }}" \
+          -DCMAKE_BUILD_TYPE=${{ matrix.config.build_type }} \
           -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=arm64-v8a \
           -DANDROID_PLATFORM=28 \
           -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
-          ${{matrix.config.defines}}
+          ${{ matrix.config.defines }}
 
-    # Build for Android
-    - name: Build
-      working-directory: ${{github.workspace}}/client/build
+    # Build the client
+    - name: Build Client
+      working-directory: ${{ github.workspace }}/client/build
       shell: bash
-      run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
+      run: cmake --build . --config ${{ matrix.config.build_type }} --target ${{ matrix.config.target }} --parallel ${{ matrix.config.jobs }}
 
-    # Upload Android artifact
+    # Upload build artifact
     - name: Upload Android Build
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-client-android-arm64
-        path: ${{github.workspace}}/client/build
+        path: ${{ github.workspace }}/client/build

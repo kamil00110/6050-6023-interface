@@ -38,9 +38,10 @@ private:
   void serialPortChanged(const std::string& newPort);
   std::thread m_s88Thread;
   std::atomic<bool> m_runS88{false};
-  std::vector<bool> m_lastS88State; // previous state of S88 bits
-  void s88Loop();
+  std::vector<bool> m_lastS88State; 
   void readS88();
+  void onS88Input(uint32_t address, bool state);
+
 
 protected:
   void addToWorld() final;

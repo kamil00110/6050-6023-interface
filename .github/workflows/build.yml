@@ -58,9 +58,11 @@ jobs:
       run: |
         python3 -m aqt install-qt linux android 6.5.3 android_arm64_v8a --outputdir $HOME/Qt
 
-    # Set CMAKE_PREFIX_PATH for Qt Android
-    - name: Set Qt CMake path
-      run: echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.5.3/android_arm64_v8a/lib/cmake" >> $GITHUB_ENV
+    # Set Qt CMake path for Android
+    - name: Set Qt environment variables
+      run: |
+        echo "CMAKE_PREFIX_PATH=$HOME/Qt/6.5.3/android_arm64_v8a/lib/cmake" >> $GITHUB_ENV
+        echo "Qt_DIR=$HOME/Qt/6.5.3/android_arm64_v8a/lib/cmake/Qt6" >> $GITHUB_ENV
 
     # Install Android SDK + NDK
     - name: Setup Android SDK
@@ -88,6 +90,7 @@ jobs:
           -DANDROID_ABI=arm64-v8a \
           -DANDROID_PLATFORM=28 \
           -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH \
+          -DQt_DIR=$Qt_DIR \
           ${{ matrix.config.defines }}
 
     # Build the client
@@ -102,3 +105,4 @@ jobs:
       with:
         name: traintastic-client-android-arm64
         path: ${{ github.workspace }}/client/build
+

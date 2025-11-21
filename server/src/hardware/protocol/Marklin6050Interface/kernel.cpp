@@ -1,10 +1,4 @@
 
-
-//#include <cstdint> 
-//#include "../../output/outputvalue.hpp"
-//#include <type_traits>
-//#include <variant>
-
 #include "kernel.hpp"
 #include <thread>
 #include <chrono>
@@ -50,7 +44,6 @@ bool Kernel::start()
     if (m_handle == INVALID_HANDLE_VALUE)
         return false;
 
-    // Configure baud rate on Windows
     DCB dcb{};
     if (!GetCommState(m_handle, &dcb))
         return false;
@@ -73,7 +66,6 @@ bool Kernel::start()
     termios options{};
     tcgetattr(m_fd, &options);
 
-    // Map common baud rates
     speed_t speed;
     switch (m_baudrate) {
         case 1200:   speed = B1200; break;
@@ -143,11 +135,9 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
         }
     }, value);
 
-    // Send the initial command (turn on)
     if (!sendByte(cmd) || !sendByte(static_cast<unsigned char>(address)))
         return false;
 
-    // Schedule the off command if delay is set
     if (timeMs > 0) {
         std::thread([this, address, timeMs]{
             std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
@@ -158,27 +148,6 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
     return true;
 }
-void Kernel::startS88Polling(uint8_t moduleCount, unsigned int intervalMs) {
-    if (moduleCount == 0) return;
-
-    m_s88Running = true;
-    m_s88Thread = std::thread([this, moduleCount, intervalMs]() {
-        while (m_s88Running) {
-            uint8_t cmd = 128 + moduleCount;
-            sendByte(cmd);  // send poll command
-
-            // read 2 bytes per module (16 bits)
-            for (uint32_t i = 0; i < moduleCount; ++i) {
-                uint16_t data = read16BitsFromKernel(); // implement read16BitsFromKernel
-                if (onS88Data)
-                    onS88Data(i, data); // callback with module index and bits
-            }
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
-        }
-    });
-}
-
 
 bool Kernel::sendByte(unsigned char byte)
 {

@@ -1,5 +1,5 @@
-name: Build
-#modified file
+name: Build Android Client
+
 on:
   workflow_dispatch:
     inputs:
@@ -22,161 +22,78 @@ on:
         type: string
 
 jobs:
-  build-client:
-    name: client ${{matrix.config.name}}
-    runs-on: ${{matrix.config.os}}
+  build-android:
+    name: android_arm64
+    runs-on: ubuntu-latest
+
     strategy:
-      fail-fast: false
       matrix:
         config:
-        - name: "windows_x64_msvc"
-          os: windows-latest
-          generator: "Visual Studio 17 2022"
-          arch: "-A x64"
-          target: traintastic-client
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
-
-        - name: "ubuntu_24.04"
-          os: ubuntu-24.04
+        - name: "android_arm64"
           generator: "Unix Makefiles"
-          arch: ""
           target: traintastic-client
           jobs: 4
           build_type: Release
-          build_deb: true
-          defines: ""
-
-        - name: "ubuntu_24.04_arm64"
-          os: ubuntu-24.04-arm
-          generator: "Unix Makefiles"
-          arch: ""
-          target: traintastic-client
-          jobs: 4
-          build_type: Release
-          build_deb: true
-          defines: ""
-
-       # - name: "raspberrypios_arm7"
-          # os: [self-hosted, ARM, RaspberryPi]
-          # generator: "Unix Makefiles"
-          # arch: ""
-          # target: traintastic-client
-          # jobs: 4
-         #  build_type: Release
-          # build_deb: true
-          # defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-
-        # - name: "raspberrypios_arm64"
-         #  os: [self-hosted, ARM64, RaspberryPi]
-         #  generator: "Unix Makefiles"
-         #  arch: ""
-         #  target: traintastic-client
-         #  jobs: 4
-          # build_type: Release
-         #  build_deb: true
-         #  defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-
-        - name: "macos-14"
-          os: "macos-14"
-          generator: "Unix Makefiles"
-          arch: ""
-          target: traintastic-client
-          jobs: 4
-          build_type: Release
-          build_deb: false
           defines: ""
 
     steps:
+
     - uses: FranzDiebold/github-env-vars-action@v2
 
-    # All:
     - name: Checkout
       uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    # Windows only:
-    - name: Install Qt 5
-      if: startswith(matrix.config.os, 'windows')
+    # Install Qt for Android
+    - name: Install Qt 6.5 (Android)
       uses: jurplel/install-qt-action@v4
       with:
         cache: true
-        version: 5.15
-
-    # macOS only:
-    - name: Install Qt 6.5
-      if: startswith(matrix.config.os, 'macos')
-      uses: jurplel/install-qt-action@v4
-      with:
-        cache: true
-        modules: qtwebsockets
         version: 6.5.*
+        target: android
+        modules: qtwebsockets
+        arch: android_arm64_v8a
 
-    - name: Set CMAKE_OSX_ARCHITECTURES
-      if: startswith(matrix.config.os, 'macos')
-      uses: actions/github-script@v7
-      with:
-        script: |
-          core.exportVariable('CMAKE_OSX_ARCHITECTURES', 'x86_64');
+    # Install Android SDK + NDK
+    - name: Install Android SDK
+      uses: android-actions/setup-android@v3
 
-    # Ubuntu only:
-    - name: apt update
-      if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt update
+    - name: Install NDK 26
+      run: sdkmanager "ndk;26.1.10909125"
 
-    # Ubuntu only:
-    - name: Install packages
-      if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev
+    - name: Set NDK path
+      run: echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
 
-    # All:
-    - name: Create Build Environment
+    # Create Build Environment
+    - name: Create Build Directory
       run: cmake -E make_directory ${{github.workspace}}/client/build
 
-    # All:
-    - name: Configure CMake
+    # Configure CMake for Android
+    - name: Configure CMake (Android)
       shell: bash
       working-directory: ${{github.workspace}}/client/build
-      run: cmake $GITHUB_WORKSPACE/client -G "${{matrix.config.generator}}" ${{matrix.config.arch}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
+      run: |
+        cmake $GITHUB_WORKSPACE/client \
+          -G "${{matrix.config.generator}}" \
+          -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} \
+          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=28 \
+          ${{matrix.config.defines}}
 
-    # All:
+    # Build for Android
     - name: Build
       working-directory: ${{github.workspace}}/client/build
       shell: bash
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
 
-    # Windows only:
-    - name: Run windeployqt
-      if: startswith(matrix.config.os, 'windows')
-      shell: cmd
-      run: |
-        call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/${{matrix.config.build_type}}/traintastic-client.exe
-
-    # Linux only:
-    - name: Build debian package
-      if: matrix.config.build_deb
-      working-directory: ${{github.workspace}}/client/build
-      run: cpack
-
-    # Windows only:
-    - name: Upload artifact
-      if: startswith(matrix.config.os, 'windows')
+    # Upload Android artifact
+    - name: Upload Android Build
       uses: actions/upload-artifact@v4
       with:
-        name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}
-
-    # Linux only:
-    - name: Upload debian package artifact
-      if: matrix.config.build_deb
-      uses: actions/upload-artifact@v4
-      with:
-        name: traintastic-client-deb-${{matrix.config.name}}
-        path: ${{github.workspace}}/client/build/*.deb
+        name: traintastic-client-android-arm64
+        path: ${{github.workspace}}/client/build
 
   build-server:
     name: server ${{matrix.config.name}}

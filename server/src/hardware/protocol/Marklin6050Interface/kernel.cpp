@@ -204,8 +204,6 @@ void Kernel::stopInputThread()
 }
 
 
-bool isRunning() const { return m_isOpen; }
-
 void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
 {
     const unsigned char cmd = 128 + modules; // S88 command

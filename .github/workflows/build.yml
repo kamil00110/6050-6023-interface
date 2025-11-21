@@ -53,12 +53,10 @@ jobs:
       run: |
         python3 -m aqt install-qt linux desktop 6.5.3 gcc_64 --outputdir $HOME/Qt
 
-    # Install Android Qt
-    - name: Install Qt 6.5 Android (qtbase)
+    # Install Android Qt (no modules needed)
+    - name: Install Qt 6.5 Android
       run: |
-        python3 -m aqt install-qt linux android 6.5.3 android_arm64_v8a \
-          --outputdir $HOME/Qt \
-          --modules qtbase
+        python3 -m aqt install-qt linux android 6.5.3 android_arm64_v8a --outputdir $HOME/Qt
 
     # Set CMAKE_PREFIX_PATH for Qt Android
     - name: Set Qt CMake path

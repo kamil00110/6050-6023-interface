@@ -365,7 +365,11 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 }
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    inputChanged(InputChannel::S88, address, state);
+    // Convert bool to TriState expected by InputController
+    TriState ts = state ? TriState::True : TriState::False;
+
+    // Update the input value so the engine/world receives the change
+    updateInputValue(InputChannel::S88, address, ts);
 }
 
 

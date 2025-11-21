@@ -186,8 +186,6 @@ void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
             break;
     }
 }
-std::thread m_s88Thread;
-std::atomic<bool> m_runS88{false};
 
 
 void Marklin6050Interface::onlineChanged(bool /*value*/)
@@ -222,24 +220,22 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             value = false;
             return false;
        }
-       uint32_t moduleCount = s88amount.value();
-       m_lastS88State.assign(moduleCount * 16, false);
-
-       m_runS88 = true;
-       m_s88Thread = std::thread(&Marklin6050Interface::s88Loop, this);
+       if (!m_kernel->start()) {
+            m_kernel.reset();
+            value = false;
+           return false;
+       }
 
         setState(InterfaceState::Online);
     }
     else
     {
-        m_runS88 = false;
-        if (m_s88Thread.joinable())
-            m_s88Thread.join();
         if (m_kernel)
         {
             m_kernel->stop();
             m_kernel.reset();
         }
+        EventLoop::deleteLater(m_kernel.release());
         setState(InterfaceState::Offline);
     }
 
@@ -368,7 +364,7 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 }
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    inputChanged(InputChannel::S88, address, state);
+    getEngine().inputChanged(InputChannel::S88, address, state);
 }
 
 
@@ -401,16 +397,6 @@ void Marklin6050Interface::decoderChanged(
     uint32_t /*functionNumber*/)
 {
   
-}
-void Marklin6050Interface::s88Loop()
-{
-    while (m_runS88)
-    {
-        readS88();
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(s88interval.value())
-        );
-    }
 }
 
 void Marklin6050Interface::s88Loop()

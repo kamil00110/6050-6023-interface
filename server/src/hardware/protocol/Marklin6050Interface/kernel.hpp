@@ -15,6 +15,7 @@ public:
     void setBaudRate(unsigned int baud) { m_baudrate = baud; }
     bool start();
     void stop();
+    bool isRunning() const { return m_running.load(); }
 
 private:
     std::string m_port;

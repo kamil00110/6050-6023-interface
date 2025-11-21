@@ -52,7 +52,7 @@ jobs:
         cache: true
         version: 6.5.*
         target: android
-        modules: qtbase, qtcore, qtgui, qtwidgets, qtwebsockets
+        modules: qtbase qtcore qtgui qtwidgets qtwebsockets
         arch: android_arm64_v8a
 
     # Set Qt CMake path for Android

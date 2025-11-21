@@ -180,20 +180,29 @@ int Kernel::readByte()
 }
 void Kernel::startInputThread(unsigned int moduleCount, unsigned int intervalMs)
 {
-    if (m_running) return;
+    if(m_running)
+        return;
 
     m_running = true;
-    m_inputThread = std::thread(&Kernel::inputLoop, this, moduleCount, intervalMs);
+    m_inputThread = std::thread([this, moduleCount, intervalMs]() {
+        while (m_running) {
+            // Poll S88 inputs
+            inputLoop(moduleCount, intervalMs);
+            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+        }
+    });
 }
 
 void Kernel::stopInputThread()
 {
-    if (!m_running) return;
-    m_running = false;
+    if(!m_running)
+        return;
 
-    if (m_inputThread.joinable())
+    m_running = false;
+    if(m_inputThread.joinable())
         m_inputThread.join();
 }
+
 
 bool isRunning() const { return m_isOpen; }
 

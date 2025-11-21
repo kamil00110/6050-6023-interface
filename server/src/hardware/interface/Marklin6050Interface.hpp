@@ -36,9 +36,9 @@ private:
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);
- std::vector<bool> m_lastS88State;
-    std::thread m_s88Thread;
-    std::atomic<bool> m_runS88{false};
+  std::vector<bool> m_lastS88State;
+  std::thread m_s88Thread;
+  std::atomic<bool> m_runS88{false};
 
     void s88Loop();
     void readS88();

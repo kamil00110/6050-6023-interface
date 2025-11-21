@@ -10,6 +10,7 @@
 #include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
+#include "../../core/eventloop.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include <thread>
 #include <atomic>
@@ -364,7 +365,7 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 }
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    getEngine().inputChanged(InputChannel::S88, address, state);
+    inputChanged(InputChannel::S88, address, state);
 }
 
 

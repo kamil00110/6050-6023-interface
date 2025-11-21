@@ -1,9 +1,7 @@
 #pragma once
 #include <string>
 #include <cstdint>
-#include "../../output/outputvalue.hpp"   // defines OutputValue
-// DO NOT include Marklin6050Interface.hpp here (avoids circular include)
-
+#include "../../output/outputvalue.hpp"   
 namespace Marklin6050 {
 
 class Kernel {
@@ -15,10 +13,7 @@ public:
     void stop();
 
     bool sendByte(unsigned char byte);
-
-    // handle accessory outputs (address 1..32)
     bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
-    void startS88Polling(uint8_t moduleCount, unsigned int intervalMs);
     void setBaudRate(unsigned int baud) { m_baudrate = baud; }
 
 private:
@@ -33,4 +28,4 @@ private:
     bool m_isOpen;
 };
 
-} // namespace Marklin6050
+} 

@@ -359,6 +359,10 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
     (void)action;
 
 }
+void Marklin6050Interface::onS88Input(uint32_t address, bool state)
+{
+    engine().inputChanged(InputChannel::S88, address, state);
+}
 
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const

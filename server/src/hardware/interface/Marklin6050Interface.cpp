@@ -368,7 +368,7 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 }
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    engine().inputChanged(InputChannel::S88, address, state);
+    inputChanged(InputChannel::S88, address, state);
 }
 
 

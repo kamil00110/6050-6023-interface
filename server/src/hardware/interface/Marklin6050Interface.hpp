@@ -33,8 +33,11 @@ private:
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);
-  void startS88();
-  void stopS88();
+  std::thread m_s88Thread;
+  std::atomic<bool> m_runS88{false};
+  std::vector<bool> m_lastS88State; // previous state of S88 bits
+  void s88Loop();
+  void readS88();
 
 protected:
   void addToWorld() final;

@@ -48,8 +48,13 @@ jobs:
     - name: Install aqtinstall
       run: python3 -m pip install --upgrade pip aqtinstall
 
-    # Install Qt for Android (only qtbase)
-    - name: Install Qt 6.5 for Android (qtbase)
+    # Install desktop Qt (required for Android Qt)
+    - name: Install Qt 6.5 Desktop (gcc_64)
+      run: |
+        python3 -m aqt install-qt linux desktop 6.5.3 gcc_64 --outputdir $HOME/Qt
+
+    # Install Android Qt
+    - name: Install Qt 6.5 Android (qtbase)
       run: |
         python3 -m aqt install-qt linux android 6.5.3 android_arm64_v8a \
           --outputdir $HOME/Qt \

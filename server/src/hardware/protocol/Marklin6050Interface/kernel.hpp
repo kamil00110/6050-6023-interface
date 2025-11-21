@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
 #include <cstdint>
+#include <thread>
+#include <atomic>
+
 #include "../../output/outputvalue.hpp"   
 namespace Marklin6050 {
 
@@ -16,6 +19,8 @@ public:
     bool start();
     void stop();
     bool isRunning() const { return m_running.load(); }
+    void startInputThread(unsigned int moduleCount, unsigned int intervalMs);
+    void stopInputThread();
 
 private:
     std::string m_port;

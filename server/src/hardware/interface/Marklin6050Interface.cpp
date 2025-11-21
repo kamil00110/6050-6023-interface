@@ -170,11 +170,11 @@ void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
     switch (event)
     {
         case WorldEvent::Stop:
-            m_kernel->sendByte(97); // 0x61
+            m_kernel->sendByte(97);
             break;
 
         case WorldEvent::Run:
-            m_kernel->sendByte(96); // 0x60
+            m_kernel->sendByte(96);
             break;
 
         default:
@@ -194,7 +194,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
     
     if (value)
     {
-        startS88();
+        
         if (port.empty() || !Marklin6050::Serial::isValidPort(port))
         {
             value = false;
@@ -215,12 +215,19 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             value = false;
             return false;
        }
+       uint32_t moduleCount = s88amount.value();
+       m_lastS88State.assign(moduleCount * 16, false);
+
+       m_runS88 = true;
+       m_s88Thread = std::thread(&Marklin6050Interface::s88Loop, this);
 
         setState(InterfaceState::Online);
     }
     else
     {
-        stopS88();
+        m_runS88 = false;
+        if (m_s88Thread.joinable())
+            m_s88Thread.join();
         if (m_kernel)
         {
             m_kernel->stop();
@@ -235,13 +242,11 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 
 void Marklin6050Interface::updateEnabled()
 {
-    // Disable serialPort while online (same UX as LocoNet)
     Attributes::setEnabled(serialPort, !online);
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)
 {
-    // Use the interface's 'online' flag instead of accessing ObjectProperty<InterfaceStatus>
     if (online)
     {
         if (!Marklin6050::Serial::isValidPort(newPort) || !Marklin6050::Serial::testOpen(newPort))
@@ -255,15 +260,12 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
 {
     if(channel == OutputChannel::Accessory && m_kernel)
     {
-        // Only allow addresses in valid range
         auto [min, max] = outputAddressMinMax(channel);
         if(address < min || address > max)
             return false;
 
-        // Get the delay from the UI property
-        unsigned int delayMs = turnouttime.value(); // in milliseconds
+        unsigned int delayMs = turnouttime.value();
 
-        // Send to kernel with the specified delay
         bool result = m_kernel->setAccessory(address, value, delayMs);
 
         if(result)
@@ -273,15 +275,12 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
     }
     if(channel == OutputChannel::Turnout && m_kernel)
     {
-        // Only allow addresses in valid range
         auto [min, max] = outputAddressMinMax(channel);
         if(address < min || address > max)
             return false;
 
-        // Get the delay from the UI property
-        unsigned int delayMs = turnouttime.value(); // in milliseconds
+        unsigned int delayMs = turnouttime.value(); 
 
-        // Send to kernel with the specified delay
         bool result = m_kernel->setAccessory(address, value, delayMs);
 
         if(result)
@@ -291,15 +290,12 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
     }
     if(channel == OutputChannel::Output && m_kernel)
     {
-        // Only allow addresses in valid range
         auto [min, max] = outputAddressMinMax(channel);
         if(address < min || address > max)
             return false;
 
-        // Get the delay from the UI property
-        unsigned int delayMs = turnouttime.value(); // in milliseconds
+        unsigned int delayMs = turnouttime.value(); 
 
-        // Send to kernel with the specified delay
         bool result = m_kernel->setAccessory(address, value, delayMs);
 
         if(result)
@@ -308,7 +304,6 @@ bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t addres
         return result;
     }
 
-    // fallback for unsupported channels
     return false;
 }
 
@@ -339,7 +334,7 @@ std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
 }
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const
 {
-    static const auto values = makeArray(InputChannel::S88); // only valid channels
+    static const auto values = makeArray(InputChannel::S88);
     return values;
 }
 
@@ -349,12 +344,12 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     {
         case InputChannel::S88:
         {
-            uint32_t moduleCount = s88amount.value();   // get number of modules from property
-            uint32_t maxAddress = moduleCount * 16;     // each S88 module has 16 inputs
-            return {1, maxAddress};                      // min is always 1
+            uint32_t moduleCount = s88amount.value();   
+            uint32_t maxAddress = moduleCount * 16;     
+            return {1, maxAddress};        
         }
         default:
-            return {0, 0}; // unknown channel
+            return {0, 0}; 
     }
 }
 void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action)
@@ -363,13 +358,12 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
     (void)address;
     (void)action;
 
-    // If you want to simulate input changes later, add logic here
 }
 
-// Dummy decoder protocol list
+
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
-    // Use a single safe fallback protocol that always exists
+ 
     static constexpr std::array<DecoderProtocol, 1> protocols{
         DecoderProtocol::None
     };
@@ -377,54 +371,88 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
     return std::span<const DecoderProtocol>{protocols.data(), protocols.size()};
 }
 
-// Dummy address range — MUST match header signature (uint16_t!)
 std::pair<uint16_t, uint16_t>
 Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
 {
-    // Safe fallback range
     return {1, 255};
 }
 
-// Dummy speed steps — MUST match header signature (std::span<const uint8_t>)
 std::span<const uint8_t>
 Marklin6050Interface::decoderSpeedSteps(DecoderProtocol /*protocol*/) const
 {
-    // Minimal valid list containing one element
     static constexpr uint8_t steps[] = { 14 };
     return std::span<const uint8_t>(steps, 1);
 }
 
-// Dummy implementation to satisfy linker
 void Marklin6050Interface::decoderChanged(
     const Decoder& /*decoder*/,
     DecoderChangeFlags /*changes*/,
     uint32_t /*functionNumber*/)
 {
-    // No operation
+  
 }
-void Marklin6050Interface::startS88() {
-    if (!m_kernel) return;
+void Marklin6050Interface::s88Loop()
+{
+    while (m_runS88)
+    {
+        readS88();
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(s88interval.value())
+        );
+    }
+}
+
+void Marklin6050Interface::s88Loop()
+{
+    while (m_runS88)
+    {
+        readS88();
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(s88interval.value())
+        );
+    }
+}
+
+void Marklin6050Interface::readS88()
+{
+    if (!m_kernel || !m_kernel->isRunning())
+        return;
 
     uint32_t moduleCount = s88amount.value();
-    unsigned int intervalMs = s88interval.value();
+    uint32_t totalBits   = moduleCount * 16;
 
-    m_kernel->onS88Data = [this](uint32_t moduleIndex, uint16_t bits) {
-        // moduleIndex is 0-based
-        for (uint32_t i = 0; i < 16; ++i) {
-            bool value = bits & (1 << i);
-            uint32_t address = moduleIndex * 16 + i + 1; // S88 addresses start at 1
-            updateInputValue(InputChannel::S88, address, value ? SimulateInputAction::Set : SimulateInputAction::Reset);
+    if (moduleCount == 0)
+        return;
+
+ 
+    unsigned char cmd = 128 + moduleCount;
+    if (!m_kernel->sendByte(cmd))
+        return;
+
+    std::vector<bool> newState(totalBits);
+
+    for (uint32_t i = 0; i < totalBits; i++)
+    {
+        int val = m_kernel->readByte();
+        if (val < 0)
+            return;
+
+        newState[i] = (val != 0);
+    }
+
+    for (uint32_t i = 0; i < totalBits; i++)
+    {
+        if (newState[i] != m_lastS88State[i])
+        {
+            uint32_t address = i + 1; 
+            TriState ts = newState[i] ? TriState::True : TriState::False;
+
+            updateInputValue(InputChannel::S88, address, ts);
         }
-    };
+    }
 
-    m_kernel->startS88Polling(moduleCount, intervalMs);
+    m_lastS88State = newState;
 }
-void Marklin6050Interface::stopS88() {
-    if (m_kernel)
-        m_kernel->stopS88Polling();
-}
-
-
 
 
 

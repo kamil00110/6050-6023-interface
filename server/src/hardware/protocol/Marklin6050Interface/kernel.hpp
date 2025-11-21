@@ -19,6 +19,7 @@ private:
     unsigned int m_baudrate;
     std::thread m_inputThread;          
     std::atomic<bool> m_running{false}; 
+    void inputLoop(unsigned int modules, unsigned int intervalMs);
 
 #if defined(_WIN32)
     void* m_handle;

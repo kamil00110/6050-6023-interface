@@ -116,8 +116,6 @@ void Kernel::stop()
 
     m_isOpen = false;
 }
-#include <thread>
-#include <chrono>
 
 bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int timeMs)
 {

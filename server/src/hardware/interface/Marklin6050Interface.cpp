@@ -227,11 +227,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             value = false;
             return false;
        }
-       if (!m_kernel->start()) {
-            m_kernel.reset();
-            value = false;
-           return false;
-       }
 
         setState(InterfaceState::Online);
     }

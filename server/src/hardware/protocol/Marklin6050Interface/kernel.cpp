@@ -237,8 +237,8 @@ void Kernel::inputLoop(unsigned int modules)
             bool state = bits & (1 << bit);
             uint32_t address = m * 16 + (bit + 1);
 
-            // Uncomment when ready:
-            // m_interface->onS88Input(address, state);
+            
+            m_interface->onS88Input(address, state);
         }
     }
 }

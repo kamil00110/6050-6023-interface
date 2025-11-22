@@ -211,7 +211,7 @@ void Kernel::inputLoop(unsigned int modules)
         return;
 
     // 1) Send S88 read command
-    const unsigned char cmd = 128 + modules;
+    const unsigned char cmd = 128; // always 128
     sendByte(cmd);
 
     // 2) Read expected number of bytes
@@ -222,23 +222,22 @@ void Kernel::inputLoop(unsigned int modules)
     {
         int b = readByte();
         if (b < 0)
-            return; // read error, bail out
+            return; // read error
 
         buffer[i] = static_cast<uint8_t>(b);
     }
 
-    // 3) Decode module bit states
+    // 3) Decode module bit states (LSB first!)
     for (unsigned int m = 0; m < modules; m++)
     {
-        uint16_t bits = (buffer[m * 2] << 8) | buffer[m * 2 + 1];
+        uint16_t bits = buffer[m * 2] | (buffer[m * 2 + 1] << 8);
 
         for (int bit = 0; bit < 16; bit++)
         {
             [[maybe_unused]] bool state = bits & (1 << bit);
             [[maybe_unused]] uint32_t address = m * 16 + (bit + 1);
 
-            
-            //m_interface->onS88Input(address, state);
+            // m_interface->onS88Input(address, state);
         }
     }
 }

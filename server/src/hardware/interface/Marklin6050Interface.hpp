@@ -39,9 +39,6 @@ private:
   std::vector<bool> m_lastS88State;
   std::thread m_s88Thread;
   std::atomic<bool> m_runS88{false};
-
-    void s88Loop();
-    void readS88();
     void onS88Input(uint32_t address, bool state);
 
 

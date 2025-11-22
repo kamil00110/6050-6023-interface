@@ -208,42 +208,33 @@ void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
 {
     const unsigned char cmd = 128 + modules; // S88 command
 
-    while (m_running)
+    sendByte(cmd);
+
+    const unsigned int totalBytes = modules * 2;
+    std::vector<uint8_t> buffer(totalBytes);
+
+    for (unsigned int i = 0; i < totalBytes; i++)
     {
-        sendByte(cmd);
+        int b = readByte();
+        if (b < 0)
+            return;
 
-        const unsigned int totalBytes = modules * 2;
+        buffer[i] = (uint8_t)b;
+    }
 
-        std::vector<uint8_t> buffer(totalBytes);
+    for (unsigned int m = 0; m < modules; m++)
+    {
+        uint8_t high = buffer[m * 2];
+        uint8_t low  = buffer[m * 2 + 1];
+        uint16_t bits = (high << 8) | low;
 
-        for (unsigned int i = 0; i < totalBytes; i++)
+        for (int bit = 0; bit < 16; bit++)
         {
-            int b = readByte();
-            if (b < 0)
-                break;
-
-            buffer[i] = (uint8_t)b;
+            bool state = bits & (1 << bit);
+            uint32_t address = m * 16 + (bit + 1);
+            (void)state;
+            (void)address;
         }
-
-        // Convert to bit states (1.. modules*16)
-        for (unsigned int m = 0; m < modules; m++)
-        {
-            uint8_t high = buffer[m * 2];
-            uint8_t low  = buffer[m * 2 + 1];
-
-            uint16_t bits = (high << 8) | low;
-
-            for (int bit = 0; bit < 16; bit++)
-            {
-                bool state = bits & (1 << bit);
-                uint32_t address = m * 16 + (bit + 1);
-                (void)state;
-                (void)address;
-
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
     }
 }
 

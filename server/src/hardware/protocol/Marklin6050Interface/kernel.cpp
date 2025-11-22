@@ -234,11 +234,11 @@ void Kernel::inputLoop(unsigned int modules)
 
         for (int bit = 0; bit < 16; bit++)
         {
-            bool state = bits & (1 << bit);
-            uint32_t address = m * 16 + (bit + 1);
+            [[maybe_unused]] bool state = bits & (1 << bit);
+            [[maybe_unused]] uint32_t address = m * 16 + (bit + 1);
 
             
-            m_interface->onS88Input(address, state);
+            //m_interface->onS88Input(address, state);
         }
     }
 }

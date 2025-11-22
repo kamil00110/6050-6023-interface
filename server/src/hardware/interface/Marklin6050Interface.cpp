@@ -405,58 +405,6 @@ void Marklin6050Interface::decoderChanged(
   
 }
 
-void Marklin6050Interface::s88Loop()
-{
-    while (m_runS88)
-    {
-        readS88();
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(s88interval.value())
-        );
-    }
-}
-
-void Marklin6050Interface::readS88()
-{
-    if (!m_kernel || !m_kernel->isRunning())
-        return;
-
-    uint32_t moduleCount = s88amount.value();
-    uint32_t totalBits   = moduleCount * 16;
-
-    if (moduleCount == 0)
-        return;
-
- 
-    unsigned char cmd = 128 + moduleCount;
-    if (!m_kernel->sendByte(cmd))
-        return;
-
-    std::vector<bool> newState(totalBits);
-
-    for (uint32_t i = 0; i < totalBits; i++)
-    {
-        int val = m_kernel->readByte();
-        if (val < 0)
-            return;
-
-        newState[i] = (val != 0);
-    }
-
-    for (uint32_t i = 0; i < totalBits; i++)
-    {
-        if (newState[i] != m_lastS88State[i])
-        {
-            uint32_t address = i + 1; 
-            TriState ts = newState[i] ? TriState::True : TriState::False;
-
-            updateInputValue(InputChannel::S88, address, ts);
-        }
-    }
-
-    m_lastS88State = newState;
-}
-
 
 
 

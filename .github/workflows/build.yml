@@ -259,17 +259,17 @@ jobs:
           # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
           # ccov: false
 
-        - name: "macos-14"
-          os: "macos-14"
-          generator: "Unix Makefiles"
-          arch: ""
-          toolset: ""
-          target: all
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
-          ccov: false
+       # - name: "macos-14"
+       #   os: "macos-14"
+       #   generator: "Unix Makefiles"
+       #   arch: ""
+       #   toolset: ""
+       #   target: all
+       #   jobs: 4
+       #   build_type: Release
+       #   build_deb: false
+       #   defines: ""
+       #   ccov: false
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2

@@ -237,7 +237,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             m_kernel->stop();
             m_kernel.reset();
         }
-        EventLoop::deleteLater(m_kernel.release());
         setState(InterfaceState::Offline);
     }
 

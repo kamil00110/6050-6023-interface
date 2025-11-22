@@ -212,7 +212,6 @@ void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
     {
         sendByte(cmd);
 
-        const unsigned int totalBits = modules * 16;
         const unsigned int totalBytes = modules * 2;
 
         std::vector<uint8_t> buffer(totalBytes);

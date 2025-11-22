@@ -180,18 +180,21 @@ int Kernel::readByte()
 }
 void Kernel::startInputThread(unsigned int moduleCount, unsigned int intervalMs)
 {
-    if(m_running)
+    if (m_running)
         return;
 
     m_running = true;
-    m_inputThread = std::thread([this, moduleCount, intervalMs]() {
-        while (m_running) {
-            // Poll S88 inputs
-            inputLoop(moduleCount, intervalMs);
+
+    m_inputThread = std::thread([this, moduleCount, intervalMs]()
+    {
+        while (m_running)
+        {
+            inputLoop(moduleCount);
             std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
         }
     });
 }
+
 
 void Kernel::stopInputThread()
 {
@@ -202,47 +205,41 @@ void Kernel::stopInputThread()
     if(m_inputThread.joinable())
         m_inputThread.join();
 }
-
-void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
+void Kernel::inputLoop(unsigned int modules)
 {
-    while (m_running)
+    if (!m_running)
+        return;
+
+    // 1) Send S88 read command
+    const unsigned char cmd = 128 + modules;
+    sendByte(cmd);
+
+    // 2) Read expected number of bytes
+    const unsigned int totalBytes = modules * 2;
+    std::vector<uint8_t> buffer(totalBytes);
+
+    for (unsigned int i = 0; i < totalBytes; i++)
     {
-        const unsigned char cmd = 128 + modules; // S88 command
-        sendByte(cmd);
+        int b = readByte();
+        if (b < 0)
+            return; // read error, bail out
 
-        const unsigned int totalBytes = modules * 2;
-        std::vector<uint8_t> buffer(totalBytes);
+        buffer[i] = static_cast<uint8_t>(b);
+    }
 
-        for (unsigned int i = 0; i < totalBytes; i++)
+    // 3) Decode module bit states
+    for (unsigned int m = 0; m < modules; m++)
+    {
+        uint16_t bits = (buffer[m * 2] << 8) | buffer[m * 2 + 1];
+
+        for (int bit = 0; bit < 16; bit++)
         {
-            int b = readByte();
-            if (b < 0)
-                return; // or 'continue;' depending on your design
+            bool state = bits & (1 << bit);
+            uint32_t address = m * 16 + (bit + 1);
 
-            buffer[i] = (uint8_t)b;
+            // Uncomment when ready:
+            // m_interface->onS88Input(address, state);
         }
-
-        for (unsigned int m = 0; m < modules; m++)
-        {
-            uint8_t high = buffer[m * 2];
-            uint8_t low  = buffer[m * 2 + 1];
-            uint16_t bits = (high << 8) | low;
-
-            for (int bit = 0; bit < 16; bit++)
-            {
-                bool state = bits & (1 << bit);
-                uint32_t address = m * 16 + (bit + 1);
-
-                // Silence unused-variable warnings
-                (void)state;
-                (void)address;
-
-                // Later:
-                // m_interface->onS88Input(address, state);
-            }
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
     }
 }
 

@@ -36,7 +36,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       InputController(static_cast<IdObject&>(*this)),
       DecoderController(*this, decoderListColumns),
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
-      baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store), // default 2400
+      baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store),
       centralUnitVersion(this, "centralUnitVersion", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),

@@ -205,7 +205,7 @@ void Kernel::stopInputThread()
 
 void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
 {
-    while (running)  // <-- your control flag
+    while (m_running)
     {
         const unsigned char cmd = 128 + modules; // S88 command
         sendByte(cmd);
@@ -217,7 +217,7 @@ void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
         {
             int b = readByte();
             if (b < 0)
-                return; // or continue; depending on your logic
+                return; // or 'continue;' depending on your design
 
             buffer[i] = (uint8_t)b;
         }
@@ -233,12 +233,18 @@ void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
                 bool state = bits & (1 << bit);
                 uint32_t address = m * 16 + (bit + 1);
 
-                // TODO: update occupancy state here
+                // Silence unused-variable warnings
+                (void)state;
+                (void)address;
+
+                // Later:
+                // m_interface->onS88Input(address, state);
             }
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
     }
 }
+
 
 

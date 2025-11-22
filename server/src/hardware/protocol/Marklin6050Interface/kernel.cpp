@@ -203,38 +203,42 @@ void Kernel::stopInputThread()
         m_inputThread.join();
 }
 
-
 void Kernel::inputLoop(unsigned int modules, unsigned int intervalMs)
 {
-    const unsigned char cmd = 128 + modules; // S88 command
-
-    sendByte(cmd);
-
-    const unsigned int totalBytes = modules * 2;
-    std::vector<uint8_t> buffer(totalBytes);
-
-    for (unsigned int i = 0; i < totalBytes; i++)
+    while (running)  // <-- your control flag
     {
-        int b = readByte();
-        if (b < 0)
-            return;
+        const unsigned char cmd = 128 + modules; // S88 command
+        sendByte(cmd);
 
-        buffer[i] = (uint8_t)b;
-    }
+        const unsigned int totalBytes = modules * 2;
+        std::vector<uint8_t> buffer(totalBytes);
 
-    for (unsigned int m = 0; m < modules; m++)
-    {
-        uint8_t high = buffer[m * 2];
-        uint8_t low  = buffer[m * 2 + 1];
-        uint16_t bits = (high << 8) | low;
-
-        for (int bit = 0; bit < 16; bit++)
+        for (unsigned int i = 0; i < totalBytes; i++)
         {
-            bool state = bits & (1 << bit);
-            uint32_t address = m * 16 + (bit + 1);
-            (void)state;
-            (void)address;
+            int b = readByte();
+            if (b < 0)
+                return; // or continue; depending on your logic
+
+            buffer[i] = (uint8_t)b;
         }
+
+        for (unsigned int m = 0; m < modules; m++)
+        {
+            uint8_t high = buffer[m * 2];
+            uint8_t low  = buffer[m * 2 + 1];
+            uint16_t bits = (high << 8) | low;
+
+            for (int bit = 0; bit < 16; bit++)
+            {
+                bool state = bits & (1 << bit);
+                uint32_t address = m * 16 + (bit + 1);
+
+                // TODO: update occupancy state here
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
     }
 }
+
 

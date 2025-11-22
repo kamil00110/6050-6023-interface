@@ -227,13 +227,14 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
             value = false;
             return false;
        }
-
+        m_kernel->startInputThread(s88amount.value(), s88interval.value());
         setState(InterfaceState::Online);
     }
     else
     {
         if (m_kernel)
         {
+            m_kernel->stopInputThread();
             m_kernel->stop();
             m_kernel.reset();
         }

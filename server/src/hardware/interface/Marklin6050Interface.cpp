@@ -18,6 +18,7 @@
 #include "../../core/objectproperty.tpp"
 #include "../../core/eventloop.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
+#include "../../log/log.hpp"
 #include <thread>
 #include <atomic>
 #include <chrono>
@@ -223,10 +224,8 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
         m_kernel->s88Callback = [this](uint32_t address, bool state)
 {
-    // Post to main thread instead of calling directly
-    this->postToMainThread([this, address, state]{
+
         this->onS88Input(address, state);
-    });
 };
        if (!m_kernel->start())
        {
@@ -371,14 +370,19 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
     (void)action;
 
 }
+
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
+    // Log the S88 input change using traintastic logging
+    Log::log(*this, "S88 input: address %u -> state %s", address, state ? "ON" : "OFF");
+
     // Convert bool to TriState expected by InputController
     TriState ts = state ? TriState::True : TriState::False;
 
     // Update the input value so the engine/world receives the change
     updateInputValue(InputChannel::S88, address, ts);
 }
+
 
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const

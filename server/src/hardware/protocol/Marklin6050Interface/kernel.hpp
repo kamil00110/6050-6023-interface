@@ -28,6 +28,8 @@ private:
     std::thread m_inputThread;          
     std::atomic<bool> m_running{false}; 
     void inputLoop(unsigned int modules);
+    std::function<void(uint32_t, bool)> s88Callback;
+
 
 
 #if defined(_WIN32)

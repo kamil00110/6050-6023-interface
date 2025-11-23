@@ -2,6 +2,7 @@
 #include <string>
 #include <cstdint>
 #include <thread>
+#include <functional>
 #include <atomic>
 
 #include "../../output/outputvalue.hpp"   

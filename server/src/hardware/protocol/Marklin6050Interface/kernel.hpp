@@ -21,6 +21,7 @@ public:
     bool isRunning() const { return m_running.load(); }
     void startInputThread(unsigned int moduleCount, unsigned int intervalMs);
     void stopInputThread();
+    std::function<void(uint32_t, bool)> s88Callback;
 
 private:
     std::string m_port;
@@ -28,7 +29,7 @@ private:
     std::thread m_inputThread;          
     std::atomic<bool> m_running{false}; 
     void inputLoop(unsigned int modules);
-    std::function<void(uint32_t, bool)> s88Callback;
+    
 
 
 

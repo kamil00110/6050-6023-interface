@@ -19,7 +19,7 @@
 #include "../../core/eventloop.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include "../../log/log.hpp"
-#include "../../log/logmessage.hpp"
+#include "../../log/logmessageexception.hpp"
 #include <vector>
 #include <string>
 #include <thread>

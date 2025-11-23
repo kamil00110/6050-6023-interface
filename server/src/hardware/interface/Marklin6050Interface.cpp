@@ -19,6 +19,9 @@
 #include "../../core/eventloop.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include "../../log/log.hpp"
+#include "../../log/logmessage.hpp"
+#include <vector>
+#include <string>
 #include <thread>
 #include <atomic>
 #include <chrono>
@@ -373,8 +376,14 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    // Log the S88 input change using traintastic logging
-    Log::log(*this, "S88 input: address %u -> state %s", address, state ? "ON" : "OFF");
+    // Log the S88 input change
+    Log::log(*this,
+             LogMessage::INFO, // or a specific LogMessage if you want
+             std::vector<std::string>{
+                 "S88 input",
+                 "address: " + std::to_string(address),
+                 "state: " + std::string(state ? "ON" : "OFF")
+             });
 
     // Convert bool to TriState expected by InputController
     TriState ts = state ? TriState::True : TriState::False;
@@ -382,7 +391,6 @@ void Marklin6050Interface::onS88Input(uint32_t address, bool state)
     // Update the input value so the engine/world receives the change
     updateInputValue(InputChannel::S88, address, ts);
 }
-
 
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const

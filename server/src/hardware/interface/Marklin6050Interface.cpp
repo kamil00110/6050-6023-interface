@@ -221,11 +221,13 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 
         
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
-        m_kernel->s88Callback =
-        [this](uint32_t address, bool state)
-        {
-           this->onS88Input(address, state);
-        };
+        m_kernel->s88Callback = [this](uint32_t address, bool state)
+{
+    // Post to main thread instead of calling directly
+    this->postToMainThread([this, address, state]{
+        this->onS88Input(address, state);
+    });
+};
        if (!m_kernel->start())
        {
             m_kernel.reset();

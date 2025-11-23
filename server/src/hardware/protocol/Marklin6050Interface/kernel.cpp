@@ -210,20 +210,12 @@ void Kernel::inputLoop(unsigned int modules)
     if (!m_running || !m_isOpen || modules == 0)
         return;
 
-    // ---------------------------------------------------------
-    // 1) Send read command (128 + moduleCount)
-    // Force 8-bit calculation
-    // ---------------------------------------------------------
     unsigned char cmd = 128;
     cmd += static_cast<unsigned char>(modules);
 
     if (!sendByte(cmd))
         return;
 
-    // ---------------------------------------------------------
-    // 2) Read 2 bytes per module = 16 bits
-    //    Total = modules * 2 bytes
-    // ---------------------------------------------------------
     const unsigned int totalBytes = modules * 2;
     std::vector<uint8_t> buffer(totalBytes);
 
@@ -232,18 +224,10 @@ void Kernel::inputLoop(unsigned int modules)
         int b = readByte();
         if (b < 0)
         {
-            // read error → abort this cycle
             return;
         }
         buffer[i] = static_cast<uint8_t>(b);
     }
-
-    // ---------------------------------------------------------
-    // 3) Decode each module (big-endian)
-    //    For each module:
-    //    byte0 = MSB (bit 15..8)
-    //    byte1 = LSB (bit 7..0)
-    // ---------------------------------------------------------
 
     for (unsigned int m = 0; m < modules; m++)
     {
@@ -251,22 +235,14 @@ void Kernel::inputLoop(unsigned int modules)
             (static_cast<uint16_t>(buffer[m * 2]) << 8) |
              static_cast<uint16_t>(buffer[m * 2 + 1]);
 
-        // -----------------------------------------------------
-        // Each module has 16 contacts.
-        // bit 0  -> address m*16 + 1
-        // bit 1  -> address m*16 + 2
-        // ...
-        // bit 15 -> address m*16 + 16
-        // -----------------------------------------------------
-
         for (int bit = 0; bit < 16; bit++)
         {
             bool state = bits & (1 << bit);
             uint32_t address = m * 16 + (bit + 1);
+            if (s88Callback)
+              s88Callback(address, state);
 
-            // Call back into the interface
-            if (m_interface)
-                m_interface->onS88Input(address, state);
+
         }
     }
 }

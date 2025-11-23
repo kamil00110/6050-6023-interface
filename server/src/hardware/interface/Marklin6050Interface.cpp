@@ -376,19 +376,16 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    // Log the S88 input change
-    Log::log(*this,
-             LogMessage::INFO, // or a specific LogMessage if you want
-             std::vector<std::string>{
-                 "S88 input",
-                 "address: " + std::to_string(address),
-                 "state: " + std::string(state ? "ON" : "OFF")
-             });
+    // Format a single string for the log variable
+    std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
+
+    // Log it using the existing D2001 message (which has one %1 variable)
+    Log::logFormatted(*this, LogMessage::D2001, { info });
 
     // Convert bool to TriState expected by InputController
     TriState ts = state ? TriState::True : TriState::False;
 
-    // Update the input value so the engine/world receives the change
+    // Update the input value
     updateInputValue(InputChannel::S88, address, ts);
 }
 

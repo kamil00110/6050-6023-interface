@@ -31,6 +31,7 @@ private:
   Property<unsigned int> s88interval;
   Property<unsigned int> turnouttime;
   Property<unsigned int> slowacceleration;
+  Property<unsigned int> slowdeceleration;
   Property<unsigned int> extensions;
   Property<unsigned int> debug;
   Property<unsigned int> programmer;

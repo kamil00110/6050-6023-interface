@@ -45,6 +45,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),
       turnouttime(this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      slowacceleration(this, "slowacceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      slowdeceleration(this, "slowdeceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
@@ -127,6 +129,38 @@ Attributes::addVisible(turnouttime, true);
 m_interfaceItems.insertBefore(turnouttime, notes);
 Attributes::addValues(turnouttime, turnouttimes);
 Attributes::addAliases(turnouttime, &turnouttimes, &turnouttimelabels);
+
+static const std::vector<unsigned int> slowacceltimes = {
+    0,1000,2000,3000,4000,5000
+};
+static const std::vector<std::string_view> slowaccellabels = {
+    "OFF/Auto", "1s", "2s", "3s", "4s", "5s",  
+};
+    
+Attributes::addCategory(slowacceleration, "Märklin 6050");
+Attributes::addDisplayName(slowacceleration, "Acceleration time");
+Attributes::addHelp(slowacceleration, "CU.s88intervall");
+Attributes::addEnabled(slowacceleration, !online);
+Attributes::addVisible(slowacceleration, true);
+m_interfaceItems.insertBefore(slowacceleration, notes);
+Attributes::addValues(slowacceleration, turnouttimes);
+Attributes::addAliases(slowacceleration, &slowacceltimes, &slowaccellabels);
+
+static const std::vector<unsigned int> slowdeceltimes = {
+    0,1000,2000,3000,4000,5000
+};
+static const std::vector<std::string_view> slowdecellabels = {
+    "OFF/Auto", "1s", "2s", "3s", "4s", "5s",  
+};
+    
+Attributes::addCategory(slowdeceleration, "Märklin 6050");
+Attributes::addDisplayName(slowdeceleration, "Deceleration time");
+Attributes::addHelp(slowdeceleration, "CU.s88intervall");
+Attributes::addEnabled(slowdeceleration, !online);
+Attributes::addVisible(slowdeceleration, true);
+m_interfaceItems.insertBefore(slowdeceleration, notes);
+Attributes::addValues(slowdeceleration, slowdeceltimes);
+Attributes::addAliases(slowdeceleration, &slowdeceltimes, &slowdecellabels);
 
 Attributes::addCategory(extensions, "Märklin 6050");
 Attributes::addDisplayName(extensions, "Feedback Module");

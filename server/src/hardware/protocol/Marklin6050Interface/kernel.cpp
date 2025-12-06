@@ -12,18 +12,37 @@
 #endif
 
 #if defined(_WIN32)
-#include <cstdio>
+#include <windows.h>
+#include <shlobj.h>   // SHGetKnownFolderPath
+#include <string>
 
 static void dbg(const char* msg) {
-    FILE* f = fopen("kernel_debug.txt", "a");
-    if (f) {
-        fprintf(f, "%s\n", msg);
-        fclose(f);
-    }
+    PWSTR path = nullptr;
+
+    // Get Documents folder
+    if (SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &path) != S_OK)
+        return;
+
+    // Build file path
+    char utf8Path[MAX_PATH * 4];
+    int len = WideCharToMultiByte(CP_UTF8, 0, path, -1, utf8Path, sizeof(utf8Path), NULL, NULL);
+    CoTaskMemFree(path);
+
+    if (len <= 0)
+        return;
+
+    std::string full = std::string(utf8Path) + "\\kernel_debug.txt";
+
+    FILE* f = fopen(full.c_str(), "a");
+    if (!f) return;
+
+    fprintf(f, "%s\n", msg);
+    fclose(f);
 }
 #else
 static void dbg(const char*) {}
 #endif
+
 
 
 #include <thread>

@@ -33,18 +33,25 @@ Kernel::~Kernel()
 bool Kernel::start()
 {
 #if defined(_WIN32)
+    dbg("Kernel::start - opening port");
+
     std::string devicePath = "\\\\.\\" + m_port;
     m_handle = CreateFileA(
         devicePath.c_str(),
-        GENERIC_WRITE,
+        GENERIC_WRITE | GENERIC_READ,
         0,
         nullptr,
         OPEN_EXISTING,
         0,
         nullptr);
 
-    if (m_handle == INVALID_HANDLE_VALUE)
+    if (m_handle == INVALID_HANDLE_VALUE) {
+        dbg("Kernel::start - INVALID_HANDLE");
         return false;
+    }
+
+    dbg("Kernel::start - handle OK");
+
 
     DCB dcb{};
     if (!GetCommState(m_handle, &dcb))
@@ -153,15 +160,20 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
 bool Kernel::sendByte(unsigned char byte)
 {
-    if (!m_isOpen)
+    if (!m_isOpen) {
+        dbg("sendByte - port not open!");
         return false;
+    }
 
 #if defined(_WIN32)
+    char buf[64];
+    sprintf(buf, "sendByte: %u", byte);
+    dbg(buf);
+
     DWORD written = 0;
     WriteFile(m_handle, &byte, 1, &written, nullptr);
     return written == 1;
-#else
-    return write(m_fd, &byte, 1) == 1;
+
 #endif
 }
 int Kernel::readByte()
@@ -169,9 +181,15 @@ int Kernel::readByte()
 #if defined(_WIN32)
     unsigned char b;
     DWORD read = 0;
-    if (ReadFile(m_handle, &b, 1, &read, nullptr) && read == 1)
+    if (ReadFile(m_handle, &b, 1, &read, nullptr) && read == 1) {
+        char buf[64];
+        sprintf(buf, "readByte: %u", b);
+        dbg(buf);
         return b;
+    }
+    dbg("readByte: FAILED");
     return -1;
+
 #else
     unsigned char b;
     int r = ::read(m_fd, &b, 1);
@@ -240,9 +258,13 @@ void Kernel::inputLoop(unsigned int modules)
             bool state = bits & (1 << bit);
             uint32_t address = m * 16 + (bit + 1);
             if (s88Callback)
-              s88Callback(address, state);
+{
+    char buf[64];
+    sprintf(buf, "S88 callback fired: address=%u state=%d", address, state);
+    dbg(buf);
 
-
+    s88Callback(address, state);
+}
         }
     }
 }

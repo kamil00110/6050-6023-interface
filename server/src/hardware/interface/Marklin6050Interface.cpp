@@ -443,30 +443,50 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
+    std::string info = 
+        "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
 
 #if defined(_WIN32)
-    // --- Windows: write log to file instead of LogMessage::D2001 ---
-    FILE* f = fopen("S88_log.txt", "a");
-    if (f)
+    // ---- Windows: Safe logging to Documents folder ----
+    PWSTR docsPath = nullptr;
+    if (SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &docsPath) == S_OK)
     {
-        fprintf(f, "%s\n", info.c_str());
-        fclose(f);
+        // Convert WCHAR path to UTF-8 char string
+        char utf8Path[MAX_PATH * 4];
+        int len = WideCharToMultiByte(
+            CP_UTF8, 0,
+            docsPath, -1,
+            utf8Path, sizeof(utf8Path),
+            NULL, NULL
+        );
+        CoTaskMemFree(docsPath);
+
+        if (len > 0)
+        {
+            std::string fullPath = std::string(utf8Path) + "\\S88_log.txt";
+
+            FILE* f = fopen(fullPath.c_str(), "a");
+            if (f)
+            {
+                fprintf(f, "%s\n", info.c_str());
+                fclose(f);
+            }
+        }
     }
+
 #else
-    // --- Non-Windows: try original logging ---
+    // ---- Linux / others: no logging ----
     try
     {
-        //none
+        // none
     }
     catch (...)
     {
-        // optional: ignore logging errors
+        // ignore errors
     }
 #endif
 
     TriState ts = state ? TriState::True : TriState::False;
-
     updateInputValue(InputChannel::S88, address, ts);
 }
 

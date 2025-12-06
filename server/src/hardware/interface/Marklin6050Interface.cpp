@@ -4,6 +4,11 @@
 #include <windows.h>
 #endif
 
+#if defined(_WIN32)
+#include <windows.h>
+#include <shlobj.h>
+#endif
+
 #include "Marklin6050Interface.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
@@ -446,9 +451,7 @@ void Marklin6050Interface::onS88Input(uint32_t address, bool state)
     std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
 
 #if defined(_WIN32)
-    #include <windows.h>
-    #include <shlobj.h> // For SHGetKnownFolderPath
-    #include <string>
+ 
 
     // Get Documents folder
     PWSTR docPath = nullptr;

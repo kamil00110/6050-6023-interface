@@ -214,7 +214,7 @@ Attributes::addMinMax(newAddress, 1u, 79u);
     
 Attributes::addCategory(programmer, "Programmer");
 Attributes::addDisplayName(programmer, "Change address");
-Attributes::addEnabled(programmer, !online);
+Attributes::addEnabled(programmer, online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);
 
@@ -329,8 +329,18 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 void Marklin6050Interface::updateEnabled()
 {
     Attributes::setEnabled(serialPort, !online);
+    Attributes::setEnabled(centralUnitVersion, !online);
+    Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88interval, !online);
+    Attributes::setEnabled(turnouttime, !online);
+    Attributes::setEnabled(slowacceleration, !online);
+    Attributes::setEnabled(slowdeceleration, !online);
+    Attributes::setEnabled(redundancy, !online);
+    Attributes::setEnabled(extensions, !online);
+    Attributes::setEnabled(oldAddress, online);
+    Attributes::setEnabled(newAddress, online);
+    Attributes::setEnabled(programmer, online);
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)

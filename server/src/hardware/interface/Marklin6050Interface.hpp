@@ -34,7 +34,7 @@ private:
   Property<unsigned int> slowdeceleration;
   Property<unsigned int> redundancy;
   Property<bool> extensions;
-  Property<unsigned int> debug;
+  Property<bool> debug;
   Property<unsigned int> programmer;
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();

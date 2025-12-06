@@ -35,7 +35,9 @@ private:
   Property<unsigned int> redundancy;
   Property<bool> extensions;
   Property<bool> debug;
-  Property<unsigned int> programmer;
+  Property<unsigned int> oldAddress;
+  Property<unsigned int> newAddress;
+  Property<bool> programmer;
   std::unique_ptr<Marklin6050::Kernel> m_kernel;
   void updateEnabled();
   void serialPortChanged(const std::string& newPort);

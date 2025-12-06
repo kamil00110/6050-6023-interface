@@ -1,4 +1,6 @@
 #include "kernel.hpp"
+
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN   // Exclude rarely-used stuff from Windows headers
 #include <winsock2.h>         // Must be before windows.h
@@ -8,6 +10,21 @@
 #include <unistd.h>
 #include <termios.h>
 #endif
+
+#if defined(_WIN32)
+#include <cstdio>
+
+static void dbg(const char* msg) {
+    FILE* f = fopen("kernel_debug.txt", "a");
+    if (f) {
+        fprintf(f, "%s\n", msg);
+        fclose(f);
+    }
+}
+#else
+static void dbg(const char*) {}
+#endif
+
 
 #include <thread>
 #include <atomic>

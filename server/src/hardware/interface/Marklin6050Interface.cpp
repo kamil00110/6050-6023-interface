@@ -50,6 +50,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       redundancy(this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      oldAddress(this, "oldAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      newAddress(this, "newAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
 {    
     name = "Märklin 6050";

@@ -47,6 +47,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       turnouttime(this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store),
       slowacceleration(this, "slowacceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       slowdeceleration(this, "slowdeceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      redundancy(this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       debug(this, "debug", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
@@ -161,6 +162,22 @@ Attributes::addVisible(slowdeceleration, true);
 m_interfaceItems.insertBefore(slowdeceleration, notes);
 Attributes::addValues(slowdeceleration, slowdeceltimes);
 Attributes::addAliases(slowdeceleration, &slowdeceltimes, &slowdecellabels);
+
+static const std::vector<unsigned int> redundancyamount = {
+    1,2,3,4
+};
+static const std::vector<std::string_view> redundancylabels = {
+    "OFF", "2x", "3x", "4x",
+};
+    
+Attributes::addCategory(redundancy, "Märklin 6050");
+Attributes::addDisplayName(redundancy, "Command redundancy");
+Attributes::addHelp(redundancy, "CU.s88intervall");
+Attributes::addEnabled(redundancy, !online);
+Attributes::addVisible(redundancy, true);
+m_interfaceItems.insertBefore(redundancy, notes);
+Attributes::addValues(redundancy, redundancyamount);
+Attributes::addAliases(redundancy, &redundancyamount, &redundancylabels);
 
 Attributes::addCategory(extensions, "Märklin 6050");
 Attributes::addDisplayName(extensions, "Feedback Module");

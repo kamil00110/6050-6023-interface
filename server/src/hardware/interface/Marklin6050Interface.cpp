@@ -329,6 +329,8 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 void Marklin6050Interface::updateEnabled()
 {
     Attributes::setEnabled(serialPort, !online);
+    Attributes::setEnabled(s88amount, !online);
+    Attributes::setEnabled(s88interval, !online);
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)

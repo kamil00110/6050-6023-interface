@@ -177,20 +177,21 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
 bool Kernel::sendByte(unsigned char byte)
 {
-    if (!m_isOpen) {
-        dbg("sendByte - port not open!");
+    if (!m_isOpen)
+    {
         return false;
+        dbg("sendByte - port not open!");
     }
 
 #if defined(_WIN32)
     char buf[64];
     sprintf(buf, "sendByte: %u", byte);
     dbg(buf);
-
     DWORD written = 0;
     WriteFile(m_handle, &byte, 1, &written, nullptr);
     return written == 1;
-
+#else
+    return write(m_fd, &byte, 1) == 1;
 #endif
 }
 int Kernel::readByte()

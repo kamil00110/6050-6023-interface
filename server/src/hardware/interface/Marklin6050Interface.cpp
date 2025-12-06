@@ -144,7 +144,7 @@ Attributes::addHelp(slowacceleration, "CU.s88intervall");
 Attributes::addEnabled(slowacceleration, !online);
 Attributes::addVisible(slowacceleration, true);
 m_interfaceItems.insertBefore(slowacceleration, notes);
-Attributes::addValues(slowacceleration, turnouttimes);
+Attributes::addValues(slowacceleration, slowacceltimes);
 Attributes::addAliases(slowacceleration, &slowacceltimes, &slowaccellabels);
 
 static const std::vector<unsigned int> slowdeceltimes = {
@@ -191,8 +191,22 @@ Attributes::addEnabled(debug, !online);
 Attributes::addVisible(debug, true);
 m_interfaceItems.insertBefore(debug, notes);
 
+Attributes::addCategory(oldAddress, "Programmer");
+Attributes::addDisplayName(oldAddress, "Old loco address");
+Attributes::addEnabled(oldAddress, !online);
+Attributes::addVisible(oldAddress, true);
+m_interfaceItems.insertBefore(oldAddress, notes);
+Attributes::addMinMax(oldAddress, 1u, 79u);
+
+Attributes::addCategory(newAddress, "Programmer");
+Attributes::addDisplayName(newAddress, "New loco address");
+Attributes::addEnabled(newAddress, !online);
+Attributes::addVisible(newAddress, true);
+m_interfaceItems.insertBefore(newAddress, notes);
+Attributes::addMinMax(newAddress, 1u, 79u);
+    
 Attributes::addCategory(programmer, "Programmer");
-Attributes::addDisplayName(programmer, "Programer");
+Attributes::addDisplayName(programmer, "Change address");
 Attributes::addEnabled(programmer, !online);
 Attributes::addVisible(programmer, true);
 m_interfaceItems.insertBefore(programmer, notes);

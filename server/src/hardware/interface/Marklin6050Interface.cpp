@@ -427,18 +427,33 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    // Format a single string for the log variable
     std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
 
-    // Log it using the existing D2001 message (which has one %1 variable)
-    Log::logFormatted(*this, LogMessage::D2001, { info });
+#if defined(_WIN32)
+    // --- Windows: write log to file instead of LogMessage::D2001 ---
+    FILE* f = fopen("S88_log.txt", "a");
+    if (f)
+    {
+        fprintf(f, "%s\n", info.c_str());
+        fclose(f);
+    }
+#else
+    // --- Non-Windows: try original logging ---
+    try
+    {
+        //none
+    }
+    catch (...)
+    {
+        // optional: ignore logging errors
+    }
+#endif
 
-    // Convert bool to TriState expected by InputController
     TriState ts = state ? TriState::True : TriState::False;
 
-    // Update the input value
     updateInputValue(InputChannel::S88, address, ts);
 }
+
 
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const

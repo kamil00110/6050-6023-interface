@@ -479,13 +479,13 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
     if (isDcc)
     {
         static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::Dcc
+            DecoderProtocol::DCCShort
         };
         return protocols;
     }
     else
     {
-        if(limited){
+        if(Limited){
             static constexpr std::array<DecoderProtocol, 1> protocols{
                 DecoderProtocol::MotorolaLimited
             };
@@ -529,7 +529,7 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
     }
     else
     {
-        if(limited){
+        if(Limited){
             return {10, 40};
         }
         if(extensions){

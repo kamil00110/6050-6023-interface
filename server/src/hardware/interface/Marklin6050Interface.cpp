@@ -109,10 +109,10 @@ m_interfaceItems.insertBefore(s88amount, notes);
 Attributes::addMinMax(s88amount, 0u, 61u); 
 
 static const std::vector<unsigned int> intervals = {
-    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
+    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000
 };
 static const std::vector<std::string_view> intervallabels = {
-    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
+    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s","1.5s","2s","2.5s","3s",
 };
 Attributes::addCategory(s88interval, "Märklin 6050");
 Attributes::addDisplayName(s88interval, "s88 call intervall");
@@ -124,7 +124,7 @@ Attributes::addValues(s88interval, intervals);
 Attributes::addAliases(s88interval, &intervals, &intervallabels);
 
 static const std::vector<unsigned int> turnouttimes = {
-    25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 
+    25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
 };
 static const std::vector<std::string_view> turnouttimelabels = {
     "25ms", "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
@@ -200,14 +200,14 @@ m_interfaceItems.insertBefore(debug, notes);
 
 Attributes::addCategory(oldAddress, "Programmer");
 Attributes::addDisplayName(oldAddress, "Old loco address");
-Attributes::addEnabled(oldAddress, !online);
+Attributes::addEnabled(oldAddress, online);
 Attributes::addVisible(oldAddress, true);
 m_interfaceItems.insertBefore(oldAddress, notes);
 Attributes::addMinMax(oldAddress, 1u, 79u);
 
 Attributes::addCategory(newAddress, "Programmer");
 Attributes::addDisplayName(newAddress, "New loco address");
-Attributes::addEnabled(newAddress, !online);
+Attributes::addEnabled(newAddress, online);
 Attributes::addVisible(newAddress, true);
 m_interfaceItems.insertBefore(newAddress, notes);
 Attributes::addMinMax(newAddress, 1u, 79u);

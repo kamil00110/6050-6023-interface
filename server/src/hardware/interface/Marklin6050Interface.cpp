@@ -462,23 +462,68 @@ void Marklin6050Interface::onS88Input(uint32_t address, bool state)
     updateInputValue(InputChannel::S88, address, ts);
 }
 
-
-
-
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
- 
-    static constexpr std::array<DecoderProtocol, 1> protocols{
-        DecoderProtocol::Motorola
-    };
+    // Units that support DCC
+    const bool isDcc =
+        centralUnitVersion == 6027 ||
+        centralUnitVersion == 6029 ||
+        centralUnitVersion == 6030 ||
+        centralUnitVersion == 6032;
 
-    return std::span<const DecoderProtocol>{protocols.data(), protocols.size()};
+    if (isDcc)
+    {
+        static constexpr std::array<DecoderProtocol, 1> protocols{
+            DecoderProtocol::Dcc
+        };
+        return protocols;
+    }
+    else
+    {
+        static constexpr std::array<DecoderProtocol, 1> protocols{
+            DecoderProtocol::Motorola
+        };
+        return protocols;
+    }
 }
+
+
 
 std::pair<uint16_t, uint16_t>
 Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
-{
-    return {1, 79};
+{   
+    const bool isDcc =
+        centralUnitVersion == 6027 ||
+        centralUnitVersion == 6029 ||
+        centralUnitVersion == 6030 ||
+        centralUnitVersion == 6032;
+
+    const bool MM2 =
+        centralUnitVersion == 6021;
+
+    if (isDcc)
+    {
+        if(extensions){
+            return {1, 127};
+        }
+        else{
+            return {1, 80};
+        }
+    }
+    else
+    {
+        if(extensions){
+            if(MM2){
+               return {1, 255};
+            }
+            else{
+               return {1, 79};
+            } 
+        }
+        else{
+            return {1, 79};
+        } 
+    }
 }
 
 std::span<const uint8_t>

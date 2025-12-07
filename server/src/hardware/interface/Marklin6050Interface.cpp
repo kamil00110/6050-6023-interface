@@ -4,11 +4,6 @@
 #include <windows.h>
 #endif
 
-#if defined(_WIN32)
-#include <windows.h>
-#include <shlobj.h>
-#endif
-
 #include "Marklin6050Interface.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
@@ -461,36 +456,6 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
     std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
-
-#if defined(_WIN32)
- 
-
-    // Get Documents folder
-    PWSTR docPath = nullptr;
-    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, 0, NULL, &docPath)))
-    {
-        char utf8Path[MAX_PATH * 4];
-        int len = WideCharToMultiByte(CP_UTF8, 0, docPath, -1, utf8Path, sizeof(utf8Path), NULL, NULL);
-        CoTaskMemFree(docPath);
-
-        if (len > 0)
-        {
-            std::string fullPath = std::string(utf8Path) + "\\S88_log.txt";
-            FILE* f = fopen(fullPath.c_str(), "a");
-            if (f)
-            {
-                fprintf(f, "%s\n", info.c_str());
-                fclose(f);
-            }
-            else
-            {
-                MessageBoxA(nullptr, "Failed to write S88_log.txt in Documents", "Logging Error", MB_OK | MB_ICONERROR);
-            }
-        }
-    }
-#else
-    // Non-Windows: original logging code could go here (optional)
-#endif
 
     // Update InputController state
     TriState ts = state ? TriState::True : TriState::False;

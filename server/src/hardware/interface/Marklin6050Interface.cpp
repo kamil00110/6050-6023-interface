@@ -471,6 +471,11 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
         centralUnitVersion == 6030 ||
         centralUnitVersion == 6032;
 
+    const bool Limited =
+        centralUnitVersion == 6022 ||
+        centralUnitVersion == 6023 ||
+        centralUnitVersion == 6223;
+
     if (isDcc)
     {
         static constexpr std::array<DecoderProtocol, 1> protocols{
@@ -480,9 +485,16 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
     }
     else
     {
-        static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::Motorola
-        };
+        if(limited){
+            static constexpr std::array<DecoderProtocol, 1> protocols{
+                DecoderProtocol::MotorolaLimited
+            };
+        }
+        else{
+            static constexpr std::array<DecoderProtocol, 1> protocols{
+                DecoderProtocol::Motorola
+            };
+        }
         return protocols;
     }
 }
@@ -501,6 +513,11 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
     const bool MM2 =
         centralUnitVersion == 6021;
 
+    const bool Limited =
+        centralUnitVersion == 6022 ||
+        centralUnitVersion == 6023 ||
+        centralUnitVersion == 6223;
+    
     if (isDcc)
     {
         if(extensions){
@@ -512,6 +529,9 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
     }
     else
     {
+        if(limited){
+            return {10, 40};
+        }
         if(extensions){
             if(MM2){
                return {1, 255};

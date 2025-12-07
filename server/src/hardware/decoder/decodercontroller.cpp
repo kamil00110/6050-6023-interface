@@ -26,6 +26,8 @@
 #include "list/decoderlist.hpp"
 #include "list/decoderlisttablemodel.hpp"
 #include "../protocol/dcc/dcc.hpp"
+#include "../protocol/motorola/motorola_limited.hpp"
+
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/controllerlist.hpp"
@@ -102,13 +104,30 @@ std::span<const uint8_t> DecoderController::decoderSpeedSteps(DecoderProtocol pr
 
 bool DecoderController::addDecoder(Decoder& decoder)
 {
+  // Prevent duplicates
   if(findDecoder(decoder) != m_decoders.end())
     return false;
+
+  // Validate MotorolaLimited allowed addresses
+  if(decoder.protocol == DecoderProtocol::MotorolaLimited)
+  {
+    switch (decoder.address)
+    {
+      case 10:
+      case 20:
+      case 30:
+      case 40:
+        break; // OK
+      default:
+        return false; // reject any invalid address
+    }
+  }
 
   m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
   decoders->addObject(decoder.shared_ptr<Decoder>());
   return true;
 }
+
 
 bool DecoderController::removeDecoder(Decoder& decoder)
 {

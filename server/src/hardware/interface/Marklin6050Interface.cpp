@@ -481,7 +481,6 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
         static constexpr std::array<DecoderProtocol, 1> protocols{
             DecoderProtocol::DCCShort
         };
-        return protocols;
     }
     else
     {
@@ -495,8 +494,9 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
                 DecoderProtocol::Motorola
             };
         }
-        return protocols;
+        
     }
+    return protocols;
 }
 
 

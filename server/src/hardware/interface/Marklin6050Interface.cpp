@@ -469,7 +469,7 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
  
     static constexpr std::array<DecoderProtocol, 1> protocols{
-        DecoderProtocol::None
+        DecoderProtocol::Motorola
     };
 
     return std::span<const DecoderProtocol>{protocols.data(), protocols.size()};
@@ -478,7 +478,7 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 std::pair<uint16_t, uint16_t>
 Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
 {
-    return {1, 255};
+    return {1, 79};
 }
 
 std::span<const uint8_t>

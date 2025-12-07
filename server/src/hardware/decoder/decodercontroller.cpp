@@ -54,6 +54,9 @@ std::pair<uint16_t, uint16_t> DecoderController::decoderAddressMinMax(DecoderPro
     case DecoderProtocol::Motorola:
       return {1, 255};
 
+    case DecoderProtocol::MotorolaLimited:
+      return {10, 40};
+
     case DecoderProtocol::Selectrix:
       return {1, 112};
 
@@ -79,6 +82,9 @@ std::span<const uint8_t> DecoderController::decoderSpeedSteps(DecoderProtocol pr
       return dccSpeedSteps;
 
     case DecoderProtocol::Motorola:
+      return motorolaSpeedSteps;
+
+    case DecoderProtocol::MotorolaLimited:
       return motorolaSpeedSteps;
 
     case DecoderProtocol::Selectrix:

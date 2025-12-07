@@ -251,7 +251,7 @@ void Marklin6050Interface::destroying()
 void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
 {
     Interface::worldEvent(state, event);
-
+    updateEnabled();
     if (!m_kernel)
         return;
 
@@ -279,7 +279,7 @@ void Marklin6050Interface::onlineChanged(bool /*value*/)
 bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 {
     std::string port = serialPort;
-    
+    setState(InterfaceState::Initializing);
     if (value)
     {
         

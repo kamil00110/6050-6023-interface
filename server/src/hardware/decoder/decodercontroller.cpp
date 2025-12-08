@@ -121,12 +121,14 @@ bool DecoderController::addDecoder(Decoder& decoder)
       default:
         return false; // reject any invalid address
     }
+    decoder.protocol = DecoderProtocol::Motorola;
   }
 
   m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
   decoders->addObject(decoder.shared_ptr<Decoder>());
   return true;
 }
+
 
 
 bool DecoderController::removeDecoder(Decoder& decoder)

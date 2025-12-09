@@ -98,30 +98,37 @@ std::span<const uint8_t> DecoderController::decoderSpeedSteps(DecoderProtocol pr
 
 bool DecoderController::addDecoder(Decoder& decoder)
 {
-  // Prevent duplicates
-  if(findDecoder(decoder) != m_decoders.end())
-    return false;
+    // Prevent duplicates
+    if(findDecoder(decoder) != m_decoders.end())
+        return false;
 
-  // Validate MotorolaLimited allowed addresses
-  if(decoder.protocol == DecoderProtocol::MotorolaLimited)
-  {
-    switch (decoder.address)
+    // Check if the decoder's interface uses the special 10-40 range
+    if(decoder.protocol == DecoderProtocol::Motorola)
     {
-      case 10:
-      case 20:
-      case 30:
-      case 40:
-        break; // OK
-      default:
-        return false; // reject any invalid address
-    }
-    decoder.protocol = DecoderProtocol::Motorola;
-  }
+        // Ask the interface what its allowed min/max is
+        auto [minAddr, maxAddr] = decoder.interface.value()->decoderAddressMinMax(decoder.protocol);
 
-  m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
-  decoders->addObject(decoder.shared_ptr<Decoder>());
-  return true;
+        // If it's exactly {10,40}, limit to discrete addresses
+        if(minAddr == 10 && maxAddr == 40)
+        {
+            switch(decoder.address)
+            {
+                case 10:
+                case 20:
+                case 30:
+                case 40:
+                    break; // allowed
+                default:
+                    return false; // reject invalid address
+            }
+        }
+    }
+
+    m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
+    decoders->addObject(decoder.shared_ptr<Decoder>());
+    return true;
 }
+
 
 
 

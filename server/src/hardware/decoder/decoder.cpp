@@ -131,8 +131,7 @@ Decoder::Decoder(World& world, std::string_view _id) :
   Attributes::addDisplayName(address, DisplayName::Hardware::address);
   Attributes::addEnabled(address, false);
   Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
-  Attributes::addValues(address, std::vector<uint16_t>{});
-
+  
   Attributes::addVisible(address, false);
   m_interfaceItems.add(address);
 

@@ -99,14 +99,27 @@ bool DecoderController::addDecoder(Decoder& decoder)
     // Prevent duplicates
     if(findDecoder(decoder) != m_decoders.end())
         return false;
+
+    // Only enforce discrete addresses for the overridden interface range
+    if(decoder.protocol == DecoderProtocol::Motorola &&
+       decoder.interface.value()->decoderAddressMinMax(decoder.protocol) == std::pair{10, 40})
+    {
+        switch(decoder.address)
+        {
+            case 10:
+            case 20:
+            case 30:
+            case 40:
+                break; // allowed
+            default:
+                return false; // reject any other address
+        }
     }
 
     m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
     decoders->addObject(decoder.shared_ptr<Decoder>());
     return true;
 }
-
-
 
 
 bool DecoderController::removeDecoder(Decoder& decoder)

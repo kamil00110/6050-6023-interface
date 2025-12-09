@@ -404,7 +404,8 @@ void Decoder::protocolChanged()
         if(addressRange.first == 10 && addressRange.second == 40)
         {
             // Use discrete allowed addresses for Marklin 6022
-            Attributes::setValues(address, std::vector<unsigned int>{10,20,30,40});
+            Attributes::setValues(address, std::vector<uint16_t>{10, 20, 30, 40});
+
         }
         else
         {

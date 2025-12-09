@@ -401,9 +401,19 @@ void Decoder::protocolChanged()
     Attributes::setVisible(address, hasAddress);
     if(hasAddress)
     {
-      Attributes::setMinMax(address, addressRange);
-      checkAddress();
+        if(addressRange.first == 10 && addressRange.second == 40)
+        {
+            // Use discrete allowed addresses for Marklin 6050
+            Attributes::setValues(address, std::array<uint16_t,4>{10,20,30,40});
+        }
+        else
+        {
+            // Default min/max for other ranges
+            Attributes::setMinMax(address, addressRange);
+            checkAddress();
+        }
     }
+
     else
       Attributes::setMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
 

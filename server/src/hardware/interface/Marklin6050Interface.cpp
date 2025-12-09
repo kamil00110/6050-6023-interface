@@ -101,7 +101,8 @@ Attributes::addHelp(s88amount, "CU.s88amount");
 Attributes::addEnabled(s88amount, !online);
 Attributes::addVisible(s88amount, true);
 m_interfaceItems.insertBefore(s88amount, notes);
-Attributes::addStep(s88amount, 10);     
+uint16_t stepValue = 10;
+Attributes::addStep(s88amount, stepValue);    
 Attributes::addMinMax(s88amount, 0u, 61u); 
 
 static const std::vector<unsigned int> intervals = {

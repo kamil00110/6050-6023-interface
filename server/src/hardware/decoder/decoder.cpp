@@ -130,15 +130,7 @@ Decoder::Decoder(World& world, std::string_view _id) :
 
   Attributes::addDisplayName(address, DisplayName::Hardware::address);
   Attributes::addEnabled(address, false);
-  if (limitedRangeActive)
-{
-    static const std::vector<uint16_t> allowed = {10, 20, 30, 40};
-    Attributes::addValues(address, &allowed);
-}
-else
-{
-    Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
-}
+  Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
 
   Attributes::addVisible(address, false);
   m_interfaceItems.add(address);

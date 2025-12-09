@@ -131,7 +131,6 @@ Decoder::Decoder(World& world, std::string_view _id) :
   Attributes::addDisplayName(address, DisplayName::Hardware::address);
   Attributes::addEnabled(address, false);
   Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
-  
   Attributes::addVisible(address, false);
   m_interfaceItems.add(address);
 
@@ -154,7 +153,7 @@ Decoder::Decoder(World& world, std::string_view _id) :
   Attributes::addValues(speedSteps, std::span<const uint8_t>{});
   Attributes::addVisible(speedSteps, false);
   m_interfaceItems.add(speedSteps);
-
+ 
   Attributes::addObjectEditor(vehicle, false);
   m_interfaceItems.add(vehicle);
 
@@ -405,7 +404,9 @@ void Decoder::protocolChanged()
         if(addressRange.first == 10 && addressRange.second == 40)
         {
             // Use discrete allowed addresses for Marklin 6022
-            Attributes::addStep(address, 10);
+            uint16_t stepValue = 10;
+            Attributes::addStep(address, stepValue);
+            Attributes::setMinMax(address, addressRange);
             checkAddress();
         }
         else

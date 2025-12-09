@@ -487,7 +487,7 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
     {
         if(Limited){
             static constexpr std::array<DecoderProtocol, 1> protocols{
-                DecoderProtocol::MotorolaLimited
+                DecoderProtocol::Motorola
             };
             return protocols;
         }

@@ -35,15 +35,13 @@ enum class DecoderProtocol : uint8_t
   Selectrix = 4,
   //FMZ = 5,
   DCCLong = 6,
-  MotorolaLimited = 7,
 };
 
-TRAINTASTIC_ENUM(DecoderProtocol, "decoder_protocol", 7,
+TRAINTASTIC_ENUM(DecoderProtocol, "decoder_protocol", 6,
 {
   {DecoderProtocol::None, "none"},
   {DecoderProtocol::DCCShort, "dcc_short"},
   {DecoderProtocol::Motorola, "motorola"},
-  {DecoderProtocol::MotorolaLimited, "motorola_limited"},
   {DecoderProtocol::MFX, "mfx"},
   {DecoderProtocol::Selectrix, "selectrix"},
   {DecoderProtocol::DCCLong, "dcc_long"},
@@ -56,7 +54,6 @@ constexpr bool hasAddress(DecoderProtocol value)
     case DecoderProtocol::DCCShort:
     case DecoderProtocol::DCCLong:
     case DecoderProtocol::Motorola:
-    case DecoderProtocol::MotorolaLimited:
     case DecoderProtocol::Selectrix:
       return true;
 

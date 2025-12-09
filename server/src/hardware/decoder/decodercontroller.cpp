@@ -26,8 +26,6 @@
 #include "list/decoderlist.hpp"
 #include "list/decoderlisttablemodel.hpp"
 #include "../protocol/dcc/dcc.hpp"
-#include "../protocol/motorola/motorola_limited.hpp"
-
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/controllerlist.hpp"

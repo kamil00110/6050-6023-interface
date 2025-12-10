@@ -297,9 +297,6 @@ void Kernel::inputLoop(unsigned int modules)
             if (s88Callback)
 {
     char buf[64];
-    sprintf(buf, "S88 callback fired: address=%u state=%d", address, state);
-    dbg(buf);
-
     s88Callback(address, state);
 }
         }

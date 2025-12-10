@@ -472,7 +472,8 @@ bool Decoder::checkAddress()
             case 4: value = 40; break;
             default: value = 10; break; // fallback
         }
-      if(addressMin == 1 && addressMax == 4)
+    }
+    if(addressMin == 1 && addressMax == 4)
     {
         switch(value)
         {
@@ -482,7 +483,6 @@ bool Decoder::checkAddress()
             case 4: value = 40; break;
             default: value = 10; break; // fallback
         }
-    }
     }
     else
     {

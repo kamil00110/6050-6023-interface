@@ -404,7 +404,7 @@ void Decoder::protocolChanged()
         {
             // Use discrete allowed addresses for Marklin 6022
            
-            Attributes::setMinMax(address, 1u, 4u);
+            Attributes::setMinMax(address, uint16_t(1), uint16_t(4));
             Attributes::addUnit(address, "0");
             checkAddress();
         }

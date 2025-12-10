@@ -131,6 +131,7 @@ Decoder::Decoder(World& world, std::string_view _id) :
   Attributes::addDisplayName(address, DisplayName::Hardware::address);
   Attributes::addEnabled(address, false);
   Attributes::addVisible(address, false);
+  Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
   m_interfaceItems.add(address);
 
   Attributes::addEnabled(mfxUID, false);
@@ -389,7 +390,6 @@ void Decoder::worldEvent(WorldState state, WorldEvent event)
       break;
   }
 }
-
 void Decoder::protocolChanged()
 {
   if(interface)
@@ -404,19 +404,17 @@ void Decoder::protocolChanged()
         {
             // Use discrete allowed addresses for Marklin 6022
            
-            Attributes::addValues(address, std::vector<uint16_t>{10,20,30,40});
-            Attributes::setValues(address, std::vector<uint16_t>{10,20,30,40});
+            Attributes::setMinMax(address, 1u, 4u);
+            Attributes::addUnit(address, "0");
             checkAddress();
         }
         else
         {
-            // Default min/max for other ranges
-            Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
+            // Default min/max for other range
             Attributes::setMinMax(address, addressRange);
             checkAddress();
         }
     }
-
     else
       Attributes::setMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
 

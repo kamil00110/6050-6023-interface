@@ -27,12 +27,13 @@
 #include "../../../core/objectproperty.tpp"
 #include "../../../hardware/input/inputcontroller.hpp"
 #include "../../../utils/sensor.hpp"
+#include "../../../utils/category.hpp"
 #include "../../../utils/displayname.hpp"
 
 SensorRailTile::SensorRailTile(World& world, std::string_view _id) :
   StraightRailTile(world, _id, TileId::RailSensor),
   InputConsumer(static_cast<Object&>(*this), world),
-  name{this, "name", id, PropertyFlags::ReadWrite | PropertyFlags::Store},
+  name{this, "name", id, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::ScriptReadOnly},
   type{this, "type", SensorType::OccupancyDetector, PropertyFlags::ReadWrite | PropertyFlags::Store,
     [this](SensorType /*value*/)
     {
@@ -49,7 +50,7 @@ SensorRailTile::SensorRailTile(World& world, std::string_view _id) :
         inputValueChanged(input()->value == TriState::True, input());
       }
     }},
-  state{this, "state", SensorState::Unknown, PropertyFlags::ReadOnly | PropertyFlags::StoreState}
+  state{this, "state", SensorState::Unknown, PropertyFlags::ReadOnly | PropertyFlags::StoreState | PropertyFlags::ScriptReadOnly}
   , simulateTrigger{*this, "simulate_trigger",
       [this]()
       {
@@ -66,12 +67,14 @@ SensorRailTile::SensorRailTile(World& world, std::string_view _id) :
   Attributes::addDisplayName(name, DisplayName::Object::name);
   m_interfaceItems.add(name);
 
+  Attributes::addCategory(type, Category::general);
   Attributes::addEnabled(type, editable);
   Attributes::addValues(type, sensorTypeValues);
   m_interfaceItems.add(type);
 
   InputConsumer::addInterfaceItems(m_interfaceItems);
 
+  Attributes::addCategory(invert, Category::input);
   Attributes::addEnabled(invert, editable);
   m_interfaceItems.add(invert);
 

@@ -457,15 +457,37 @@ bool Decoder::checkProtocol()
 
 bool Decoder::checkAddress()
 {
-  const auto addressMin = address.getAttribute<uint16_t>(AttributeName::Min);
-  const auto addressMax = address.getAttribute<uint16_t>(AttributeName::Max);
-  if(!inRange(address.value(), addressMin, addressMax))
-  {
-    address = std::clamp(address.value(), addressMin, addressMax);
-    return true;
-  }
-  return false;
+    auto addressMin = address.getAttribute<uint16_t>(AttributeName::Min);
+    auto addressMax = address.getAttribute<uint16_t>(AttributeName::Max);
+    auto value = address.value();
+
+    // Special mapping for Marklin 6022: 1-4 → 10, 20, 30, 40
+    if(addressMin == 10 && addressMax == 40)
+    {
+        switch(value)
+        {
+            case 1: value = 10; break;
+            case 2: value = 20; break;
+            case 3: value = 30; break;
+            case 4: value = 40; break;
+            default: value = 10; break; // fallback
+        }
+    }
+    else
+    {
+        // Default clamping
+        value = std::clamp(value, addressMin, addressMax);
+    }
+
+    if(value != address.value())
+    {
+        address = value;
+        return true;
+    }
+
+    return false;
 }
+
 
 bool Decoder::checkSpeedSteps()
 {

@@ -296,7 +296,6 @@ void Kernel::inputLoop(unsigned int modules)
             uint32_t address = m * 16 + (bit + 1);
             if (s88Callback)
 {
-    char buf[64];
     s88Callback(address, state);
 }
         }

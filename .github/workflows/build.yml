@@ -79,10 +79,22 @@ jobs:
          #  build_deb: true
          #  defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
-        - name: "macos-14"
-          os: "macos-14"
+        - name: "macos-15-intel"
+          os: "macos-15-intel"
           generator: "Unix Makefiles"
           arch: ""
+          osx_arch: x86_64
+          target: traintastic-client
+          jobs: 4
+          build_type: Release
+          build_deb: false
+          defines: ""
+
+        - name: "macos-15-arm64"
+          os: "macos-15"
+          generator: "Unix Makefiles"
+          arch: ""
+          osx_arch: arm64
           target: traintastic-client
           jobs: 4
           build_type: Release
@@ -120,8 +132,8 @@ jobs:
       uses: actions/github-script@v7
       with:
         script: |
-          core.exportVariable('CMAKE_OSX_ARCHITECTURES', 'x86_64');
-
+          core.exportVariable('CMAKE_OSX_ARCHITECTURES', '${{matrix.config.osx_arch}}');
+          
     # Ubuntu only:
     - name: apt update
       if: startswith(matrix.config.os, 'ubuntu')
@@ -130,8 +142,8 @@ jobs:
     # Ubuntu only:
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qtbase5-dev qtbase5-dev-tools libqt5svg5-dev libqt5websockets5-dev
-
+      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev
+      
     # All:
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/client/build
@@ -259,17 +271,29 @@ jobs:
           # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
           # ccov: false
 
-       # - name: "macos-14"
-       #   os: "macos-14"
-       #   generator: "Unix Makefiles"
-       #   arch: ""
-       #   toolset: ""
-       #   target: all
-       #   jobs: 4
-       #   build_type: Release
-       #   build_deb: false
-       #   defines: ""
-       #   ccov: false
+        - name: "macos-15-intel"
+          os: "macos-15-intel"
+          generator: "Unix Makefiles"
+          arch: ""
+          toolset: ""
+          target: all
+          jobs: 4
+          build_type: Release
+          build_deb: false
+          defines: ""
+          ccov: false
+
+        - name: "macos-15-arm64"
+          os: "macos-15"
+          generator: "Unix Makefiles"
+          arch: ""
+          toolset: ""
+          target: all
+          jobs: 4
+          build_type: Release
+          build_deb: false
+          defines: ""
+          ccov: false
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2

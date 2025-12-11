@@ -48,10 +48,9 @@
 #include "../network/outputkeyboard.hpp"
 #include "../network/board.hpp"
 #include "../network/property.hpp"
-#include "../network/objectproperty.hpp"
 #include <QLabel>
 #include <QFormLayout>
-
+#include "../network/objectproperty.hpp"
 
 QWidget* createWidgetIfCustom(const ObjectPtr& object, QWidget* parent)
 {
@@ -139,45 +138,50 @@ QWidget* createWidget(AbstractProperty& baseProperty, QWidget* parent)
 
 QWidget* createWidget(Property& property, QWidget* parent)
 {
-  switch(property.type())
-  {
-    case ValueType::Boolean:
-      return new PropertyCheckBox(property, parent);
+    QWidget* widget = nullptr;
 
-    case ValueType::Enum:
-      if(property.enumName() == "pair_output_action")
-      {
-        return new PropertyPairOutputAction(property, parent);
-      }
-      return new PropertyComboBox(property, parent);
+    switch(property.type())
+    {
+        case ValueType::Boolean:
+            widget = new PropertyCheckBox(property, parent);
+            break;
 
-    case ValueType::Integer:
-      if(property.hasAttribute(AttributeName::Values) && !property.hasAttribute(AttributeName::Min) && !property.hasAttribute(AttributeName::Max))
-      {
-        return new PropertyComboBox(property, parent);
-      }
-      return new PropertySpinBox(property, parent);
+        case ValueType::Enum:
+            if(property.enumName() == "pair_output_action")
+                widget = new PropertyPairOutputAction(property, parent);
+            else
+                widget = new PropertyComboBox(property, parent);
+            break;
 
-    case ValueType::Float:
-      return new PropertyDoubleSpinBox(property, parent);
+        case ValueType::Integer:
+            if(property.hasAttribute(AttributeName::Values) &&
+               !property.hasAttribute(AttributeName::Min) &&
+               !property.hasAttribute(AttributeName::Max))
+            {
+                widget = new PropertyComboBox(property, parent);
+            }
+            else
+                widget = new PropertySpinBox(property, parent);
+            break;
 
-    case ValueType::String:
-      if(property.hasAttribute(AttributeName::Values))
-      {
-        return new PropertyComboBox(property, parent);
-      }
-      return new PropertyLineEdit(property, parent);
+        case ValueType::Float:
+            widget = new PropertyDoubleSpinBox(property, parent);
+            break;
 
-    case ValueType::Object:
-      break; // TODO
+        case ValueType::String:
+            if(property.hasAttribute(AttributeName::Values))
+                widget = new PropertyComboBox(property, parent);
+            else
+                widget = new PropertyLineEdit(property, parent);
+            break;
 
-    case ValueType::Set:
-      break; // TODO
+        case ValueType::Object:
+        case ValueType::Set:
+        case ValueType::Invalid:
+            break;
+    }
 
-    case ValueType::Invalid: /*[[unlikely]]*/
-      break;
-  }
-  if(widget && property.hasAttribute(AttributeName::Help))
+    if(widget && property.hasAttribute(AttributeName::Help))
     {
         QString helpText = property.getAttribute(AttributeName::Help, QString()).toString();
         widget->setToolTip(helpText);
@@ -205,8 +209,7 @@ QWidget* createWidget(Property& property, QWidget* parent)
         }
     }
 
-  assert(false);
-  return nullptr;
+    return widget;
 }
 
 QWidget* createWidget(ObjectProperty& property, QWidget* parent)
@@ -217,4 +220,3 @@ QWidget* createWidget(ObjectProperty& property, QWidget* parent)
   }
   return new ObjectNameLabel(property, parent);
 }
-

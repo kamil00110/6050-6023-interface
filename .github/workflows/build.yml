@@ -348,16 +348,11 @@ jobs:
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
-        toolset: 14.0  # Use MSVC toolset
 
-    # Windows only: Setup ccache for faster compilation
-    - name: Setup ccache (Windows)
+    # Windows only: Setup sccache for faster compilation
+    - name: Setup sccache (Windows)
       if: startswith(matrix.config.os, 'windows')
-      uses: hendrikmuhs/ccache-action@v1.2
-      with:
-        key: ${{ matrix.config.name }}-server
-        max-size: 5G  # Increased from 2G for Boost
-        variant: sccache  # sccache works better on Windows
+      uses: mozilla-actions/sccache-action@v0.0.5
 
     # Windows only: Install Ninja
     - name: Install Ninja (Windows)
@@ -371,10 +366,10 @@ jobs:
       run: |
         echo "CC=clang-cl" >> $GITHUB_ENV
         echo "CXX=clang-cl" >> $GITHUB_ENV
-        echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
-        echo "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
         echo "VCPKG_MAX_CONCURRENCY=8" >> $GITHUB_ENV
         echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $GITHUB_ENV
+        # Don't use sccache with vcpkg - causes issues
+        echo "VCPKG_KEEP_ENV_VARS=" >> $GITHUB_ENV
 
     # Linux only: Install Ninja
     - name: Install Ninja (Linux)
@@ -391,13 +386,11 @@ jobs:
       with:
         path: |
           ${{ runner.os == 'Windows' && 'C:/vcpkg/installed' || '~/.cache/vcpkg' }}
-          ${{ runner.os == 'Windows' && 'C:/vcpkg/buildtrees' || '' }}
           ${{ runner.os == 'Windows' && 'C:/vcpkg/packages' || '' }}
-          ${{ runner.os == 'Windows' && 'C:/vcpkg/downloads' || '' }}
-        key: vcpkg-v2-${{ runner.os }}-${{ matrix.config.name }}-${{ hashFiles('**/vcpkg.json', '**/server/vcpkg.json') }}
+        key: vcpkg-v3-${{ runner.os }}-${{ matrix.config.name }}-${{ hashFiles('**/vcpkg.json', '**/server/vcpkg.json') }}
         restore-keys: |
-          vcpkg-v2-${{ runner.os }}-${{ matrix.config.name }}-
-          vcpkg-v2-${{ runner.os }}-
+          vcpkg-v3-${{ runner.os }}-${{ matrix.config.name }}-
+          vcpkg-v3-${{ runner.os }}-
             
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v7
@@ -421,6 +414,8 @@ jobs:
         cd $VCPKG_ROOT
         git pull
         ./bootstrap-vcpkg.bat
+        # Ensure vcpkg uses system compilers properly
+        echo "set(VCPKG_POLICY_SKIP_ARCHITECTURE_CHECK enabled)" >> triplets/x64-windows.cmake
 
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')
@@ -453,15 +448,16 @@ jobs:
       shell: bash
       working-directory: ${{github.workspace}}/server/build
       run: cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
-      env:
-        # Speed up vcpkg on Windows
-        VCPKG_KEEP_ENV_VARS: "CMAKE_C_COMPILER_LAUNCHER;CMAKE_CXX_COMPILER_LAUNCHER"
 
     # All:
     - name: Build
       working-directory: ${{github.workspace}}/server/build
       shell: bash
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
+      env:
+        # Use sccache only for the main build, not vcpkg
+        CMAKE_C_COMPILER_LAUNCHER: ${{ startswith(matrix.config.os, 'windows') && 'sccache' || '' }}
+        CMAKE_CXX_COMPILER_LAUNCHER: ${{ startswith(matrix.config.os, 'windows') && 'sccache' || '' }}
 
     # All:
     - name: Run tests

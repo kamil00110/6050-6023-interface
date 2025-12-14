@@ -390,6 +390,8 @@ void Decoder::worldEvent(WorldState state, WorldEvent event)
       break;
   }
 }
+bool m_marklin6022AddressMode = false;
+
 void Decoder::protocolChanged()
 {
   if(interface)
@@ -401,19 +403,20 @@ void Decoder::protocolChanged()
     if(hasAddress)
     {
         if(addressRange.first == 10 && addressRange.second == 40)
-        {
-            // Use discrete allowed addresses for Marklin 6022
-           
-            Attributes::setMinMax(address, uint16_t(1), uint16_t(4));
-            Attributes::addUnit(address, "0");
-            checkAddress();
-        }
-        else
-        {
-            // Default min/max for other range
-            Attributes::setMinMax(address, addressRange);
-            checkAddress();
-        }
+            {
+                m_marklin6022AddressMode = true;
+
+                Attributes::setMinMax(address, uint16_t(1), uint16_t(4));
+                Attributes::addUnit(address, "0"); // visual only
+                checkAddress();
+            }
+            else
+            {
+        m_marklin6022AddressMode = false;
+        Attributes::setMinMax(address, addressRange);
+        checkAddress();
+    }
+
     }
     else
       Attributes::setMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
@@ -457,37 +460,20 @@ bool Decoder::checkProtocol()
 
 bool Decoder::checkAddress()
 {
-    auto addressMin = address.getAttribute<uint16_t>(AttributeName::Min);
-    auto addressMax = address.getAttribute<uint16_t>(AttributeName::Max);
     auto value = address.value();
 
-    // Special mapping for Marklin 6022: 1-4 → 10, 20, 30, 40
-    if(addressMin == 10 && addressMax == 40)
+    if(m_marklin6022AddressMode)
     {
-        switch(value)
-        {
-            case 1: value = 10; break;
-            case 2: value = 20; break;
-            case 3: value = 30; break;
-            case 4: value = 40; break;
-            default: value = 10; break; // fallback
-        }
-    }
-    if(addressMin == 1 && addressMax == 4)
-    {
-        switch(value)
-        {
-            case 1: value = 10; break;
-            case 2: value = 20; break;
-            case 3: value = 30; break;
-            case 4: value = 40; break;
-            default: value = 10; break; // fallback
-        }
+        static constexpr uint16_t map[] = { 0, 10, 20, 30, 40 };
+
+        value = std::clamp<uint16_t>(value, 1, 4);
+        value = map[value];
     }
     else
     {
-        // Default clamping
-        value = std::clamp(value, addressMin, addressMax);
+        const auto min = address.getAttribute<uint16_t>(AttributeName::Min);
+        const auto max = address.getAttribute<uint16_t>(AttributeName::Max);
+        value = std::clamp(value, min, max);
     }
 
     if(value != address.value())
@@ -495,7 +481,6 @@ bool Decoder::checkAddress()
         address = value;
         return true;
     }
-
     return false;
 }
 

@@ -236,7 +236,7 @@ jobs:
           generator: "Ninja"  # Changed to Ninja
           arch: ""  # Not needed with Ninja
           toolset: ""  # Not needed with Ninja
-          compiler: "clang-cl"  # Specify compiler for Ninja
+          compiler: "msvc"  # Changed to MSVC for better compatibility
           target: all  # Changed from ALL_BUILD
           jobs: 8  # Increased from 4 - Windows runners have more capacity
           build_type: Release
@@ -359,13 +359,18 @@ jobs:
       if: startswith(matrix.config.os, 'windows')
       run: choco install ninja
 
-    # Windows only: Set up clang-cl compiler
+    # Windows only: Set up compiler
     - name: Set compiler environment (Windows)
-      if: startswith(matrix.config.os, 'windows') && matrix.config.compiler == 'clang-cl'
+      if: startswith(matrix.config.os, 'windows')
       shell: bash
       run: |
-        echo "CC=clang-cl" >> $GITHUB_ENV
-        echo "CXX=clang-cl" >> $GITHUB_ENV
+        if [ "${{ matrix.config.compiler }}" == "clang-cl" ]; then
+          echo "CC=clang-cl" >> $GITHUB_ENV
+          echo "CXX=clang-cl" >> $GITHUB_ENV
+        else
+          echo "CC=cl" >> $GITHUB_ENV
+          echo "CXX=cl" >> $GITHUB_ENV
+        fi
         echo "VCPKG_MAX_CONCURRENCY=8" >> $GITHUB_ENV
         echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $GITHUB_ENV
         # Don't use sccache with vcpkg - causes issues

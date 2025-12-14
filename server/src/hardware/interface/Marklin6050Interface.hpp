@@ -27,6 +27,7 @@ private:
   SerialDeviceProperty serialPort;
   Property<uint32_t> baudrate;
   Property<unsigned int> centralUnitVersion;
+  Property<bool> analog;
   Property<unsigned int> s88amount;
   Property<unsigned int> s88interval;
   Property<unsigned int> turnouttime;

@@ -42,6 +42,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store),
       centralUnitVersion(this, "centralUnitVersion", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      analog(this, "analog", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),
       turnouttime(this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store),
@@ -94,6 +95,13 @@ Attributes::addVisible(centralUnitVersion, true);
 m_interfaceItems.insertBefore(centralUnitVersion, notes);
 Attributes::addValues(centralUnitVersion, options);
 Attributes::addAliases(centralUnitVersion, &options, &labels);
+
+Attributes::addCategory(analog, "Märklin 6050");
+Attributes::addDisplayName(analog, "s88 module amount");
+Attributes::addHelp(analog, "CU.s88amount");
+Attributes::addEnabled(analog, !online);
+Attributes::addVisible(analog, true);
+m_interfaceItems.insertBefore(analog, notes);;
 
 Attributes::addCategory(s88amount, "Märklin 6050");
 Attributes::addDisplayName(s88amount, "s88 module amount");
@@ -338,6 +346,10 @@ void Marklin6050Interface::updateEnabled()
     Attributes::setEnabled(oldAddress, online);
     Attributes::setEnabled(newAddress, online);
     Attributes::setEnabled(programmer, online);
+    const bool analogsupport =
+        centralUnitVersion == 6027||
+        centralUnitVersion == 6029;
+    Attributes::setEnabled(analog, analogsupport);
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)
@@ -463,6 +475,56 @@ void Marklin6050Interface::onS88Input(uint32_t address, bool state)
     TriState ts = state ? TriState::True : TriState::False;
     updateInputValue(InputChannel::S88, address, ts);
 }
+void Marklin6050Interface::checkDecoder(const Decoder& decoder)
+{
+    const bool f4 =
+        centralUnitVersion == 6021 ||
+        centralUnitVersion == 6027 ||
+        centralUnitVersion == 6029 ||
+        centralUnitVersion == 6030;
+
+    const bool f0 =
+        centralUnitVersion == 6020 ||
+        centralUnitVersion == 6022 ||
+        centralUnitVersion == 6023 ||
+        centralUnitVersion == 6223;
+
+    const bool nothing =
+        centralUnitVersion == 6032||
+        centralUnitVersion == 6027 && analog||
+        centralUnitVersion == 6029 && analog;
+
+    uint8_t maxFunctionNumber = 0;
+    
+    if(f4)
+    {
+        // DCC supports many functions
+        maxFunctionNumber = 5; // or whatever is correct for this interface
+    }
+    if(f0)
+    {
+        // DCC supports many functions
+        maxFunctionNumber = 1; // or whatever is correct for this interface
+    }
+    if(nothing)
+    {
+        maxFunctionNumber = 0;
+    }
+    
+    for(const auto& function : *decoder.functions)
+    {
+        if(function->number > maxFunctionNumber)
+        {
+            Log::log(
+                decoder,
+                LogMessage::W2002_COMMAND_STATION_DOESNT_SUPPORT_FUNCTIONS_ABOVE_FX,
+                maxFunctionNumber
+            );
+            break;
+        }
+    }
+}
+
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {

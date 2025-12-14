@@ -340,6 +340,14 @@ jobs:
         arch: x64
         toolset: 14.0  # Use MSVC toolset
 
+    # Windows only: Setup ccache for faster compilation
+    - name: Setup ccache (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      uses: hendrikmuhs/ccache-action@v1.2
+      with:
+        key: ${{ matrix.config.name }}-server
+        max-size: 2G
+
     # Windows only: Install Ninja
     - name: Install Ninja (Windows)
       if: startswith(matrix.config.os, 'windows')
@@ -352,6 +360,8 @@ jobs:
       run: |
         echo "CC=clang-cl" >> $GITHUB_ENV
         echo "CXX=clang-cl" >> $GITHUB_ENV
+        echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+        echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
 
     # Linux only: Install Ninja
     - name: Install Ninja (Linux)
@@ -367,8 +377,11 @@ jobs:
       uses: actions/cache@v4
       with:
         path: |
-          ~/.cache/vcpkg
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          ${{ runner.os == 'Windows' && 'C:/vcpkg/installed' || '~/.cache/vcpkg' }}
+          ${{ runner.os == 'Windows' && 'C:/vcpkg/buildtrees' || '' }}
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/server/vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-
             
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v7
@@ -454,7 +467,7 @@ jobs:
     - name: Code coverage
       if: matrix.config.ccov
       working-directory: ${{github.workspace}}/server/build
-      run: make ccov
+      run: ninja ccov
 
     - name: "Code coverage: upload to coveralls.io"
       if: matrix.config.ccov
@@ -552,7 +565,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: FranzDiebold/github-env-actions@v2
+    - uses: FranzDiebold/github-env-vars-action@v2
 
     - name: Checkout
       uses: actions/checkout@v3

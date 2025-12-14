@@ -227,8 +227,6 @@ jobs:
     runs-on: ${{matrix.config.os}}
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
-      # Windows optimization: Use binary caching for vcpkg
-      VCPKG_FEATURE_FLAGS: "binarycaching,manifests"
     strategy:
       fail-fast: false
       matrix:
@@ -243,7 +241,7 @@ jobs:
           jobs: 8  # Increased from 4 - Windows runners have more capacity
           build_type: Release
           build_deb: false
-          defines: "-DVCPKG_MANIFEST_MODE=ON"
+          defines: "-DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -376,6 +374,7 @@ jobs:
         echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
         echo "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
         echo "VCPKG_MAX_CONCURRENCY=8" >> $GITHUB_ENV
+        echo "VCPKG_DEFAULT_TRIPLET=x64-windows" >> $GITHUB_ENV
 
     # Linux only: Install Ninja
     - name: Install Ninja (Linux)
@@ -413,6 +412,15 @@ jobs:
       with:
         script: |
           core.exportVariable('VCPKG_ROOT', process.env.VCPKG_INSTALLATION_ROOT || '');
+
+    # Windows only: Update vcpkg to latest
+    - name: Update vcpkg (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: bash
+      run: |
+        cd $VCPKG_ROOT
+        git pull
+        ./bootstrap-vcpkg.bat
 
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')

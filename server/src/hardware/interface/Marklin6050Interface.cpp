@@ -41,7 +41,10 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       DecoderController(*this, decoderListColumns),
       serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
       baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      centralUnitVersion(this, "centralUnitVersion", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store),
+      centralUnitVersion{this, "central_unit_version", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store,[this](const uint16_t& /*newValue*/)
+      {
+        onCentralUnitVersionChanged();
+      }},
       analog(this, "analog", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),
@@ -230,6 +233,11 @@ m_interfaceItems.insertBefore(outputs, notes);
 m_interfaceItems.insertBefore(decoders, notes);
 
 }
+void Marklin6050Interface::onCentralUnitVersionChanged()
+{
+    updateEnabled(); 
+}
+
 
 void Marklin6050Interface::addToWorld()
 {

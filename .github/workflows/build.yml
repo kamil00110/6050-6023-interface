@@ -122,6 +122,16 @@ jobs:
       if: startswith(matrix.config.os, 'windows')
       run: choco install ninja
 
+    # Windows only: Try to use system Boost if available to skip vcpkg build
+    - name: Check for system Boost (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      shell: bash
+      run: |
+        if [ -d "C:/hostedtoolcache/windows/Boost" ]; then
+          echo "BOOST_ROOT=C:/hostedtoolcache/windows/Boost" >> $GITHUB_ENV
+        fi
+      continue-on-error: true
+
     # Linux only: Install Ninja
     - name: Install Ninja (Linux)
       if: startswith(matrix.config.os, 'ubuntu')
@@ -217,6 +227,8 @@ jobs:
     runs-on: ${{matrix.config.os}}
     env:
       VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+      # Windows optimization: Use binary caching for vcpkg
+      VCPKG_FEATURE_FLAGS: "binarycaching,manifests"
     strategy:
       fail-fast: false
       matrix:
@@ -228,10 +240,10 @@ jobs:
           toolset: ""  # Not needed with Ninja
           compiler: "clang-cl"  # Specify compiler for Ninja
           target: all  # Changed from ALL_BUILD
-          jobs: 4
+          jobs: 8  # Increased from 4 - Windows runners have more capacity
           build_type: Release
           build_deb: false
-          defines: ""
+          defines: "-DVCPKG_MANIFEST_MODE=ON"
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -346,7 +358,8 @@ jobs:
       uses: hendrikmuhs/ccache-action@v1.2
       with:
         key: ${{ matrix.config.name }}-server
-        max-size: 2G
+        max-size: 5G  # Increased from 2G for Boost
+        variant: sccache  # sccache works better on Windows
 
     # Windows only: Install Ninja
     - name: Install Ninja (Windows)
@@ -360,8 +373,9 @@ jobs:
       run: |
         echo "CC=clang-cl" >> $GITHUB_ENV
         echo "CXX=clang-cl" >> $GITHUB_ENV
-        echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
-        echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+        echo "CMAKE_CXX_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
+        echo "CMAKE_C_COMPILER_LAUNCHER=sccache" >> $GITHUB_ENV
+        echo "VCPKG_MAX_CONCURRENCY=8" >> $GITHUB_ENV
 
     # Linux only: Install Ninja
     - name: Install Ninja (Linux)
@@ -379,9 +393,12 @@ jobs:
         path: |
           ${{ runner.os == 'Windows' && 'C:/vcpkg/installed' || '~/.cache/vcpkg' }}
           ${{ runner.os == 'Windows' && 'C:/vcpkg/buildtrees' || '' }}
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json', '**/server/vcpkg.json') }}
+          ${{ runner.os == 'Windows' && 'C:/vcpkg/packages' || '' }}
+          ${{ runner.os == 'Windows' && 'C:/vcpkg/downloads' || '' }}
+        key: vcpkg-v2-${{ runner.os }}-${{ matrix.config.name }}-${{ hashFiles('**/vcpkg.json', '**/server/vcpkg.json') }}
         restore-keys: |
-          vcpkg-${{ runner.os }}-
+          vcpkg-v2-${{ runner.os }}-${{ matrix.config.name }}-
+          vcpkg-v2-${{ runner.os }}-
             
     - name: Export GitHub Actions cache environment variables
       uses: actions/github-script@v7
@@ -428,6 +445,9 @@ jobs:
       shell: bash
       working-directory: ${{github.workspace}}/server/build
       run: cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
+      env:
+        # Speed up vcpkg on Windows
+        VCPKG_KEEP_ENV_VARS: "CMAKE_C_COMPILER_LAUNCHER;CMAKE_CXX_COMPILER_LAUNCHER"
 
     # All:
     - name: Build
@@ -603,13 +623,13 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build
+        path: ${{github.workspace}}/client/build/Release
 
     - name: Download artifacts 2/2
       uses: actions/download-artifact@v4
       with:
         name: traintastic-server-windows
-        path: ${{github.workspace}}/server/build
+        path: ${{github.workspace}}/server/build/Release
 
     - name: "Download artifact: lang"
       uses: actions/download-artifact@v4

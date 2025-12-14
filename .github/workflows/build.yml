@@ -1,5 +1,5 @@
 name: Build
-#modified file
+#modified file with performance optimizations
 on:
   workflow_dispatch:
     inputs:
@@ -31,8 +31,8 @@ jobs:
         config:
         - name: "windows_x64_msvc"
           os: windows-latest
-          generator: "Visual Studio 17 2022"
-          arch: "-A x64"
+          generator: "Ninja"  # Changed from Visual Studio to Ninja
+          arch: ""  # Not needed with Ninja
           target: traintastic-client
           jobs: 4
           build_type: Release
@@ -41,7 +41,7 @@ jobs:
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja for consistency
           arch: ""
           target: traintastic-client
           jobs: 4
@@ -51,7 +51,7 @@ jobs:
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           target: traintastic-client
           jobs: 4
@@ -81,7 +81,7 @@ jobs:
 
         - name: "macos-15-intel"
           os: "macos-15-intel"
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           osx_arch: x86_64
           target: traintastic-client
@@ -92,7 +92,7 @@ jobs:
 
         - name: "macos-15-arm64"
           os: "macos-15"
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           osx_arch: arm64
           target: traintastic-client
@@ -109,6 +109,28 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
+
+    # Windows only: Setup MSVC environment for Ninja
+    - name: Setup MSVC for Ninja
+      if: startswith(matrix.config.os, 'windows')
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    # Windows only: Install Ninja
+    - name: Install Ninja (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      run: choco install ninja
+
+    # Linux only: Install Ninja
+    - name: Install Ninja (Linux)
+      if: startswith(matrix.config.os, 'ubuntu')
+      run: sudo apt install ninja-build
+
+    # macOS only: Install Ninja
+    - name: Install Ninja (macOS)
+      if: startswith(matrix.config.os, 'macos')
+      run: brew install ninja
 
     # Windows only:
     - name: Install Qt 5
@@ -166,7 +188,7 @@ jobs:
       shell: cmd
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/${{matrix.config.build_type}}/traintastic-client.exe
+        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/traintastic-client.exe
 
     # Linux only:
     - name: Build debian package
@@ -174,13 +196,13 @@ jobs:
       working-directory: ${{github.workspace}}/client/build
       run: cpack
 
-    # Windows only:
+    # Windows only: Note the path change - Ninja doesn't use Release subfolder
     - name: Upload artifact
       if: startswith(matrix.config.os, 'windows')
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/${{matrix.config.build_type}}
+        path: ${{github.workspace}}/client/build/
 
     # Linux only:
     - name: Upload debian package artifact
@@ -201,10 +223,11 @@ jobs:
         config:
         - name: "windows_x64_clang"
           os: windows-latest
-          generator: "Visual Studio 17 2022"
-          arch: "-A x64"
-          toolset: "-T ClangCL"
-          target: ALL_BUILD
+          generator: "Ninja"  # Changed to Ninja
+          arch: ""  # Not needed with Ninja
+          toolset: ""  # Not needed with Ninja
+          compiler: "clang-cl"  # Specify compiler for Ninja
+          target: all  # Changed from ALL_BUILD
           jobs: 4
           build_type: Release
           build_deb: false
@@ -213,9 +236,10 @@ jobs:
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           toolset: ""
+          compiler: ""
           target: all
           jobs: 4
           build_type: Release
@@ -225,9 +249,10 @@ jobs:
 
         - name: "ubuntu_24.04 (debug+ccov)"
           os: ubuntu-24.04
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           toolset: ""
+          compiler: ""
           target: traintastic-server-test
           jobs: 4
           build_type: Debug
@@ -237,9 +262,10 @@ jobs:
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           toolset: ""
+          compiler: ""
           target: all
           jobs: 4
           build_type: Release
@@ -273,9 +299,10 @@ jobs:
 
         - name: "macos-15-intel"
           os: "macos-15-intel"
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           toolset: ""
+          compiler: ""
           target: all
           jobs: 4
           build_type: Release
@@ -285,9 +312,10 @@ jobs:
 
         - name: "macos-15-arm64"
           os: "macos-15"
-          generator: "Unix Makefiles"
+          generator: "Ninja"  # Changed to Ninja
           arch: ""
           toolset: ""
+          compiler: ""
           target: all
           jobs: 4
           build_type: Release
@@ -303,7 +331,38 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
+
+    # Windows only: Setup MSVC environment for Ninja with clang-cl
+    - name: Setup MSVC for Ninja
+      if: startswith(matrix.config.os, 'windows')
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+        toolset: 14.0  # Use MSVC toolset
+
+    # Windows only: Install Ninja
+    - name: Install Ninja (Windows)
+      if: startswith(matrix.config.os, 'windows')
+      run: choco install ninja
+
+    # Windows only: Set up clang-cl compiler
+    - name: Set compiler environment (Windows)
+      if: startswith(matrix.config.os, 'windows') && matrix.config.compiler == 'clang-cl'
+      shell: bash
+      run: |
+        echo "CC=clang-cl" >> $GITHUB_ENV
+        echo "CXX=clang-cl" >> $GITHUB_ENV
+
+    # Linux only: Install Ninja
+    - name: Install Ninja (Linux)
+      if: startswith(matrix.config.os, 'ubuntu')
+      run: sudo apt install ninja-build
         
+    # macOS only: Install Ninja
+    - name: Install Ninja (macOS)
+      if: startswith(matrix.config.os, 'macos')
+      run: brew install ninja
+
     - name: Restore vcpkg cache
       uses: actions/cache@v4
       with:
@@ -349,33 +408,19 @@ jobs:
 
     # All:
     - name: Create Build Environment
-      # Some projects don't allow in-source building, so create a separate build directory
-      # We'll use this as our working directory for all subsequent commands
       run: cmake -E make_directory ${{github.workspace}}/server/build
 
     # All:
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/server/build
-      # Note the current convention is to use the -S and -B options here to specify source
-      # and build directories, but this is only available with CMake 3.13 and higher.
-      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
       run: cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
 
     # All:
     - name: Build
       working-directory: ${{github.workspace}}/server/build
       shell: bash
-      # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
-
-    # mingw only
-    #- name: Run tests (mingw)
-    #  if: matrix.config.name == 'windows_x64_mingw'
-    #  working-directory: ${{github.workspace}}/server/build
-    #  run: |
-    #    $env:PATH += ';C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
-    #    ctest --output-on-failure
 
     # All:
     - name: Run tests
@@ -389,13 +434,13 @@ jobs:
       working-directory: ${{github.workspace}}/server/build
       run: cpack
 
-    # Windows only:
+    # Windows only: Note the path change - Ninja doesn't use Release subfolder
     - name: Upload artifact
       if: matrix.config.name == 'windows_x64_clang'
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-server-windows
-        path: ${{github.workspace}}/server/build/Release/traintastic-server.exe
+        path: ${{github.workspace}}/server/build/traintastic-server.exe
 
     # Linux only:
     - name: Upload debian package artifact
@@ -507,7 +552,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: FranzDiebold/github-env-vars-action@v2
+    - uses: FranzDiebold/github-env-actions@v2
 
     - name: Checkout
       uses: actions/checkout@v3
@@ -545,7 +590,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/Release
+        path: ${{github.workspace}}/client/build
 
     - name: Download artifacts 2/2
       uses: actions/download-artifact@v4
@@ -570,8 +615,6 @@ jobs:
       run: |
         "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" %GITHUB_WORKSPACE%/package/innosetup/traintastic.iss
 
-
-    # --- inside your existing package-innosetup job ---
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
@@ -685,4 +728,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

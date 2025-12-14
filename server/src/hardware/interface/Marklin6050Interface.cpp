@@ -350,6 +350,10 @@ void Marklin6050Interface::updateEnabled()
         centralUnitVersion == 6027||
         centralUnitVersion == 6029;
     Attributes::setEnabled(analog, analogsupport);
+    if(!analogsupport){
+        Attributes::setValue(analog, false);
+    }
+    
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)
@@ -528,17 +532,25 @@ void Marklin6050Interface::checkDecoder(const Decoder& decoder)
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
-    // Units that support DCC
+    
     const bool isDcc =
-        centralUnitVersion == 6027 ||
-        centralUnitVersion == 6029 ||
-        centralUnitVersion == 6030 ||
-        centralUnitVersion == 6032;
+        centralUnitVersion == 6027 && !analog ||
+        centralUnitVersion == 6029 && !analog ||
+        centralUnitVersion == 6030 && !analog ||
+        centralUnitVersion == 6032 && !analog;
 
     const bool Limited =
         centralUnitVersion == 6022 ||
         centralUnitVersion == 6023 ||
         centralUnitVersion == 6223;
+
+    const bool Motorola =
+        centralUnitVersion == 6021 ||
+        centralUnitVersion == 6020;
+
+    const bool None =
+        centralUnitVersion == 6027 && analog ||
+        centralUnitVersion == 6029 && analog;
 
     if (isDcc)
     {
@@ -547,23 +559,29 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
         };
         return protocols;
     }
-    else
+    if (None)
     {
-        if(Limited){
-            static constexpr std::array<DecoderProtocol, 1> protocols{
-                DecoderProtocol::Motorola
-            };
-            return protocols;
-        }
-        else{
-            static constexpr std::array<DecoderProtocol, 1> protocols{
-                DecoderProtocol::Motorola
-            };
-            return protocols;
-        }
-        
+        static constexpr std::array<DecoderProtocol, 1> protocols{
+            DecoderProtocol::None
+        };
+        return protocols;
+    }
+    if (Motorola)
+    {
+        static constexpr std::array<DecoderProtocol, 1> protocols{
+            DecoderProtocol::Motorola
+        };
+        return protocols;
+    }
+    if Limited)
+    {
+        static constexpr std::array<DecoderProtocol, 1> protocols{
+            DecoderProtocol::Motorola
+        };
+        return protocols;
     }
     
+    } 
 }
 
 
@@ -572,10 +590,13 @@ std::pair<uint16_t, uint16_t>
 Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
 {   
     const bool isDcc =
-        centralUnitVersion == 6027 ||
-        centralUnitVersion == 6029 ||
-        centralUnitVersion == 6030 ||
-        centralUnitVersion == 6032;
+        centralUnitVersion == 6027 !analog ||
+        centralUnitVersion == 6029 !analog ||
+        centralUnitVersion == 6030 !analog ||
+        centralUnitVersion == 6032 !analog;
+
+    const bool MM1 =
+        centralUnitVersion == 6021;
 
     const bool MM2 =
         centralUnitVersion == 6021;
@@ -584,6 +605,11 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
         centralUnitVersion == 6022 ||
         centralUnitVersion == 6023 ||
         centralUnitVersion == 6223;
+
+    const bool None =
+        centralUnitVersion == 6027 && analog ||
+        centralUnitVersion == 6029 && analog;
+
     
     if (isDcc)
     {
@@ -594,22 +620,41 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
             return {1, 80};
         }
     }
-    else
+    if (None)
     {
-        if(Limited){
-            return {10, 40};
-        }
         if(extensions){
-            if(MM2){
-               return {1, 255};
-            }
-            else{
-               return {1, 79};
-            } 
+            return {1, 1};
         }
         else{
-            return {1, 79};
-        } 
+            return {1, 1};
+        }
+    }
+    if (MM2)
+    {
+        if(extensions){
+            return {1, 255};
+        }
+        else{
+            return {1, 80};
+        }
+    }
+    if (MM1)
+    {
+        if(extensions){
+            return {1, 80};
+        }
+        else{
+            return {1, 80};
+        }
+    }
+    if (Limited)
+    {
+        if(extensions){
+            return {10, 40};
+        }
+        else{
+            return {10, 40};
+        }
     }
 }
 

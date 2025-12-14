@@ -351,7 +351,7 @@ void Marklin6050Interface::updateEnabled()
         centralUnitVersion == 6029;
     Attributes::setEnabled(analog, analogsupport);
     if(!analogsupport){
-        Attributes::setValue(analog, false);
+        Attributes::setValues(analog, false);
     }
     
 }
@@ -494,8 +494,8 @@ void Marklin6050Interface::checkDecoder(const Decoder& decoder)
         centralUnitVersion == 6223;
 
     const bool nothing =
-        centralUnitVersion == 6032||
-        centralUnitVersion == 6027 && analog||
+        centralUnitVersion == 6032 ||
+        centralUnitVersion == 6027 && analog ||
         centralUnitVersion == 6029 && analog;
 
     uint8_t maxFunctionNumber = 0;
@@ -573,15 +573,13 @@ std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
         };
         return protocols;
     }
-    if Limited)
+    if (Limited)
     {
         static constexpr std::array<DecoderProtocol, 1> protocols{
             DecoderProtocol::Motorola
         };
         return protocols;
     }
-    
-    } 
 }
 
 
@@ -590,10 +588,10 @@ std::pair<uint16_t, uint16_t>
 Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
 {   
     const bool isDcc =
-        centralUnitVersion == 6027 !analog ||
-        centralUnitVersion == 6029 !analog ||
-        centralUnitVersion == 6030 !analog ||
-        centralUnitVersion == 6032 !analog;
+        centralUnitVersion == 6027 && !analog ||
+        centralUnitVersion == 6029 && !analog ||
+        centralUnitVersion == 6030 && !analog ||
+        centralUnitVersion == 6032 && !analog;
 
     const bool MM1 =
         centralUnitVersion == 6021;

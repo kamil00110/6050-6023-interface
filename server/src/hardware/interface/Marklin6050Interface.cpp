@@ -97,7 +97,7 @@ Attributes::addValues(centralUnitVersion, options);
 Attributes::addAliases(centralUnitVersion, &options, &labels);
 
 Attributes::addCategory(analog, "Märklin 6050");
-Attributes::addDisplayName(analog, "s88 module amount");
+Attributes::addDisplayName(analog, "Analog mode");
 Attributes::addHelp(analog, "CU.s88amount");
 Attributes::addEnabled(analog, !online);
 Attributes::addVisible(analog, true);

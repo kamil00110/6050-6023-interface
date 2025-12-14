@@ -54,7 +54,7 @@ protected:
   void destroying() final;
   void worldEvent(WorldState state, WorldEvent event) final;
   void onlineChanged(bool value); 
-
+  void onCentralUnitVersionChanged();
   bool setOnline(bool& value, bool simulation) final;
 
 public:

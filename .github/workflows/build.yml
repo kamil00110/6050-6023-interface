@@ -233,15 +233,15 @@ jobs:
         config:
         - name: "windows_x64_clang"
           os: windows-latest
-          generator: "Ninja"  # Changed to Ninja
-          arch: ""  # Not needed with Ninja
-          toolset: ""  # Not needed with Ninja
-          compiler: "msvc"  # Changed to MSVC for better compatibility
-          target: all  # Changed from ALL_BUILD
-          jobs: 8  # Increased from 4 - Windows runners have more capacity
+          generator: "Visual Studio 17 2022"  # Keep VS generator for compatibility
+          arch: "-A x64"
+          toolset: "-T ClangCL"
+          compiler: "clang-cl"
+          target: ALL_BUILD
+          jobs: 8  # Increased for faster builds
           build_type: Release
           build_deb: false
-          defines: "-DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+          defines: ""
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -367,6 +367,8 @@ jobs:
         if [ "${{ matrix.config.compiler }}" == "clang-cl" ]; then
           echo "CC=clang-cl" >> $GITHUB_ENV
           echo "CXX=clang-cl" >> $GITHUB_ENV
+          # Force use of MSVC linker to avoid lua_ident issue with lld-link
+          echo "LDFLAGS=-fuse-ld=lld" >> $GITHUB_ENV
         else
           echo "CC=cl" >> $GITHUB_ENV
           echo "CXX=cl" >> $GITHUB_ENV
@@ -459,10 +461,6 @@ jobs:
       working-directory: ${{github.workspace}}/server/build
       shell: bash
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
-      env:
-        # Use sccache only for the main build, not vcpkg
-        CMAKE_C_COMPILER_LAUNCHER: ${{ startswith(matrix.config.os, 'windows') && 'sccache' || '' }}
-        CMAKE_CXX_COMPILER_LAUNCHER: ${{ startswith(matrix.config.os, 'windows') && 'sccache' || '' }}
 
     # All:
     - name: Run tests

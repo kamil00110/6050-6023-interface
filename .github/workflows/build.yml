@@ -31,17 +31,17 @@ jobs:
         config:
         - name: "windows_x64_msvc"
           os: windows-latest
-          generator: "Ninja"  # Changed from Visual Studio to Ninja
-          arch: ""  # Not needed with Ninja
+          generator: "Visual Studio 17 2022"
+          arch: "-A x64"
           target: traintastic-client
-          jobs: 4
+          jobs: 8
           build_type: Release
           build_deb: false
           defines: ""
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Ninja"  # Changed to Ninja for consistency
+          generator: "Ninja"
           arch: ""
           target: traintastic-client
           jobs: 4
@@ -51,7 +51,7 @@ jobs:
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           target: traintastic-client
           jobs: 4
@@ -81,7 +81,7 @@ jobs:
 
         - name: "macos-15-intel"
           os: "macos-15-intel"
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           osx_arch: x86_64
           target: traintastic-client
@@ -92,7 +92,7 @@ jobs:
 
         - name: "macos-15-arm64"
           os: "macos-15"
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           osx_arch: arm64
           target: traintastic-client
@@ -159,6 +159,11 @@ jobs:
         modules: qtwebsockets
         version: 6.5.*
 
+    # macOS only: Install Ninja
+    - name: Install Ninja (macOS)
+      if: startswith(matrix.config.os, 'macos')
+      run: brew install ninja
+
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')
       uses: actions/github-script@v7
@@ -174,7 +179,7 @@ jobs:
     # Ubuntu only:
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev
+      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev ninja-build
       
     # All:
     - name: Create Build Environment
@@ -198,7 +203,7 @@ jobs:
       shell: cmd
       run: |
         call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/traintastic-client.exe
+        windeployqt --release --no-translations -no-system-d3d-compiler --no-opengl-sw ${{github.workspace}}/client/build/Release/traintastic-client.exe
 
     # Linux only:
     - name: Build debian package
@@ -206,13 +211,13 @@ jobs:
       working-directory: ${{github.workspace}}/client/build
       run: cpack
 
-    # Windows only: Note the path change - Ninja doesn't use Release subfolder
+    # Windows only: Note the path is back to Release subfolder with VS generator
     - name: Upload artifact
       if: startswith(matrix.config.os, 'windows')
       uses: actions/upload-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/
+        path: ${{github.workspace}}/client/build/Release/
 
     # Linux only:
     - name: Upload debian package artifact
@@ -246,7 +251,7 @@ jobs:
 
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           toolset: ""
           compiler: ""
@@ -259,7 +264,7 @@ jobs:
 
         - name: "ubuntu_24.04 (debug+ccov)"
           os: ubuntu-24.04
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           toolset: ""
           compiler: ""
@@ -272,7 +277,7 @@ jobs:
 
         - name: "ubuntu_24.04_arm64"
           os: ubuntu-24.04-arm
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           toolset: ""
           compiler: ""
@@ -309,7 +314,7 @@ jobs:
 
         - name: "macos-15-intel"
           os: "macos-15-intel"
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           toolset: ""
           compiler: ""
@@ -322,7 +327,7 @@ jobs:
 
         - name: "macos-15-arm64"
           os: "macos-15"
-          generator: "Ninja"  # Changed to Ninja
+          generator: "Ninja"
           arch: ""
           toolset: ""
           compiler: ""
@@ -439,12 +444,12 @@ jobs:
     # Ubuntu only:
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install libboost-program-options-dev libboost-url-dev liblua5.4-dev lcov libarchive-dev clang-tidy libsystemd-dev
+      run: sudo apt install libboost-program-options-dev libboost-url-dev liblua5.4-dev lcov libarchive-dev clang-tidy libsystemd-dev ninja-build
 
     # MacOS only:
     - name: Install brew packages
       if: startswith(matrix.config.os, 'macos')
-      run: brew install libarchive lua@5.4
+      run: brew install libarchive lua@5.4 ninja
 
     # All:
     - name: Create Build Environment

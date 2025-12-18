@@ -1,39 +1,41 @@
-#include "3dSoundList.hpp"
-#include "3dSoundListTableModel.hpp"
-#include "../../world/getworld.hpp"
+#include "3dSound.hpp"
 #include "../../core/attributes.hpp"
 
-3dSoundList::3dSoundList(Object& parent, std::string_view parentPropertyName)
-    : ObjectList<3dSound>(parent, parentPropertyName)
+3dSound::3dSound(World& world, std::string_view _id)
+    : IdObject(world, _id)
+    , name{this, "name", std::string{}, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , x{this, "x", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , y{this, "y", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , z{this, "z", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , volume{this, "volume", 1.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , pitch{this, "pitch", 1.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
-    const bool editable = contains(getWorld(parent).state.value(), WorldState::Edit);
-
-    // Example: add "create" method
-    create = Method<3dSoundList, std::shared_ptr<3dSound>>(
-        *this, "create", [this]() {
-            auto& world = getWorld(parent());
-            auto sound = std::make_shared<3dSound>(world, world.getUniqueId("3dSound"));
-            addObject(sound);
-            return sound;
-        });
-
-    Attributes::addDisplayName(create, "Create 3D Sound");
-    Attributes::addEnabled(create, editable);
+    Attributes::addDisplayName(name, "3D Sound Name");
+    Attributes::addDisplayName(x, "Position X");
+    Attributes::addDisplayName(y, "Position Y");
+    Attributes::addDisplayName(z, "Position Z");
+    Attributes::addDisplayName(volume, "Volume");
+    Attributes::addDisplayName(pitch, "Pitch");
 }
 
-TableModelPtr 3dSoundList::getModel()
+void 3dSound::addToWorld()
 {
-    return std::make_shared<3dSoundListTableModel>(*this);
+    IdObject::addToWorld();
+    // Here you could add to a 3D sound manager if you have one
 }
 
-void 3dSoundList::worldEvent(WorldState state, WorldEvent event)
+void 3dSound::loaded()
 {
-    ObjectList<3dSound>::worldEvent(state, event);
-    const bool editable = contains(state, WorldState::Edit);
-    Attributes::setEnabled(create, editable);
+    IdObject::loaded();
 }
 
-bool 3dSoundList::isListedProperty(std::string_view name)
+void 3dSound::destroying()
 {
-    return 3dSoundListTableModel::isListedProperty(name);
+    IdObject::destroying();
+}
+
+void 3dSound::play()
+{
+    onPlay.fire();
+    // Could trigger your actual 3D sound playback here
 }

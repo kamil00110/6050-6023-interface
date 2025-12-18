@@ -1,17 +1,20 @@
-#pragma once
+#ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
+#define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
 
 #include "../../core/objectlist.hpp"
 #include "../3dSound.hpp"
 
-class Sound3DList : public ObjectList<Sound3D>
+class 3dSoundList : public ObjectList<3dSound>
 {
 public:
-    Sound3DList(Object& parent, std::string_view parentPropertyName);
+    3dSoundList(Object& parent, std::string_view parentPropertyName);
 
-    Method create;
-    Method delete_;
+    TableModelPtr getModel();
 
-    TableModelPtr getModel() override;
     void worldEvent(WorldState state, WorldEvent event) override;
+
+protected:
     bool isListedProperty(std::string_view name) override;
 };
+
+#endif

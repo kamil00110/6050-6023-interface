@@ -84,7 +84,7 @@ constexpr auto inputListColumns = InputListColumn::Interface | InputListColumn::
 constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColumn::Channel | OutputListColumn::Address;
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
-constexpr auto threeDSoundListColumns = 3DSoundListColumn::Id | 3DSoundListColumn::Name | 3DSoundListColumn::Position | 3DSoundListColumn::Volume;
+constexpr auto threeDSoundListColumns = ThreeDSoundListColumn::Id | ThreeDSoundListColumn::Name | ThreeDSoundListColumn::Position | ThreeDSoundListColumn::Volume;
 
 template<class T>
 inline static void deleteAll(T& objectList)
@@ -173,6 +173,7 @@ World::World(Private /*unused*/) :
         powerOnWhenLoaded = true; // can't run without power
       }
     }},
+  threeDSounds{this, "three_d_sounds", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   correctOutputPosWhenLocked{this, "correct_output_pos_when_locked", true, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
   extOutputChangeAction{this, "ext_output_change_action", ExternalOutputChangeAction::EmergencyStopTrain, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
   pathReleaseDelay{this, "path_release_delay", 5000, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
@@ -351,6 +352,9 @@ World::World(Private /*unused*/) :
   Attributes::addMinMax(scaleRatio, 1., 1000.);
   Attributes::addVisible(scaleRatio, false);
   m_interfaceItems.add(scaleRatio);
+
+  Attributes::addObjectEditor(threeDSounds, false);
+  m_interfaceItems.add(threeDSounds);
 
   m_interfaceItems.add(onlineWhenLoaded);
   m_interfaceItems.add(powerOnWhenLoaded);

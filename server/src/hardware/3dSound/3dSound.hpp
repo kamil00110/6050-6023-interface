@@ -11,7 +11,6 @@
 #include "../../core/property.hpp"
 #include "../../core/method.hpp"
 #include "../../core/event.hpp"
-#include "../controller/3dSoundController.hpp"
 
 class Sound3DList;
 

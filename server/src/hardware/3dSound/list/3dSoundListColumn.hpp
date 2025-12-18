@@ -23,6 +23,6 @@
 #ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLISTCOLUMN_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLISTCOLUMN_HPP
 
-#include <traintastic/set/3dsoundlistcolumn.hpp>
+#include <traintastic/enum/3dsoundlistcolumn.hpp>
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
 
-#include "../../core/objectlist.hpp"
+#include "../../../core/objectlist.hpp"
 #include "../3dSound.hpp"
 
 class 3dSoundList : public ObjectList<3dSound>

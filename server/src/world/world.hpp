@@ -59,6 +59,7 @@ class ThrottleList;
 class TrainList;
 class RailVehicleList;
 class SimulationStatus;
+class ThreeDSoundList;
 
 template <typename T>
 class ControllerList;

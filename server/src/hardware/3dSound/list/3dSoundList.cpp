@@ -1,34 +1,51 @@
-#include "3dSoundList.hpp"
-#include "../../../world/getworld.hpp"
-#include "../../../core/attributes.hpp"
+/**
+ * server/src/hardware/3dSound/list/3dSoundList.hpp
+ *
+ * This file is part of the traintastic source code.
+ *
+ * Copyright (C) 2025 Reinder Feenstra
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ */
 
-3dSoundList::3dSoundList(Object& parent, std::string_view parentPropertyName)
-    : ObjectList<3dSound>(parent, parentPropertyName)
+#ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
+#define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
+
+#include "../../../core/objectlist.hpp"
+#include "3dSoundListColumn.hpp"
+#include "../../../core/method.hpp"
+
+class ThreeDSound;
+
+class ThreeDSoundList : public ObjectList<ThreeDSound>
 {
-    const bool editable = contains(getWorld(parent).state.value(), WorldState::Edit);
+  CLASS_ID("list.3d_sound")
 
-    // Add "create" method
-    create = Method<3dSoundList, std::shared_ptr<3dSound>>(
-        *this, "create", [this]() {
-            auto& world = getWorld(parent());
-            auto sound = std::make_shared<3dSound>(world, world.getUniqueId("3dSound"));
-            addObject(sound);
-            return sound;
-        });
+  protected:
+    void worldEvent(WorldState state, WorldEvent event) final;
+    bool isListedProperty(std::string_view name) final;
 
-    Attributes::addDisplayName(create, "Create 3D Sound");
-    Attributes::addEnabled(create, editable);
-}
+  public:
+    const ThreeDSoundListColumn columns;
+    
+    Method<std::shared_ptr<ThreeDSound>()> create;
+    Method<void(const std::shared_ptr<ThreeDSound>&)> delete_;
 
-void 3dSoundList::worldEvent(WorldState state, WorldEvent event)
-{
-    ObjectList<3dSound>::worldEvent(state, event);
-    const bool editable = contains(state, WorldState::Edit);
-    Attributes::setEnabled(create, editable);
-}
+    ThreeDSoundList(Object& _parent, std::string_view parentPropertyName, ThreeDSoundListColumn _columns);
+    
+    TableModelPtr getModel() final;
+};
 
-bool 3dSoundList::isListedProperty(std::string_view name)
-{
-    // For now we just list all properties of 3dSound
-    return name == "name"; // Example property, replace with actual if needed
-}
+#endif

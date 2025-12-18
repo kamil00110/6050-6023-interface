@@ -1,43 +1,30 @@
 #pragma once
-
-#include "../../core/object.hpp"
+#include "../../core/idobject.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/objectvectorproperty.tpp"
+#include "../../world/world.hpp"
+#include <string>
 
-class World;
-class ObjectList;
-
-class Sound3D : public Object, public std::enable_shared_from_this<Sound3D>
+class 3dSound : public IdObject
 {
 public:
-    static constexpr const char* defaultId = "3dSound";
+    3dSound(World& world, std::string_view _id);
 
-    static std::shared_ptr<Sound3D> create(World& world, std::string_view _id);
-
-    Sound3D(World& world, std::string_view _id);
+    // Properties
+    Property<std::string> name;
+    Property<float> x;
+    Property<float> y;
+    Property<float> z;
+    Property<float> volume;
+    Property<float> pitch;
 
     void addToWorld();
     void loaded();
     void destroying();
 
-    // Properties
-    ObjectProperty<std::string> name;
-    ObjectProperty<float> x;
-    ObjectProperty<float> y;
-    ObjectProperty<float> z;
-    ObjectProperty<float> volume;
-    ObjectProperty<float> pitch;
-    ObjectProperty<bool> looping;
+    // Simple event example
+    Event<> onPlay;
 
-    // Methods
-    Method play;
-    Method stop;
-    Method pause;
-
-    // Event
-    Event onEvent;
-
-private:
-    void fireEvent(const std::string& type);
+    // Fire event
+    void play();
 };
-

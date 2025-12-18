@@ -54,6 +54,8 @@
 #include "../hardware/decoder/list/decoderlist.hpp"
 #include "../hardware/programming/lncv/lncvprogrammer.hpp"
 #include "../hardware/programming/lncv/lncvprogrammingcontroller.hpp"
+#include "../hardware/3dsound/3dsound.hpp"
+#include "../hardware/3dsound/list/3dsoundlist.hpp"
 
 #include "../clock/clock.hpp"
 

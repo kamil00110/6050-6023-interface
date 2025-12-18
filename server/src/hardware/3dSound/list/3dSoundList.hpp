@@ -1,9 +1,3 @@
-/**
- * server/src/hardware/3dSound/list/3dSoundList.hpp
- *
- * Container/list class for all 3D sounds.
- */
-
 #pragma once
 
 #include "../../core/objectlist.hpp"
@@ -12,8 +6,12 @@
 class Sound3DList : public ObjectList<Sound3D>
 {
 public:
-  Sound3DList(World& world, std::string_view _name)
-    : ObjectList<Sound3D>(world, _name)
-  {}
-};
+    Sound3DList(Object& parent, std::string_view parentPropertyName);
 
+    Method create;
+    Method delete_;
+
+    TableModelPtr getModel() override;
+    void worldEvent(WorldState state, WorldEvent event) override;
+    bool isListedProperty(std::string_view name) override;
+};

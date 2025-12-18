@@ -1,5 +1,5 @@
 /**
- * server/src/hardware/3dSound/list/3dSoundList.hpp
+ * server/src/hardware/3dSound/list/3dSoundList.cpp
  *
  * This file is part of the traintastic source code.
  *
@@ -20,32 +20,53 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
-#define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
+#include "3dSoundList.hpp"
+#include "3dSoundListTableModel.hpp"
+#include "../3dSound.hpp"
+#include "../../../world/getworld.hpp"
+#include "../../../core/attributes.hpp"
+#include "../../../core/method.tpp"
+#include "../../../utils/displayname.hpp"
 
-#include "../../../core/objectlist.hpp"
-#include "3dSoundListColumn.hpp"
-#include "../../../core/method.hpp"
-
-class ThreeDSound;
-
-class ThreeDSoundList : public ObjectList<ThreeDSound>
+ThreeDSoundList::ThreeDSoundList(Object& _parent, std::string_view parentPropertyName, ThreeDSoundListColumn _columns)
+  : ObjectList<ThreeDSound>(_parent, parentPropertyName)
+  , columns{_columns}
+  , create{*this, "create",
+      [this]()
+      {
+        auto& world = getWorld(parent());
+        auto sound = ThreeDSound::create(world, world.getUniqueId(ThreeDSound::defaultId));
+        return sound;
+      }}
+  , delete_{*this, "delete", std::bind(&ThreeDSoundList::deleteMethodHandler, this, std::placeholders::_1)}
 {
-  CLASS_ID("list.3d_sound")
+  const bool editable = contains(getWorld(parent()).state.value(), WorldState::Edit);
 
-  protected:
-    void worldEvent(WorldState state, WorldEvent event) final;
-    bool isListedProperty(std::string_view name) final;
+  Attributes::addDisplayName(create, DisplayName::List::create);
+  Attributes::addEnabled(create, editable);
+  m_interfaceItems.add(create);
 
-  public:
-    const ThreeDSoundListColumn columns;
-    
-    Method<std::shared_ptr<ThreeDSound>()> create;
-    Method<void(const std::shared_ptr<ThreeDSound>&)> delete_;
+  Attributes::addDisplayName(delete_, DisplayName::List::delete_);
+  Attributes::addEnabled(delete_, editable);
+  m_interfaceItems.add(delete_);
+}
 
-    ThreeDSoundList(Object& _parent, std::string_view parentPropertyName, ThreeDSoundListColumn _columns);
-    
-    TableModelPtr getModel() final;
-};
+TableModelPtr ThreeDSoundList::getModel()
+{
+  return std::make_shared<ThreeDSoundListTableModel>(*this);
+}
 
-#endif
+void ThreeDSoundList::worldEvent(WorldState state, WorldEvent event)
+{
+  ObjectList<ThreeDSound>::worldEvent(state, event);
+
+  const bool editable = contains(state, WorldState::Edit);
+
+  Attributes::setEnabled(create, editable);
+  Attributes::setEnabled(delete_, editable);
+}
+
+bool ThreeDSoundList::isListedProperty(std::string_view name)
+{
+  return ThreeDSoundListTableModel::isListedProperty(name);
+}

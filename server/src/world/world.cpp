@@ -125,7 +125,11 @@ void World::init(World& world)
   world.outputControllers.setValueInternal(std::make_shared<ControllerList<OutputController>>(world, world.outputControllers.name()));
   world.identificationControllers.setValueInternal(std::make_shared<ControllerList<IdentificationController>>(world, world.identificationControllers.name()));
   world.lncvProgrammingControllers.setValueInternal(std::make_shared<ControllerList<LNCVProgrammingController>>(world, world.lncvProgrammingControllers.name()));
-
+  
+  world.3dSounds.setValueInternal(std::make_shared<3DSoundList>(world, world.3dSounds.name(), threeDSoundListColumns));
+  Attributes::addObjectEditor(world.3dSounds, false);
+  m_interfaceItems.add(world.3dSounds);
+  
   world.interfaces.setValueInternal(std::make_shared<InterfaceList>(world, world.interfaces.name()));
   world.decoders.setValueInternal(std::make_shared<DecoderList>(world, world.decoders.name(), decoderListColumns));
   world.inputs.setValueInternal(std::make_shared<InputList>(world, world.inputs.name(), inputListColumns));

@@ -1,40 +1,43 @@
-/**
- * server/src/hardware/3dSound/3dSound.hpp
- *
- * Defines a single 3D sound object.
- */
-
 #pragma once
 
-#include "../../world/world.hpp"
-#include "../../core/idobject.hpp"
-#include "../../core/property.hpp"
-#include "../../core/method.hpp"
-#include "../../core/event.hpp"
+#include "../../core/object.hpp"
+#include "../../core/objectproperty.tpp"
+#include "../../core/objectvectorproperty.tpp"
 
-class Sound3DList;
+class World;
+class ObjectList;
 
-class Sound3D : public IdObject
+class Sound3D : public Object, public std::enable_shared_from_this<Sound3D>
 {
 public:
-  Sound3D(World& world, std::string_view _id);
+    static constexpr const char* defaultId = "3dSound";
 
-  void addToWorld();
-  void loaded();
-  void destroying();
-  void worldEvent(WorldState state, WorldEvent event);
+    static std::shared_ptr<Sound3D> create(World& world, std::string_view _id);
 
-  Method onEvent;
+    Sound3D(World& world, std::string_view _id);
 
-  Property<std::string> name;
-  Property<std::shared_ptr<Sound3DController>> controller;
-  Property<float> x;
-  Property<float> y;
-  Property<float> z;
-  Property<float> volume;
-  Property<float> pitch;
+    void addToWorld();
+    void loaded();
+    void destroying();
+
+    // Properties
+    ObjectProperty<std::string> name;
+    ObjectProperty<float> x;
+    ObjectProperty<float> y;
+    ObjectProperty<float> z;
+    ObjectProperty<float> volume;
+    ObjectProperty<float> pitch;
+    ObjectProperty<bool> looping;
+
+    // Methods
+    Method play;
+    Method stop;
+    Method pause;
+
+    // Event
+    Event onEvent;
 
 private:
-  void controllerChanged();
+    void fireEvent(const std::string& type);
 };
 

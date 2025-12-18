@@ -54,8 +54,8 @@
 #include "../hardware/decoder/list/decoderlist.hpp"
 #include "../hardware/programming/lncv/lncvprogrammer.hpp"
 #include "../hardware/programming/lncv/lncvprogrammingcontroller.hpp"
-#include "../hardware/3dsound/3dsound.hpp"
-#include "../hardware/3dsound/list/3dsoundlist.hpp"
+#include "../hardware/3dSound/3dSound.hpp"
+#include "../hardware/3dSound/list/3dSoundList.hpp"
 
 #include "../clock/clock.hpp"
 
@@ -84,6 +84,7 @@ constexpr auto inputListColumns = InputListColumn::Interface | InputListColumn::
 constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColumn::Channel | OutputListColumn::Address;
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
+constexpr auto threeDSoundListColumns = 3DSoundListColumn::Id | 3DSoundListColumn::Name | 3DSoundListColumn::Position | 3DSoundListColumn::Volume;
 
 template<class T>
 inline static void deleteAll(T& objectList)

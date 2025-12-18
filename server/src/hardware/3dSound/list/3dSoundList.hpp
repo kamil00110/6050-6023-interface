@@ -1,22 +1,34 @@
-#ifndef TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
-#define TRAINTASTIC_SERVER_HARDWARE_3DSOUND_LIST_3DSOUNDLIST_HPP
+#include "3dSoundList.hpp"
+#include "../../../world/getworld.hpp"
+#include "../../../core/attributes.hpp"
 
-#include "../../../core/objectlist.hpp"   // Correct path from 'list' folder
-#include "../3dSound.hpp"                  // The 3dSound object itself
-
-template<typename T>
-class ObjectListTableModel;              // Only needed if we ever use table models
-
-class 3dSoundList : public ObjectList<3dSound>
+3dSoundList::3dSoundList(Object& parent, std::string_view parentPropertyName)
+    : ObjectList<3dSound>(parent, parentPropertyName)
 {
-  public:
-    Method<3dSoundList, std::shared_ptr<3dSound>> create;
+    const bool editable = contains(getWorld(parent).state.value(), WorldState::Edit);
 
-    explicit 3dSoundList(Object& parent, std::string_view parentPropertyName);
+    // Add "create" method
+    create = Method<3dSoundList, std::shared_ptr<3dSound>>(
+        *this, "create", [this]() {
+            auto& world = getWorld(parent());
+            auto sound = std::make_shared<3dSound>(world, world.getUniqueId("3dSound"));
+            addObject(sound);
+            return sound;
+        });
 
-    bool isListedProperty(std::string_view name) override;
+    Attributes::addDisplayName(create, "Create 3D Sound");
+    Attributes::addEnabled(create, editable);
+}
 
-    void worldEvent(WorldState state, WorldEvent event) override;
-};
+void 3dSoundList::worldEvent(WorldState state, WorldEvent event)
+{
+    ObjectList<3dSound>::worldEvent(state, event);
+    const bool editable = contains(state, WorldState::Edit);
+    Attributes::setEnabled(create, editable);
+}
 
-#endif
+bool 3dSoundList::isListedProperty(std::string_view name)
+{
+    // For now we just list all properties of 3dSound
+    return name == "name"; // Example property, replace with actual if needed
+}

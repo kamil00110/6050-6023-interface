@@ -1,5 +1,5 @@
 /**
- * shared/traintastic/enum/3dsoundlistcolumn.hpp
+ * shared/src/traintastic/enum/3dsoundlistcolumn.hpp
  *
  * This file is part of the traintastic source code.
  *
@@ -25,14 +25,13 @@
 
 #include <cstdint>
 #include <array>
-#include "../set/set.hpp"
 
 enum class ThreeDSoundListColumn : uint8_t
 {
-  Id = 0,
-  Name = 1,
-  Position = 2,
-  Volume = 3,
+  Id = 1,
+  Name = 2,
+  Position = 4,
+  Volume = 8,
 };
 
 TRAINTASTIC_ENUM(ThreeDSoundListColumn, "3d_sound_list_column", 4,
@@ -50,6 +49,24 @@ constexpr auto threeDSoundListColumnValues = std::array<ThreeDSoundListColumn, 4
   ThreeDSoundListColumn::Volume,
 };
 
-using ThreeDSoundListColumnSet = Set<ThreeDSoundListColumn>;
+constexpr ThreeDSoundListColumn operator|(ThreeDSoundListColumn lhs, ThreeDSoundListColumn rhs)
+{
+  return static_cast<ThreeDSoundListColumn>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
+}
+
+constexpr ThreeDSoundListColumn operator&(ThreeDSoundListColumn lhs, ThreeDSoundListColumn rhs)
+{
+  return static_cast<ThreeDSoundListColumn>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
+}
+
+constexpr ThreeDSoundListColumn operator~(ThreeDSoundListColumn value)
+{
+  return static_cast<ThreeDSoundListColumn>(~static_cast<uint8_t>(value));
+}
+
+constexpr bool contains(ThreeDSoundListColumn value, ThreeDSoundListColumn mask)
+{
+  return (static_cast<uint8_t>(value) & static_cast<uint8_t>(mask)) == static_cast<uint8_t>(mask);
+}
 
 #endif

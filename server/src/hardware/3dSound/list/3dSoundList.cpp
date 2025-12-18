@@ -1,41 +1,20 @@
-#include "3dSound.hpp"
+#include "3dSoundList.hpp"
+#include "../../world/getworld.hpp"
 #include "../../core/attributes.hpp"
 
-3dSound::3dSound(World& world, std::string_view _id)
-    : IdObject(world, _id)
-    , name{this, "name", std::string{}, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , x{this, "x", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , y{this, "y", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , z{this, "z", 0.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , volume{this, "volume", 1.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , pitch{this, "pitch", 1.0f, PropertyFlags::ReadWrite | PropertyFlags::Store}
+3dSoundList::3dSoundList(Object& parent, std::string_view parentPropertyName)
+    : ObjectList<3dSound>(parent, parentPropertyName)
 {
-    Attributes::addDisplayName(name, "3D Sound Name");
-    Attributes::addDisplayName(x, "Position X");
-    Attributes::addDisplayName(y, "Position Y");
-    Attributes::addDisplayName(z, "Position Z");
-    Attributes::addDisplayName(volume, "Volume");
-    Attributes::addDisplayName(pitch, "Pitch");
-}
+    const bool editable = contains(getWorld(parent).state.value(), WorldState::Edit);
 
-void 3dSound::addToWorld()
-{
-    IdObject::addToWorld();
-    // Here you could add to a 3D sound manager if you have one
-}
+    create = Method<3dSoundList, std::shared_ptr<3dSound>>(
+        *this, "create", [this]() {
+            auto& world = getWorld(parent());
+            auto sound = std::make_shared<3dSound>(world, world.getUniqueId("3dSound"));
+            addObject(sound);
+            return sound;
+        });
 
-void 3dSound::loaded()
-{
-    IdObject::loaded();
-}
-
-void 3dSound::destroying()
-{
-    IdObject::destroying();
-}
-
-void 3dSound::play()
-{
-    onPlay.fire();
-    // Could trigger your actual 3D sound playback here
+    Attributes::addDisplayName(create, "Create 3D Sound");
+    Attributes::addEnabled(create, editable);
 }

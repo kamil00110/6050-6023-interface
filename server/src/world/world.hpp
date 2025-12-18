@@ -122,6 +122,7 @@ class World : public Object
     ObjectProperty<ControllerList<IdentificationController>> identificationControllers;
     ObjectProperty<ControllerList<LNCVProgrammingController>> lncvProgrammingControllers;
 
+    ObjectProperty<ThreeDSoundList> threeDSounds;
     ObjectProperty<InterfaceList> interfaces;
     ObjectProperty<DecoderList> decoders;
     ObjectProperty<InputList> inputs;

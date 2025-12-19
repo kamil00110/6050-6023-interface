@@ -24,6 +24,10 @@
 
 #include <QFormLayout>
 #include <QVBoxLayout>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QStandardPaths>
+#include <QPushButton>
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
 #include "../../network/objectproperty.hpp"
@@ -49,6 +53,67 @@
 #include "../../theme/theme.hpp"
 #include <traintastic/enum/direction.hpp>
 #include <traintastic/locale/locale.hpp>
+
+static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
+{
+  // Create container widget
+  QWidget* container = new QWidget(parent);
+  QHBoxLayout* layout = new QHBoxLayout(container);
+  layout->setContentsMargins(0, 0, 0, 0);
+  
+  // Create text field (uses existing PropertyLineEdit)
+  PropertyLineEdit* lineEdit = new PropertyLineEdit(property, container);
+  
+  // Create browse button
+  QPushButton* browseButton = new QPushButton("...", container);
+  browseButton->setMaximumWidth(30);
+  browseButton->setToolTip(QObject::tr("Browse for audio file"));
+  
+  // Connect browse button click
+  QObject::connect(browseButton, &QPushButton::clicked, container,
+    [&property, lineEdit]()
+    {
+      QString startPath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
+      
+      // Use current file's directory if file exists
+      if(!lineEdit->text().isEmpty() && QFileInfo(lineEdit->text()).exists())
+        startPath = QFileInfo(lineEdit->text()).absolutePath();
+      
+      QString filename = QFileDialog::getOpenFileName(
+        lineEdit,
+        QObject::tr("Select Audio File"),
+        startPath,
+        QObject::tr("Audio Files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a);;All Files (*)"));
+      
+      if(!filename.isEmpty())
+      {
+        property.setValueString(filename);
+      }
+    });
+  
+  // Handle enabled/disabled state from property
+  QObject::connect(&property, &Property::attributeChanged, browseButton,
+    [browseButton, lineEdit](AttributeName name, const QVariant& value)
+    {
+      if(name == AttributeName::Enabled)
+      {
+        const bool enabled = value.toBool();
+        lineEdit->setEnabled(enabled);
+        browseButton->setEnabled(enabled);
+      }
+    });
+  
+  // Set initial enabled state
+  const bool enabled = property.getAttributeBool(AttributeName::Enabled, true);
+  lineEdit->setEnabled(enabled);
+  browseButton->setEnabled(enabled);
+  
+  // Add widgets to layout
+  layout->addWidget(lineEdit);
+  layout->addWidget(browseButton);
+  
+  return container;
+}
 
 ObjectEditWidget::ObjectEditWidget(const ObjectPtr& object, QWidget* parent) :
   AbstractEditWidget(object, parent)
@@ -142,26 +207,30 @@ void ObjectEditWidget::buildForm()
             else if(property->type() == ValueType::Float)
               w = createWidget(*property, this);
             else if(property->type() == ValueType::String)
-            {
-              if(property->name() == "notes")
-              {
-                PropertyTextEdit* edit = new PropertyTextEdit(*property, this);
-                edit->setWindowTitle(property->displayName());
-                edit->setPlaceholderText(property->displayName());
-                tabs.append(edit);
-                continue;
-              }
-              else if(property->name() == "code")
-              {
-                PropertyTextEdit* edit = new PropertyTextEdit(*property, this);
-                edit->setWindowTitle(property->displayName());
-                edit->setPlaceholderText(property->displayName());
-                tabs.append(edit);
-                continue;
-              }
-              else
-                w = createWidget(*property, this);
-            }
+{
+  if(property->name() == "notes")
+  {
+    PropertyTextEdit* edit = new PropertyTextEdit(*property, this);
+    edit->setWindowTitle(property->displayName());
+    edit->setPlaceholderText(property->displayName());
+    tabs.append(edit);
+    continue;
+  }
+  else if(property->name() == "code")
+  {
+    PropertyTextEdit* edit = new PropertyTextEdit(*property, this);
+    edit->setWindowTitle(property->displayName());
+    edit->setPlaceholderText(property->displayName());
+    tabs.append(edit);
+    continue;
+  }
+  else if(property->name() == "sound_file")  // NEW: File picker for sound files
+  {
+    w = createFilePickerWidget(*property, this);
+  }
+  else
+    w = createWidget(*property, this);
+}
             else if(property->type() == ValueType::Enum)
             {
               if(property->enumName() == EnumName<Direction>::value)

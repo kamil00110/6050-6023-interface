@@ -29,24 +29,27 @@
 enum class ThreeDSoundListColumn : uint8_t
 {
   Id = 1,
-  Name = 2,
-  Position = 4,
+  File = 2,
+  Loop = 4,
   Volume = 8,
+  Speed = 16,
 };
 
-TRAINTASTIC_ENUM(ThreeDSoundListColumn, "3d_sound_list_column", 4,
+TRAINTASTIC_ENUM(ThreeDSoundListColumn, "3d_sound_list_column", 5,
 {
   {ThreeDSoundListColumn::Id, "id"},
-  {ThreeDSoundListColumn::Name, "name"},
-  {ThreeDSoundListColumn::Position, "position"},
+  {ThreeDSoundListColumn::File, "file"},
+  {ThreeDSoundListColumn::Loop, "loop"},
   {ThreeDSoundListColumn::Volume, "volume"},
+  {ThreeDSoundListColumn::Speed, "speed"},
 });
 
-constexpr auto threeDSoundListColumnValues = std::array<ThreeDSoundListColumn, 4>{
+constexpr auto threeDSoundListColumnValues = std::array<ThreeDSoundListColumn, 5>{
   ThreeDSoundListColumn::Id,
-  ThreeDSoundListColumn::Name,
-  ThreeDSoundListColumn::Position,
+  ThreeDSoundListColumn::File,
+  ThreeDSoundListColumn::Loop,
   ThreeDSoundListColumn::Volume,
+  ThreeDSoundListColumn::Speed,
 };
 
 constexpr ThreeDSoundListColumn operator|(ThreeDSoundListColumn lhs, ThreeDSoundListColumn rhs)

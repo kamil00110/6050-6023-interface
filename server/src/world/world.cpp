@@ -126,11 +126,7 @@ void World::init(World& world)
   world.outputControllers.setValueInternal(std::make_shared<ControllerList<OutputController>>(world, world.outputControllers.name()));
   world.identificationControllers.setValueInternal(std::make_shared<ControllerList<IdentificationController>>(world, world.identificationControllers.name()));
   world.lncvProgrammingControllers.setValueInternal(std::make_shared<ControllerList<LNCVProgrammingController>>(world, world.lncvProgrammingControllers.name()));
-  
   world.threeDSounds.setValueInternal(std::make_shared<ThreeDSoundList>(world, world.threeDSounds.name(), threeDSoundListColumns));
-  Attributes::addObjectEditor(world.threeDSounds, false);
-  m_interfaceItems.add(world.threeDSounds);
-  
   world.interfaces.setValueInternal(std::make_shared<InterfaceList>(world, world.interfaces.name()));
   world.decoders.setValueInternal(std::make_shared<DecoderList>(world, world.decoders.name(), decoderListColumns));
   world.inputs.setValueInternal(std::make_shared<InputList>(world, world.inputs.name(), inputListColumns));
@@ -354,7 +350,7 @@ World::World(Private /*unused*/) :
   m_interfaceItems.add(scaleRatio);
 
   Attributes::addObjectEditor(threeDSounds, false);
-  world.m_interfaceItems.add(world.threeDSounds);
+  m_interfaceItems.add(world.threeDSounds);
 
   m_interfaceItems.add(onlineWhenLoaded);
   m_interfaceItems.add(powerOnWhenLoaded);

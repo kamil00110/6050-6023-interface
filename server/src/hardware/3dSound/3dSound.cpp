@@ -21,6 +21,7 @@
  */
 
 #include "3dSound.hpp"
+#include "list/3dSoundListTableModel.hpp"
 #include "list/3dSoundList.hpp"
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"

@@ -417,16 +417,11 @@ MainWindow::MainWindow(QWidget* parent) :
         showObject("world.zones", Locale::tr("world:zones"));
       }
     );
-    //here is my code
-    m_menuObjects->addAction(
-      Locale::tr("world:3d_sound") + "...",
-      [this]()
-      {
-          // Opens the 3D sound object in a subwindow
-          showObject("world.three_d_sounds", Locale::tr("world:3d_sound"));
-      }
-    );
-    //3d sound here
+    
+    SoundMenu = m_menuObjects->addMenu(Locale::tr("qtapp.mainmenu:3dSound"));
+    SoundMenu->addAction(Locale::tr("world:sound_files") + "...", [this](){ showObject("world.three_d_sounds", Locale::tr("world:sound_files")); });
+    SoundMenu->addAction(Locale::tr("world:sound_zones") + "...", [this](){ showObject("world.three_d_files", Locale::tr("world:sound_zones")); });
+    
     m_menuObjects->addAction(Theme::getIcon("clock"), Locale::tr("world:clock") + "...", [this](){ showObject("world.clock", Locale::tr("world:clock")); });
     trainsAction = m_menuObjects->addAction(Theme::getIcon("train"), Locale::tr("world:trains") + "...",
       [this]()

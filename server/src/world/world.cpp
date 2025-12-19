@@ -173,7 +173,6 @@ World::World(Private /*unused*/) :
         powerOnWhenLoaded = true; // can't run without power
       }
     }},
-  threeDSounds{this, "three_d_sounds", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   correctOutputPosWhenLocked{this, "correct_output_pos_when_locked", true, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
   extOutputChangeAction{this, "ext_output_change_action", ExternalOutputChangeAction::EmergencyStopTrain, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
   pathReleaseDelay{this, "path_release_delay", 5000, PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::NoScript},
@@ -185,6 +184,7 @@ World::World(Private /*unused*/) :
   outputControllers{this, "output_controllers", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   identificationControllers{this, "identification_controllers", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   lncvProgrammingControllers{this, "lncv_programming_controllers", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
+  threeDSounds{this, "three_d_sounds", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   interfaces{this, "interfaces", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   decoders{this, "decoders", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   inputs{this, "inputs", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},

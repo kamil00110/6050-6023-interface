@@ -33,86 +33,34 @@
 
 ThreeDSound::ThreeDSound(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , name{this, "name", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , positionX{this, "position_x", 0.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , positionY{this, "position_y", 0.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , positionZ{this, "position_z", 0.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , soundFile{this, "sound_file", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
   , looping{this, "looping", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , isPlaying{this, "is_playing", false, PropertyFlags::ReadOnly | PropertyFlags::NoStore}
-  , play{*this, "play",
-      [this]()
-      {
-        if(!soundFile.value().empty())
-        {
-          isPlaying.setValueInternal(true);
-          // TODO: Implement actual audio playback
-        }
-      }}
-  , stop{*this, "stop",
-      [this]()
-      {
-        isPlaying.setValueInternal(false);
-        // TODO: Implement actual audio stop
-      }}
-  , test{*this, "test",
-      [this]()
-      {
-        if(!soundFile.value().empty())
-        {
-          // TODO: Play a short test sound
-        }
-      }}
+  , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , speed{this, "speed", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store} 
 {
-  Attributes::addDisplayName(name, DisplayName::Object::name);
-  Attributes::addEnabled(name, true);
-  m_interfaceItems.add(name);
+    // ---- FILE ----
+    Attributes::addDisplayName(soundFile, "File");
+    Attributes::addEnabled(soundFile, true);
+    m_interfaceItems.add(soundFile);
 
-  Attributes::addDisplayName(positionX, "Position X");
-  Attributes::addMinMax(positionX, -1000.0, 1000.0);
-  Attributes::addEnabled(positionX, true);
-  m_interfaceItems.add(positionX);
+    // ---- LOOP ----
+    Attributes::addDisplayName(looping, "Loop");
+    Attributes::addEnabled(looping, true);
+    m_interfaceItems.add(looping);
 
-  Attributes::addDisplayName(positionY, "Position Y");
-  Attributes::addMinMax(positionY, -1000.0, 1000.0);
-  Attributes::addEnabled(positionY, true);
-  m_interfaceItems.add(positionY);
+    // ---- VOLUME ----
+    Attributes::addDisplayName(volume, "Volume");
+    Attributes::addMinMax(volume, 0.0, 1.0);
+    Attributes::addEnabled(volume, true);
+    m_interfaceItems.add(volume);
 
-  Attributes::addDisplayName(positionZ, "Position Z");
-  Attributes::addMinMax(positionZ, -1000.0, 1000.0);
-  Attributes::addEnabled(positionZ, true);
-  m_interfaceItems.add(positionZ);
+    // ---- SPEED ----
+    Attributes::addDisplayName(speed, "Speed");
+    Attributes::addMinMax(speed, 0.1, 3.0); // allow 0.1x to 3x
+    Attributes::addEnabled(speed, true);
+    m_interfaceItems.add(speed);
 
-  Attributes::addDisplayName(volume, "Volume");
-  Attributes::addMinMax(volume, 0.0, 1.0);
-  Attributes::addEnabled(volume, true);
-  m_interfaceItems.add(volume);
-
-  Attributes::addDisplayName(soundFile, "Sound File");
-  Attributes::addEnabled(soundFile, true);
-  m_interfaceItems.add(soundFile);
-
-  Attributes::addDisplayName(looping, "Looping");
-  Attributes::addEnabled(looping, true);
-  m_interfaceItems.add(looping);
-
-  Attributes::addDisplayName(isPlaying, "Is Playing");
-  m_interfaceItems.add(isPlaying);
-
-  Attributes::addDisplayName(play, "Play");
-  Attributes::addEnabled(play, false);
-  m_interfaceItems.add(play);
-
-  Attributes::addDisplayName(stop, "Stop");
-  Attributes::addEnabled(stop, false);
-  m_interfaceItems.add(stop);
-
-  Attributes::addDisplayName(test, "Test");
-  Attributes::addEnabled(test, false);
-  m_interfaceItems.add(test);
-
-  updateEnabled();
+    updateEnabled();
 }
 
 void ThreeDSound::addToWorld()

@@ -116,21 +116,26 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
 
 void ThreeDSound::addToWorld()
 {
-  IdObject::addToWorld();
-  getWorld(*this).threeDSounds->addObject(shared_ptr<ThreeDSound>());
+    IdObject::addToWorld();
+    auto& worldSounds = getWorld(*this).threeDSounds.value();
+    if (worldSounds)
+        worldSounds->addObject(shared_from_this());
 }
 
 void ThreeDSound::loaded()
 {
-  IdObject::loaded();
-  updateEnabled();
+    IdObject::loaded();
+    updateEnabled();
 }
 
 void ThreeDSound::destroying()
 {
-  getWorld(*this).threeDSounds->removeObject(shared_ptr<ThreeDSound>());
-  IdObject::destroying();
+    auto& worldSounds = getWorld(*this).threeDSounds.value();
+    if (worldSounds)
+        worldSounds->removeObject(shared_from_this());
+    IdObject::destroying();
 }
+
 
 void ThreeDSound::worldEvent(WorldState state, WorldEvent event)
 {

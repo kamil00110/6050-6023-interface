@@ -25,6 +25,7 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
+#include "../../core/method.hpp"
 
 class ThreeDSound : public IdObject
 {

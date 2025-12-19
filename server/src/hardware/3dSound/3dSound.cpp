@@ -33,17 +33,16 @@
 
 ThreeDSound::ThreeDSound(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , soundFile{*this, "sound_file",
-      [this]()
-      {
-          std::string path = showFileDialog(); // Implement this function to open a file dialog
-          if(!path.empty())
-          {
-              std::ifstream file(path, std::ios::binary);
-              std::vector<std::byte> data((std::istreambuf_iterator<char>(file)), {});
-              loadSoundData(data); // Implement this to process the file into your 3D sound system
-          }
-      }}
+  , soundFile{
+        this,
+        "sound_file",
+        "",
+        PropertyFlags::ReadWrite | PropertyFlags::Store,
+        nullptr,
+        [this](std::string& value)
+        {
+            return importSoundFile(value);
+        }}
   , looping{this, "looping", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speed{this, "speed", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store} 
@@ -108,4 +107,12 @@ void ThreeDSound::updateEnabled()
     Attributes::setEnabled(volume, editable);
     Attributes::setEnabled(speed, editable);
 }
+
+bool ThreeDSound::importSoundFile(std::string& value)
+{
+    if(value.empty())
+        return true;
+    return true;
+}
+
 

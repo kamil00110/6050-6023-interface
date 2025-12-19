@@ -40,6 +40,7 @@
 #include "../hardware/decoder/decoder.hpp"
 #include "../hardware/decoder/decoderfunction.hpp"
 #include "../hardware/identification/identification.hpp"
+#include "../hardware/3dSound/3dSound.hpp"
 #include "../vehicle/rail/railvehicles.hpp"
 #include "../vehicle/rail/freightwagon.hpp" //! \todo Remove in v0.4
 #include "../train/train.hpp"

@@ -35,7 +35,7 @@ class ThreeDSound : public IdObject
 
 private:
     void updateEnabled();
-    void importFile();
+    bool importSoundFile(std::string& value);
 
 protected:
     void addToWorld() override;
@@ -48,8 +48,6 @@ public:
     Property<bool> looping;           // Loop
     Property<double> volume;          // Volume
     Property<double> speed;           // Speed
-
-    Method importFileMethod;
 
     ThreeDSound(World& world, std::string_view _id);
 };

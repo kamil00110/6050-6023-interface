@@ -92,7 +92,6 @@ void ThreeDSound::worldEvent(WorldState state, WorldEvent event)
 void ThreeDSound::updateEnabled()
 {
     const bool editable = contains(getWorld(*this).state.value(), WorldState::Edit);
-    const bool hasFile = !soundFile.value().empty();
 
     Attributes::setEnabled(soundFile, editable);
     Attributes::setEnabled(looping, editable);

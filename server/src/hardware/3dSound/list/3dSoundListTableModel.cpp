@@ -7,6 +7,7 @@
 bool ThreeDSoundListTableModel::isListedProperty(std::string_view name)
 {
     return
+        name == "id" ||  // Id
         name == "sound_file" ||  // File
         name == "looping"   ||   // Loop
         name == "volume"    ||   // Volume
@@ -17,6 +18,7 @@ static std::string_view displayName(ThreeDSoundListColumn column)
 {
     switch(column)
     {
+        case ThreeDSoundListColumn::Id:   return "Id";
         case ThreeDSoundListColumn::File:   return "File";
         case ThreeDSoundListColumn::Loop:   return "Loop";
         case ThreeDSoundListColumn::Volume: return "Volume";
@@ -83,8 +85,9 @@ std::string ThreeDSoundListTableModel::getText(uint32_t column, uint32_t row) co
 void ThreeDSoundListTableModel::propertyChanged(BaseProperty& property, uint32_t row)
 {
     std::string_view name = property.name();
-
-    if(name == "sound_file")      changed(row, ThreeDSoundListColumn::File);
+    
+    if(name == "id")      changed(row, ThreeDSoundListColumn::Id);
+    else if(name == "sound_file")      changed(row, ThreeDSoundListColumn::File);
     else if(name == "looping")    changed(row, ThreeDSoundListColumn::Loop);
     else if(name == "volume")     changed(row, ThreeDSoundListColumn::Volume);
     else if(name == "speed")      changed(row, ThreeDSoundListColumn::Speed);

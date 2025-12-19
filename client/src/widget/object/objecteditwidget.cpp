@@ -21,7 +21,7 @@
  */
 
 #include "objecteditwidget.hpp"
-#include <QHBoxLayout>
+
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QFileDialog>
@@ -257,13 +257,8 @@ void ObjectEditWidget::buildForm()
         }
         else
           tabWidget = categoryTabs[category];
-          if(w)
-{
-  InterfaceItemNameLabel* label = new InterfaceItemNameLabel(*item, this);
-  static_cast<QFormLayout*>(tabWidget->layout())->addRow(label, w);
-}
 
-       
+        static_cast<QFormLayout*>(tabWidget->layout())->addRow(new InterfaceItemNameLabel(*item, this), w);
       }
     }
 

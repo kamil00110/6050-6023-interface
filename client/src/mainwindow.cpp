@@ -122,6 +122,7 @@ MainWindow::MainWindow(QWidget* parent) :
   updateWindowTitle();
 
   QMenu* menu;
+  QMenu* SoundMenu;
   QAction* boardsAction;
   QAction* trainsAction;
 

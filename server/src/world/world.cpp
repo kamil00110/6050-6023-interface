@@ -354,7 +354,7 @@ World::World(Private /*unused*/) :
   m_interfaceItems.add(scaleRatio);
 
   Attributes::addObjectEditor(threeDSounds, false);
-  m_interfaceItems.add(threeDSounds);
+  world.m_interfaceItems.add(world.threeDSounds);
 
   m_interfaceItems.add(onlineWhenLoaded);
   m_interfaceItems.add(powerOnWhenLoaded);

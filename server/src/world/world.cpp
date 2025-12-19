@@ -84,7 +84,7 @@ constexpr auto inputListColumns = InputListColumn::Interface | InputListColumn::
 constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColumn::Channel | OutputListColumn::Address;
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
-constexpr auto threeDSoundListColumns = ThreeDSoundListColumn::Id | ThreeDSoundListColumn::Name | ThreeDSoundListColumn::Position | ThreeDSoundListColumn::Volume;
+constexpr auto threeDSoundListColumns = ThreeDSoundListColumn::Id | ThreeDSoundListColumn::File | ThreeDSoundListColumn::Loop | ThreeDSoundListColumn::Volume | ThreeDSoundListColumn::Speed;
 
 template<class T>
 inline static void deleteAll(T& objectList)

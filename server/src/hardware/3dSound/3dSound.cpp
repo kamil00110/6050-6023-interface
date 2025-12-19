@@ -119,7 +119,7 @@ void ThreeDSound::addToWorld()
     IdObject::addToWorld();
     auto& worldSounds = getWorld(*this).threeDSounds.value();
     if (worldSounds)
-        worldSounds->addObject(shared_from_this());
+        worldSounds->addObject(std::dynamic_pointer_cast<ThreeDSound>(shared_from_this()));
 }
 
 void ThreeDSound::loaded()
@@ -132,9 +132,10 @@ void ThreeDSound::destroying()
 {
     auto& worldSounds = getWorld(*this).threeDSounds.value();
     if (worldSounds)
-        worldSounds->removeObject(shared_from_this());
+        worldSounds->removeObject(std::dynamic_pointer_cast<ThreeDSound>(shared_from_this()));
     IdObject::destroying();
 }
+
 
 
 void ThreeDSound::worldEvent(WorldState state, WorldEvent event)

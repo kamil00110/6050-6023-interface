@@ -365,6 +365,8 @@ void WorldLoader::createObject(ObjectData& objectData)
   }
   else if(classId == Identification::classId)
     objectData.object = Identification::create(*m_world, id);
+  else if(classId == ThreeDSound::classId)
+    objectData.object = ThreeDSound::create(*m_world, id);
   else if(classId == Board::classId)
     objectData.object = Board::create(*m_world, id);
   else if(startsWith(classId, Tiles::classIdPrefix))

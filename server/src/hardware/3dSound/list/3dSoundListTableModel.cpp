@@ -55,7 +55,7 @@ std::string ThreeDSoundListTableModel::getText(uint32_t column, uint32_t row) co
         switch(m_columns[column])
         {
             case ThreeDSoundListColumn::Id:
-                return sound.Id.value();
+                return sound.id.value();
             
             case ThreeDSoundListColumn::File:
                 return sound.soundFile.value();

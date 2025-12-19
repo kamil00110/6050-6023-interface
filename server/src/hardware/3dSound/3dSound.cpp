@@ -21,12 +21,12 @@
  */
 
 #include "3dSound.hpp"
-#include "list/3dSoundListTableModel.hpp"
 #include "list/3dSoundList.hpp"
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/method.tpp"
+#include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
 #include "../../log/log.hpp"
 
@@ -116,27 +116,23 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
 
 void ThreeDSound::addToWorld()
 {
-    IdObject::addToWorld();
-    auto& worldSounds = getWorld(*this).threeDSounds.value();
-    if (worldSounds)
-        worldSounds->addObject(std::dynamic_pointer_cast<ThreeDSound>(shared_from_this()));
+  IdObject::addToWorld();
+  if(auto list = getWorld(*this).threeDSounds.value())
+    list->addObject(shared_ptr<ThreeDSound>());
 }
 
 void ThreeDSound::loaded()
 {
-    IdObject::loaded();
-    updateEnabled();
+  IdObject::loaded();
+  updateEnabled();
 }
 
 void ThreeDSound::destroying()
 {
-    auto& worldSounds = getWorld(*this).threeDSounds.value();
-    if (worldSounds)
-        worldSounds->removeObject(std::dynamic_pointer_cast<ThreeDSound>(shared_from_this()));
-    IdObject::destroying();
+  if(auto list = getWorld(*this).threeDSounds.value())
+    list->removeObject(shared_ptr<ThreeDSound>());
+  IdObject::destroying();
 }
-
-
 
 void ThreeDSound::worldEvent(WorldState state, WorldEvent event)
 {

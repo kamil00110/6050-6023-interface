@@ -35,7 +35,6 @@ class ThreeDSound : public IdObject
 
 private:
     void updateEnabled();
-    bool importSoundFile(std::string& value);
 
 protected:
     void addToWorld() override;

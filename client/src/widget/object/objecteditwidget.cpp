@@ -263,7 +263,7 @@ void ObjectEditWidget::buildForm()
   static_cast<QFormLayout*>(tabWidget->layout())->addRow(label, w);
 }
 
-        static_cast<QFormLayout*>(tabWidget->layout())->addRow(new InterfaceItemNameLabel(*item, this), w);
+       
       }
     }
 

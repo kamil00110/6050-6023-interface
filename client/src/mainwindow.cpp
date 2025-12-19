@@ -423,7 +423,7 @@ MainWindow::MainWindow(QWidget* parent) :
       [this]()
       {
           // Opens the 3D sound object in a subwindow
-          showObject("world.threeDSounds", Locale::tr("world:3d_sound"));
+          showObject("world.three_d_sounds", Locale::tr("world:3d_sound"));
       }
     );
     //3d sound here

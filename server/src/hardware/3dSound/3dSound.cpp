@@ -110,8 +110,9 @@ void ThreeDSound::updateEnabled()
 
 bool ThreeDSound::importSoundFile(std::string& value)
 {
-    if(value.empty())
+    if(value.empty()){
         return true;
+    }
     return true;
 }
 

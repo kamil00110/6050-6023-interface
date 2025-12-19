@@ -50,6 +50,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
     // ---- FILE ----
     Attributes::addDisplayName(soundFile, "File");
     Attributes::addEnabled(soundFile, true);
+    soundFile.addAttribute(AttributeName::File, true);
     m_interfaceItems.add(soundFile);
 
     // ---- LOOP ----

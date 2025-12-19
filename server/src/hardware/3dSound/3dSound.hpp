@@ -25,36 +25,27 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
-#include "../../core/method.hpp"
 
 class ThreeDSound : public IdObject
 {
-  CLASS_ID("3d_sound")
-  DEFAULT_ID("sound")
-  CREATE(ThreeDSound)
+    CLASS_ID("3d_sound")
+    DEFAULT_ID("sound")
+    CREATE(ThreeDSound)
 
-  private:
+private:
     void updateEnabled();
 
-  protected:
+protected:
     void addToWorld() override;
     void loaded() override;
     void destroying() override;
     void worldEvent(WorldState state, WorldEvent event) override;
 
-  public:
-    Property<std::string> name;
-    Property<double> positionX;
-    Property<double> positionY;
-    Property<double> positionZ;
-    Property<double> volume;
-    Property<std::string> soundFile;
-    Property<bool> looping;
-    Property<bool> isPlaying;
-    
-    Method<void()> play;
-    Method<void()> stop;
-    Method<void()> test;
+public:
+    Property<std::string> soundFile;  // File
+    Property<bool> looping;           // Loop
+    Property<double> volume;          // Volume
+    Property<double> speed;           // Speed
 
     ThreeDSound(World& world, std::string_view _id);
 };

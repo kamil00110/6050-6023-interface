@@ -77,12 +77,12 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
           soundFile.setValueInternal(newFilename);
           
           //Log::log(*this, LogMessage::N1001_X, 
-            "Audio file uploaded: " + filename + " (" + std::to_string(data.size()) + " bytes)");
+            //"Audio file uploaded: " + filename + " (" + std::to_string(data.size()) + " bytes)");
         }
         catch(const std::exception& e)
         {
-          Log::log(*this, LogMessage::E1001_X, 
-            std::string("Failed to upload audio: ") + e.what());
+          //Log::log(*this, LogMessage::E1001_X, 
+            //std::string("Failed to upload audio: ") + e.what());
           throw;
         }
       }}
@@ -160,13 +160,13 @@ void ThreeDSound::deleteAudioFile()
     {
       std::filesystem::remove(filePath);
       //Log::log(*this, LogMessage::N1001_X, 
-        "Audio file deleted: " + m_originalFilename);
+        //"Audio file deleted: " + m_originalFilename);
     }
   }
   catch(const std::exception& e)
   {
     //Log::log(*this, LogMessage::W1001_X, 
-      std::string("Failed to delete audio: ") + e.what());
+      //std::string("Failed to delete audio: ") + e.what());
   }
 }
 

@@ -45,7 +45,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
         return true;
       }}
   , uploadAudioFile{*this, "upload_audio_file",
-      [this](const std::string& filename, const std::vector<std::byte>& data)
+      [this](const std::string& filename, const std::string & data)
       {
         // Delete old file if exists
         if(!m_originalFilename.empty())

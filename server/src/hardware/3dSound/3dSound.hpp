@@ -39,7 +39,7 @@ private:
     void updateEnabled();
     std::string m_originalFilename; // Original filename from upload
     void deleteAudioFile(); // Delete the stored file
-    std::filesystem::path getAudioFilePath() const; // Get full path to stored file
+    std::filesystem::path getAudioFilePath(); // Get full path to stored file
 
 protected:
     void addToWorld() override;

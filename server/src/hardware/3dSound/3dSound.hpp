@@ -33,8 +33,13 @@ class ThreeDSound : public IdObject
     DEFAULT_ID("sound")
     CREATE(ThreeDSound)
 
+    
+
 private:
     void updateEnabled();
+    std::string m_originalFilename; // Original filename from upload
+    void deleteAudioFile(); // Delete the stored file
+    std::filesystem::path getAudioFilePath() const; // Get full path to stored file
 
 protected:
     void addToWorld() override;
@@ -49,6 +54,9 @@ public:
     Property<double> speed;           // Speed
 
     ThreeDSound(World& world, std::string_view _id);
+
+    Property<std::string> soundFile;  
+    Method<void(const std::string&, const std::vector<std::byte>&)> uploadAudioFile;
 };
 
 #endif

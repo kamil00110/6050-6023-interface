@@ -72,7 +72,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
           // Write file using utility function (creates directories automatically)
           if(!writeFile(filePath, data.data(), data.size()))
           {
-            Log::log(*this, LogMessage::E1003_X, std::string("writeFile returned false"));
+            Log::log(*this, LogMessage::I1006_X, std::string("writeFile returned false"));
             throw std::runtime_error("Failed to write audio file");
           }
           

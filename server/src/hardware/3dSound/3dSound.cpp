@@ -80,7 +80,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
         m_originalFilename = newFilename;
         soundFile.setValueInternal(newFilename);
         
-        Log::log(*this, LogMessage::N1001_X, "Audio file uploaded: " + filename);
+        //Log::log(*this, LogMessage::N1001_X, "Audio file uploaded: " + filename);
       }}
   , looping{this, "looping", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}

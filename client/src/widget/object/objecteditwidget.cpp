@@ -32,6 +32,8 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QPushButton>
+#include "../../network/connection.hpp"
+#include "../../network/error.hpp"
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
 #include "../../network/objectproperty.hpp"

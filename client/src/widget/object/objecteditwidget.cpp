@@ -22,6 +22,10 @@
 
 #include "objecteditwidget.hpp"
 
+#include <QFile>
+#include <QMessageBox>
+#include <QProgressDialog>
+
 #include <QFormLayout>
 #include <QVBoxLayout>
 #include <QFileDialog>
@@ -56,28 +60,47 @@
 
 static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
 {
-  // Create container widget
   QWidget* container = new QWidget(parent);
   QHBoxLayout* layout = new QHBoxLayout(container);
   layout->setContentsMargins(0, 0, 0, 0);
   
-  // Create text field (uses existing PropertyLineEdit)
   PropertyLineEdit* lineEdit = new PropertyLineEdit(property, container);
+  lineEdit->setReadOnly(true); // Make read-only since we upload files
   
-  // Create browse button
   QPushButton* browseButton = new QPushButton("...", container);
   browseButton->setMaximumWidth(30);
-  browseButton->setToolTip(QObject::tr("Browse for audio file"));
+  browseButton->setToolTip(QObject::tr("Browse and upload audio file"));
   
-  // Connect browse button click
+  QPushButton* clearButton = new QPushButton("X", container);
+  clearButton->setMaximumWidth(30);
+  clearButton->setToolTip(QObject::tr("Clear audio file"));
+  clearButton->setEnabled(!property.toString().isEmpty());
+  
+  // Update clear button state when property changes
+  QObject::connect(&property, &Property::valueChanged, clearButton,
+    [clearButton, &property]()
+    {
+      clearButton->setEnabled(!property.toString().isEmpty());
+    });
+  
+  // Clear button functionality
+  QObject::connect(clearButton, &QPushButton::clicked, container,
+    [&property]()
+    {
+      if(QMessageBox::question(nullptr, 
+          QObject::tr("Clear Audio File"), 
+          QObject::tr("Delete the audio file from the server?"),
+          QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
+      {
+        property.setValueString("");
+      }
+    });
+  
+  // Browse and upload functionality
   QObject::connect(browseButton, &QPushButton::clicked, container,
-    [&property, lineEdit]()
+    [&property, lineEdit, parent]()
     {
       QString startPath = QStandardPaths::writableLocation(QStandardPaths::MusicLocation);
-      
-      // Use current file's directory if file exists
-      if(!lineEdit->text().isEmpty() && QFileInfo(lineEdit->text()).exists())
-        startPath = QFileInfo(lineEdit->text()).absolutePath();
       
       QString filename = QFileDialog::getOpenFileName(
         lineEdit,
@@ -87,30 +110,86 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
       
       if(!filename.isEmpty())
       {
-        property.setValueString(filename);
+        QFile file(filename);
+        if(!file.open(QIODevice::ReadOnly))
+        {
+          QMessageBox::critical(parent, 
+            QObject::tr("Error"), 
+            QObject::tr("Failed to read file: %1").arg(filename));
+          return;
+        }
+        
+        QByteArray fileData = file.readAll();
+        file.close();
+        
+        // Show progress dialog
+        QProgressDialog progress(QObject::tr("Uploading audio file..."), 
+                                QObject::tr("Cancel"), 0, 100, parent);
+        progress.setWindowModality(Qt::WindowModal);
+        progress.setValue(50);
+        
+        // Get the upload method
+        Object& object = *static_cast<Object*>(property.parent());
+        Method* uploadMethod = object.getMethod("upload_audio_file");
+        
+        if(uploadMethod)
+        {
+          Connection* connection = object.connection().get();
+          QFileInfo fileInfo(filename);
+          
+          QStringList args;
+          args << fileInfo.fileName(); // Original filename
+          
+          connection->callMethodWithBinaryData(*uploadMethod, args, fileData,
+            [&progress, &property, fileInfo](std::optional<const Error> error)
+            {
+              progress.setValue(100);
+              
+              if(error)
+              {
+                QMessageBox::critical(nullptr, 
+                  QObject::tr("Upload Failed"), 
+                  QObject::tr("Failed to upload audio file: %1").arg(error->toString()));
+              }
+              else
+              {
+                // Success - property will be updated by server
+                QMessageBox::information(nullptr,
+                  QObject::tr("Success"),
+                  QObject::tr("Audio file uploaded successfully"));
+              }
+            });
+        }
+        else
+        {
+          QMessageBox::critical(parent,
+            QObject::tr("Error"),
+            QObject::tr("Upload method not available"));
+        }
       }
     });
   
-  // Handle enabled/disabled state from property
-  QObject::connect(&property, &Property::attributeChanged, browseButton,
-    [browseButton, lineEdit](AttributeName name, const QVariant& value)
+  // Handle enabled state
+  QObject::connect(&property, &Property::attributeChanged, container,
+    [browseButton, clearButton, lineEdit](AttributeName name, const QVariant& value)
     {
       if(name == AttributeName::Enabled)
       {
         const bool enabled = value.toBool();
         lineEdit->setEnabled(enabled);
         browseButton->setEnabled(enabled);
+        clearButton->setEnabled(enabled);
       }
     });
   
-  // Set initial enabled state
   const bool enabled = property.getAttributeBool(AttributeName::Enabled, true);
   lineEdit->setEnabled(enabled);
   browseButton->setEnabled(enabled);
+  clearButton->setEnabled(enabled && !property.toString().isEmpty());
   
-  // Add widgets to layout
   layout->addWidget(lineEdit);
   layout->addWidget(browseButton);
+  layout->addWidget(clearButton);
   
   return container;
 }

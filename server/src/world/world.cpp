@@ -680,3 +680,8 @@ void World::updateScaleRatio()
   else
     Attributes::setVisible(scaleRatio, true);
 }
+
+std::filesystem::path World::audioFilesDir() const
+{
+  return Traintastic::instance->worldDir() / uuid.value() / "audio";
+}

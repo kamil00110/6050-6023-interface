@@ -111,6 +111,9 @@ class Connection : public QObject, public std::enable_shared_from_this<Connectio
     void socketError(QAbstractSocket::SocketError);
 
   public:
+    int callMethodWithBinaryData(Method& method, const QStringList& stringArgs, 
+                                const QByteArray& binaryData,
+                                std::function<void(std::optional<const Error>)> callback);
     static const quint16 defaultPort = 5740;
     static constexpr int invalidRequestId = -1;
 

@@ -63,7 +63,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
         // Generate unique filename based on object ID and original filename
         const std::filesystem::path originalPath(filename);
         const std::string extension = originalPath.extension().string();
-        const std::string newFilename = id + extension;
+        const std::string newFilename = id.value() + extension;
         const auto filePath = audioDir / newFilename;
         
         // Write file

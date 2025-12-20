@@ -168,6 +168,8 @@ class World : public Object
     World(Private);
     ~World() override;
 
+    std::filesystem::path audioFilesDir() const;
+
     std::string getObjectId() const final { return std::string(classId); }
 
     std::string getUniqueId(std::string_view prefix) const;

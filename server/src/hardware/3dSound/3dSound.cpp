@@ -152,12 +152,12 @@ void ThreeDSound::deleteAudioFile()
     if(std::filesystem::exists(filePath))
     {
       std::filesystem::remove(filePath);
-      Log::log(*this, LogMessage::N1001_X, "Audio file deleted: " + m_originalFilename);
+      //Log::log(*this, LogMessage::N1001_X, "Audio file deleted: " + m_originalFilename);
     }
   }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::W1001_X, "Failed to delete audio file: " + std::string(e.what()));
+    //Log::log(*this, LogMessage::W1001_X, "Failed to delete audio file: " + std::string(e.what()));
   }
 }
 std::filesystem::path ThreeDSound::getAudioFilePath() const

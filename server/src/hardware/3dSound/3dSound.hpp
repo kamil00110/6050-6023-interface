@@ -29,36 +29,33 @@
 
 class ThreeDSound : public IdObject
 {
-    CLASS_ID("3d_sound")
-    DEFAULT_ID("sound")
-    CREATE(ThreeDSound)
+  CLASS_ID("3d_sound")
+  DEFAULT_ID("sound")
+  CREATE(ThreeDSound)
 
+  private:
+    std::string m_originalFilename;
     
-
-private:
+    void deleteAudioFile();
+    std::filesystem::path getAudioFilePath();
     void updateEnabled();
-    std::string m_originalFilename; // Original filename from upload
-    void deleteAudioFile(); // Delete the stored file
-    std::filesystem::path getAudioFilePath(); // Get full path to stored file
 
-protected:
+  protected:
     void addToWorld() override;
     void loaded() override;
     void destroying() override;
     void worldEvent(WorldState state, WorldEvent event) override;
 
-public:
-    Property<std::string> soundFile;  // File 
+  public:
+    Property<std::string> soundFile;
+    Property<bool> looping;
+    Property<double> volume;
+    Property<double> speed;
+    
+    // Method signature: filename (string), binary data (string)
     Method<void(const std::string&, const std::string&)> uploadAudioFile;
 
-    Property<bool> looping;           // Loop
-    Property<double> volume;          // Volume
-    Property<double> speed;           // Speed
-
     ThreeDSound(World& world, std::string_view _id);
-
-    
-   
 };
 
 #endif

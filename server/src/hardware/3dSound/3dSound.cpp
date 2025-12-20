@@ -46,83 +46,126 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
   , looping{this, "looping", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speed{this, "speed", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , uploadAudioFile{*this, "upload_audio_file",
+, uploadAudioFile{*this, "upload_audio_file",
   [this](const std::string& filename, const std::string& data)
   {
-    Log::log(*this, LogMessage::I1006_X,
-             "upload_audio_file called");
+    Log::log(
+      *this,
+      LogMessage::I1006_X,
+      std::string("upload_audio_file called")
+    );
 
-    Log::log(*this, LogMessage::I1006_X,
-             "Client filename: " + filename);
+    Log::log(
+      *this,
+      LogMessage::I1006_X,
+      std::string("Client filename: ") + filename
+    );
 
-    Log::log(*this, LogMessage::I1006_X,
-             "Received data size: " + std::to_string(data.size()) + " bytes");
+    Log::log(
+      *this,
+      LogMessage::I1006_X,
+      std::string("Received data size: ") +
+        std::to_string(data.size()) +
+        std::string(" bytes")
+    );
 
     try
     {
       // Delete old file if exists
       if(!m_originalFilename.empty())
       {
-        Log::log(*this, LogMessage::I1006_X,
-                 "Deleting old audio file: " + m_originalFilename);
+        Log::log(
+          *this,
+          LogMessage::I1006_X,
+          std::string("Deleting old audio file: ") + m_originalFilename
+        );
+
         deleteAudioFile();
       }
 
       // Get audio directory path
       const auto audioDir = getWorld(*this).audioFilesDir();
-      Log::log(*this, LogMessage::I1006_X,
-               "Audio directory: " + audioDir.string());
+
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("Audio directory: ") + audioDir.string()
+      );
 
       // Generate unique filename
       const std::filesystem::path originalPath(filename);
       const std::string extension = originalPath.extension().string();
 
-      Log::log(*this, LogMessage::I1006_X,
-               "Original extension: " + extension);
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("Original extension: ") + extension
+      );
 
       const std::string newFilename = id.value() + extension;
       const auto filePath = audioDir / newFilename;
 
-      Log::log(*this, LogMessage::I1006_X,
-               "Target file path: " + filePath.string());
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("Target file path: ") + filePath.string()
+      );
 
       // Write file
       const bool ok = writeFile(filePath, data.data(), data.size());
 
-      Log::log(*this, LogMessage::I1006_X,
-               std::string("writeFile result: ") + (ok ? "OK" : "FAILED"));
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("writeFile result: ") +
+          std::string(ok ? "OK" : "FAILED")
+      );
 
       if(!ok)
       {
-        throw std::runtime_error("Failed to write audio file");
+        throw std::runtime_error("writeFile returned false");
       }
 
       if(std::filesystem::exists(filePath))
       {
-        Log::log(*this, LogMessage::I1006_X,
-                 "Written file size on disk: " +
-                 std::to_string(std::filesystem::file_size(filePath)) + " bytes");
+        Log::log(
+          *this,
+          LogMessage::I1006_X,
+          std::string("Written file size on disk: ") +
+            std::to_string(std::filesystem::file_size(filePath)) +
+            std::string(" bytes")
+        );
       }
       else
       {
-        Log::log(*this, LogMessage::I1006_X,
-                 "ERROR: file does not exist after write");
+        Log::log(
+          *this,
+          LogMessage::I1006_X,
+          std::string("ERROR: file does not exist after write")
+        );
       }
 
       // Update property
       m_originalFilename = newFilename;
       soundFile.setValueInternal(newFilename);
 
-      Log::log(*this, LogMessage::I1006_X,
-               "Upload finished successfully");
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("Upload finished successfully")
+      );
     }
     catch(const std::exception& e)
     {
-      Log::log(*this, LogMessage::I1006_X,
-               std::string("UPLOAD FAILED: ") + e.what());
+      Log::log(
+        *this,
+        LogMessage::I1006_X,
+        std::string("UPLOAD FAILED: ") + std::string(e.what())
+      );
       throw;
     }
-  }}
+  }
+}
 {
   Attributes::addDisplayName(soundFile, "File");
   Attributes::addEnabled(soundFile, true);
@@ -210,7 +253,8 @@ std::filesystem::path ThreeDSound::getAudioFilePath()
   const auto path = getWorld(*this).audioFilesDir() / m_originalFilename;
 
   Log::log(*this, LogMessage::I1006_X,
-           "getAudioFilePath(): " + path.string());
+           std::string("getAudioFilePath(): ") + path.string());
 
   return path;
 }
+

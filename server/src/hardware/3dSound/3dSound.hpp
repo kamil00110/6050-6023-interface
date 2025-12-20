@@ -49,7 +49,8 @@ protected:
 
 public:
     Property<std::string> soundFile;  // File 
-    Method<void(const std::string&, const std::vector<std::byte>&)> uploadAudioFile;
+    Method<void(const std::string&, const std::string&)> uploadAudioFile;
+
     Property<bool> looping;           // Loop
     Property<double> volume;          // Volume
     Property<double> speed;           // Speed

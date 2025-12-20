@@ -335,6 +335,42 @@ int Connection::getObjects(const Object& objectList, uint32_t startIndex, uint32
   return request->requestId();
 }
 
+int Connection::callMethodWithBinaryData(Method& method, const QStringList& stringArgs,
+                                          const QByteArray& binaryData,
+                                          std::function<void(std::optional<const Error>)> callback)
+{
+  auto request = Message::newRequest(Message::Command::ObjectCallMethod);
+  request->write(method.object().handle());
+  request->write(method.name().toLatin1());
+  request->write(ValueType::Invalid); // no result
+  request->write<uint8_t>(stringArgs.size() + 1); // arguments count
+  
+  // Write string arguments
+  for(const auto& arg : stringArgs)
+  {
+    request->write(ValueType::String);
+    request->write(arg.toUtf8());
+  }
+  
+  // Write binary data as byte array
+  request->write(ValueType::String); // Binary data sent as string
+  request->write(binaryData);
+  
+  send(request,
+    [callback](const std::shared_ptr<Message> message)
+    {
+      if(!message->isError())
+      {
+        callback({});
+      }
+      else
+      {
+        callback(*message);
+      }
+    });
+  return request->requestId();
+}
+
 int Connection::getObjects(const ObjectVectorProperty& property, uint32_t startIndex, uint32_t endIndex, std::function<void(const std::vector<ObjectPtr>&, std::optional<const Error>)> callback)
 {
   std::unique_ptr<Message> request{Message::newRequest(Message::Command::ObjectGetObjectVectorPropertyObject)};

@@ -683,5 +683,9 @@ void World::updateScaleRatio()
 
 std::filesystem::path World::audioFilesDir() const
 {
-  return Traintastic::instance->worldDir() / uuid.value() / "audio";
+  // World files are stored in: <dataDir>/worlds/<uuid>/
+  // Audio files will be in: <dataDir>/worlds/<uuid>/audio/
+  const std::filesystem::path worldPath = 
+    Traintastic::instance->worldDir() / uuid.value();
+  return worldPath / "audio";
 }

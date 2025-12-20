@@ -29,9 +29,59 @@
 #include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
 #include "../../log/log.hpp"
+#include <fstream>
+
 ThreeDSound::ThreeDSound(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , soundFile{this, "sound_file","",PropertyFlags::ReadWrite | PropertyFlags::Store,}
+  , soundFile{this, "sound_file", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const std::string& value)
+      {
+        // If file changes and we had a previous file, delete it
+        if(!m_originalFilename.empty() && m_originalFilename != value)
+        {
+          deleteAudioFile();
+        }
+        m_originalFilename = value;
+        return true;
+      }}
+  , uploadAudioFile{*this, "upload_audio_file",
+      [this](const std::string& filename, const std::vector<std::byte>& data)
+      {
+        // Delete old file if exists
+        if(!m_originalFilename.empty())
+        {
+          deleteAudioFile();
+        }
+        
+        // Create audio directory if it doesn't exist
+        const auto audioDir = getWorld(*this).audioFilesDir();
+        if(!std::filesystem::exists(audioDir))
+        {
+          std::filesystem::create_directories(audioDir);
+        }
+        
+        // Generate unique filename based on object ID and original filename
+        const std::filesystem::path originalPath(filename);
+        const std::string extension = originalPath.extension().string();
+        const std::string newFilename = id + extension;
+        const auto filePath = audioDir / newFilename;
+        
+        // Write file
+        std::ofstream file(filePath, std::ios::binary);
+        if(!file)
+        {
+          throw std::runtime_error("Failed to create audio file");
+        }
+        
+        file.write(reinterpret_cast<const char*>(data.data()), data.size());
+        file.close();
+        
+        // Update property with just the filename
+        m_originalFilename = newFilename;
+        soundFile.setValueInternal(newFilename);
+        
+        Log::log(*this, LogMessage::N1001_X, "Audio file uploaded: " + filename);
+      }}
   , looping{this, "looping", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , volume{this, "volume", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speed{this, "speed", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store} 
@@ -40,6 +90,9 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
     Attributes::addDisplayName(soundFile, "File");
    Attributes::addEnabled(soundFile, true);
     m_interfaceItems.add(soundFile);
+
+    Attributes::addObjectEditor(uploadAudioFile, false);
+    m_interfaceItems.add(uploadAudioFile);
     // ---- LOOP ----
     Attributes::addDisplayName(looping, "Loop");
     Attributes::addEnabled(looping, true);
@@ -69,6 +122,8 @@ void ThreeDSound::loaded()
 }
 void ThreeDSound::destroying()
 {
+  deleteAudioFile(); // Delete audio file when object is destroyed
+  
   if(auto list = getWorld(*this).threeDSounds.value())
     list->removeObject(shared_ptr<ThreeDSound>());
   IdObject::destroying();
@@ -85,4 +140,27 @@ void ThreeDSound::updateEnabled()
     Attributes::setEnabled(looping, editable);
     Attributes::setEnabled(volume, editable);
     Attributes::setEnabled(speed, editable);
+}
+void ThreeDSound::deleteAudioFile()
+{
+  if(m_originalFilename.empty())
+    return;
+    
+  try
+  {
+    const auto filePath = getAudioFilePath();
+    if(std::filesystem::exists(filePath))
+    {
+      std::filesystem::remove(filePath);
+      Log::log(*this, LogMessage::N1001_X, "Audio file deleted: " + m_originalFilename);
+    }
+  }
+  catch(const std::exception& e)
+  {
+    Log::log(*this, LogMessage::W1001_X, "Failed to delete audio file: " + std::string(e.what()));
+  }
+}
+std::filesystem::path ThreeDSound::getAudioFilePath() const
+{
+  return getWorld(*this).audioFilesDir() / m_originalFilename;
 }

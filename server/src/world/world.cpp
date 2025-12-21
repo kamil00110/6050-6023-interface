@@ -86,6 +86,7 @@ constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColum
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
 constexpr auto threeDSoundListColumns = ThreeDSoundListColumn::Id | ThreeDSoundListColumn::File | ThreeDSoundListColumn::Loop | ThreeDSoundListColumn::Volume | ThreeDSoundListColumn::Speed;
+constexpr auto threeDZoneListColumns = ThreeDZoneListColumn::Id | ThreeDZoneListColumn::Width | ThreeDZoneListColumn::Height | ThreeDZoneListColumn::SpeakerSetup;
 
 template<class T>
 inline static void deleteAll(T& objectList)
@@ -128,6 +129,7 @@ void World::init(World& world)
   world.identificationControllers.setValueInternal(std::make_shared<ControllerList<IdentificationController>>(world, world.identificationControllers.name()));
   world.lncvProgrammingControllers.setValueInternal(std::make_shared<ControllerList<LNCVProgrammingController>>(world, world.lncvProgrammingControllers.name()));
   world.threeDSounds.setValueInternal(std::make_shared<ThreeDSoundList>(world, world.threeDSounds.name(), threeDSoundListColumns));
+  world.threeDZones.setValueInternal(std::make_shared<ThreeDZoneList>(world, world.threeDZones.name(), threeDZoneListColumns));
   world.interfaces.setValueInternal(std::make_shared<InterfaceList>(world, world.interfaces.name()));
   world.decoders.setValueInternal(std::make_shared<DecoderList>(world, world.decoders.name(), decoderListColumns));
   world.inputs.setValueInternal(std::make_shared<InputList>(world, world.inputs.name(), inputListColumns));
@@ -182,6 +184,7 @@ World::World(Private /*unused*/) :
   identificationControllers{this, "identification_controllers", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   lncvProgrammingControllers{this, "lncv_programming_controllers", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   threeDSounds{this, "three_d_sounds", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
+  threeDZones{this, "three_d_zones", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   interfaces{this, "interfaces", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   decoders{this, "decoders", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   inputs{this, "inputs", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
@@ -352,6 +355,9 @@ World::World(Private /*unused*/) :
 
   Attributes::addObjectEditor(threeDSounds, false);
   m_interfaceItems.add(threeDSounds);
+
+  Attributes::addObjectEditor(threeDZones, false);
+  m_interfaceItems.add(threeDZones);
 
   m_interfaceItems.add(onlineWhenLoaded);
   m_interfaceItems.add(powerOnWhenLoaded);

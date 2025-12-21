@@ -174,6 +174,12 @@ Traintastic::Traintastic(const std::filesystem::path& dataDir) :
   m_interfaceItems.add(shutdown);
 }
 
+Traintastic::~Traintastic()
+{
+    boost::system::error_code ec;
+    m_signalSet.cancel(ec); 
+}
+
 void Traintastic::importWorld(const std::vector<std::byte>& worldData)
 {
   try

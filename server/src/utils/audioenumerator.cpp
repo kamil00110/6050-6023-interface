@@ -316,8 +316,13 @@ void AudioEnumerator::logDeviceInfo()
 
 #else // Not Windows
 
-// Stub implementation for non-Windows platforms
-AudioEnumerator::AudioEnumerator() = default;
+struct AudioEnumerator::Impl {};
+
+AudioEnumerator::AudioEnumerator()
+  : m_impl(std::make_unique<Impl>())
+{
+}
+
 AudioEnumerator::~AudioEnumerator() = default;
 
 std::unique_ptr<AudioEnumerator> AudioEnumerator::create()

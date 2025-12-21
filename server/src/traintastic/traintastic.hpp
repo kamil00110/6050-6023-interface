@@ -82,7 +82,8 @@ class Traintastic final : public Object
     Method<void()> shutdown;
 
     Traintastic(const std::filesystem::path& dataDir);
-    ~Traintastic() final = default;
+    ~Traintastic() final;
+
 
     std::string getObjectId() const final { return std::string(id); }
 

@@ -96,6 +96,7 @@ class Traintastic final : public Object
 
     void importWorld(const std::vector<std::byte>& worldData);
     void logAllAudioDevices();
+    void shutdownInternal();
     RunStatus run(const std::string& worldUUID = {}, bool simulate = false, bool online = false, bool power = false, bool run = false);
     void exit();
 };

@@ -466,7 +466,6 @@ World::World(Private /*unused*/) :
   m_interfaceItems.add(getLNCVProgrammer);
 
   m_interfaceItems.add(onEvent);
-  getAudioDevices();
   updateEnabled();
 }
 
@@ -690,20 +689,4 @@ std::filesystem::path World::audioFilesDir() const
     Traintastic::instance->worldDir() / uuid.value();
   return worldPath / "audio";
 }
-
-void World::getAudioDevices()
-{
-  // Create enumerator
-  auto enumerator = AudioEnumerator::create();
-  
-  // Log all device info to the global log
-  enumerator->logDeviceInfo();
-  
-  // Or get devices programmatically
-  auto devices = enumerator->enumerateDevices();
-  for(const auto& device : devices)
-{
-    Log::log(std::string("world"), LogMessage::I1006_X, "Device: " + device.deviceName);
-}
-
 }

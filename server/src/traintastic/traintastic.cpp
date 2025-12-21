@@ -153,7 +153,12 @@ Traintastic::Traintastic(const std::filesystem::path& dataDir) :
   m_signalSet.add(SIGBREAK); //Windows uses SIGBREAK instead of SIGTERM
 #endif
 
-  m_signalSet.async_wait(&Traintastic::signalHandler);
+  m_signalSet.async_wait(
+    [this](const boost::system::error_code& ec, int sig)
+    {
+      signalHandler(ec, sig);
+    }
+  );
 
   m_interfaceItems.add(about);
   m_interfaceItems.add(settings);
@@ -267,10 +272,10 @@ void Traintastic::exit()
   else
     Log::log(*this, LogMessage::N1004_SHUTTING_DOWN);
 
-  if(settings->autoSaveWorldOnExit && world)
+  if(settings && settings->autoSaveWorldOnExit && world)
     world->save();
 
-  EventLoop::stop();
+  shutdownInternal();
 }
 
 void Traintastic::loadWorldUUID(const boost::uuids::uuid& uuid)
@@ -407,3 +412,26 @@ void Traintastic::logAllAudioDevices()
   Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
     std::string("=== End Detailed Audio Device Information ==="));
 }
+
+void Traintastic::shutdownInternal()
+{
+  boost::system::error_code ec;
+  m_signalSet.cancel(ec);
+
+  if(m_server)
+  {
+    m_server.reset();
+  }
+
+  if(world)
+  {
+    world->destroy();
+    world = nullptr;
+  }
+
+  worldList.reset();
+  settings.reset();
+
+  EventLoop::stop();
+}
+

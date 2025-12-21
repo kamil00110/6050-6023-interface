@@ -73,29 +73,12 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
   browseButton->setMaximumWidth(30);
   browseButton->setToolTip(QObject::tr("Browse and upload audio file"));
   
-  QPushButton* clearButton = new QPushButton("X", container);
-  clearButton->setMaximumWidth(30);
-  clearButton->setToolTip(QObject::tr("Clear audio file"));
-  clearButton->setEnabled(!property.toString().isEmpty());
-  
-  // Update clear button state when property changes
-  QObject::connect(&property, &Property::valueChanged, clearButton,
-    [clearButton, &property]()
+  // Update button state when property changes
+  QObject::connect(&property, &Property::valueChanged, browseButton,
+    [browseButton, &property]()
     {
-      clearButton->setEnabled(!property.toString().isEmpty());
-    });
-  
-  // Clear button functionality
-  QObject::connect(clearButton, &QPushButton::clicked, container,
-    [&property]()
-    {
-      if(QMessageBox::question(nullptr, 
-          QObject::tr("Clear Audio File"), 
-          QObject::tr("Delete the audio file from the server?"),
-          QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
-      {
-        property.setValueString("");
-      }
+      // Optionally disable browse if file is already set
+      // browseButton->setEnabled(property.toString().isEmpty());
     });
   
   // Browse and upload functionality
@@ -190,25 +173,22 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
   
   // Handle enabled state
   QObject::connect(&property, &Property::attributeChanged, container,
-    [browseButton, clearButton, lineEdit](AttributeName name, const QVariant& value)
+    [browseButton, lineEdit](AttributeName name, const QVariant& value)
     {
       if(name == AttributeName::Enabled)
       {
         const bool enabled = value.toBool();
         lineEdit->setEnabled(enabled);
         browseButton->setEnabled(enabled);
-        clearButton->setEnabled(enabled);
       }
     });
   
   const bool enabled = property.getAttributeBool(AttributeName::Enabled, true);
   lineEdit->setEnabled(enabled);
   browseButton->setEnabled(enabled);
-  clearButton->setEnabled(enabled && !property.toString().isEmpty());
   
   layout->addWidget(lineEdit);
   layout->addWidget(browseButton);
-  layout->addWidget(clearButton);
   
   return container;
 }

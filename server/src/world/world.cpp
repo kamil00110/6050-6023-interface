@@ -691,7 +691,7 @@ std::filesystem::path World::audioFilesDir() const
   return worldPath / "audio";
 }
 
-void World::getaudidevices()
+void World::getAudioDevices()
 {
   // Create enumerator
   auto enumerator = AudioEnumerator::create();

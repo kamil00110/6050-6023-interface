@@ -20,26 +20,29 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
       [this](const std::string& value)
       {
         // This validator is called when:
-        // 1. User clears the property (value is empty)
-        // 2. Upload method sets the property (value is filename)
-        // 3. World loading sets the property (value is filename)
+        // 1. Upload method sets the property (value is filename)
+        // 2. World loading sets the property (value is filename)
+        // 3. Someone explicitly sets it to empty (shouldn't happen in normal operation)
         
-        if(value.empty() && !m_originalFilename.empty())
-        {
-          // User is clearing the file - delete it
-          Log::log(*this, LogMessage::I1006_X, 
-            std::string("Property validator: clearing file: ") + m_originalFilename);
-          deleteAudioFile();
-          m_originalFilename.clear();
-        }
-        else if(!value.empty() && value != m_originalFilename)
+        // The validator should NOT delete files - that's handled by:
+        // - destroying() when object is deleted
+        // - uploadAudioFile() when replacing a file
+        
+        if(!value.empty() && value != m_originalFilename)
         {
           // Property is being set to a new filename
-          // This happens during upload or world load
-          // Don't delete here - upload method handles deletion before setting
           Log::log(*this, LogMessage::I1006_X, 
-            std::string("Property validator: setting filename to: ") + value);
+            std::string("Property validator: updating filename from '") + 
+            m_originalFilename + "' to '" + value + "'");
           m_originalFilename = value;
+        }
+        else if(value.empty())
+        {
+          // Being cleared - just update the member variable
+          // Don't delete the file here, as destroying() will handle it
+          Log::log(*this, LogMessage::I1006_X, 
+            std::string("Property validator: property cleared"));
+          m_originalFilename.clear();
         }
         
         return true;
@@ -168,6 +171,9 @@ void ThreeDSound::loaded()
 
 void ThreeDSound::destroying()
 {
+  // Delete the audio file when this object is being destroyed
+  Log::log(*this, LogMessage::I1006_X, 
+    std::string("Object destroying, cleaning up audio file"));
   deleteAudioFile();
   
   if(auto list = getWorld(*this).threeDSounds.value())
@@ -199,31 +205,39 @@ void ThreeDSound::deleteAudioFile()
     return;
   }
   
+  // Store filename locally in case m_originalFilename gets cleared during deletion
   const std::string filenameToDelete = m_originalFilename;
-    
+  
   try
   {
-    const auto filePath = getAudioFilePath();
+    // Construct full path to the audio file
+    const auto audioDir = getWorld(*this).audioFilesDir();
+    const auto filePath = audioDir / filenameToDelete;
     
     Log::log(*this, LogMessage::I1006_X, 
-      std::string("Attempting to delete: ") + filePath.string());
+      std::string("Deleting audio file: ") + filePath.string());
     
     if(std::filesystem::exists(filePath))
     {
       std::filesystem::remove(filePath);
       Log::log(*this, LogMessage::I1006_X, 
-        std::string("Successfully deleted: ") + filenameToDelete);
+        std::string("Successfully deleted audio file: ") + filenameToDelete);
     }
     else
     {
       Log::log(*this, LogMessage::I1006_X, 
-        std::string("File not found for deletion: ") + filePath.string());
+        std::string("Audio file not found (may have been deleted already): ") + filePath.string());
     }
+    
+    // Clear the member variable after successful deletion (or if file didn't exist)
+    m_originalFilename.clear();
   }
   catch(const std::exception& e)
   {
     Log::log(*this, LogMessage::I1006_X, 
-      std::string("Delete failed: ") + e.what());
+      std::string("Failed to delete audio file: ") + e.what());
+    // Still clear the member variable even if deletion failed
+    m_originalFilename.clear();
   }
 }
 

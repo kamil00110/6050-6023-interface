@@ -172,17 +172,30 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
     });
   
   // Handle enabled state
-  QObject::connect(&property, &Property::attributeChanged, container,
-    [browseButton, clearButton, lineEdit](AttributeName name, const QVariant& value)
+  // In objecteditwidget.cpp, in the browse button callback:
+QObject::connect(browseButton, &QPushButton::clicked, container,
+  [&property, lineEdit, parent]()
+  {
+    qDebug() << "Browse button clicked"; // ADD THIS
+    
+    QString filename = QFileDialog::getOpenFileName(/*...*/);
+    qDebug() << "Selected file:" << filename; // ADD THIS
+    
+    if(!filename.isEmpty())
     {
-      if(name == AttributeName::Enabled)
+      QFile file(filename);
+      if(!file.open(QIODevice::ReadOnly))
       {
-        const bool enabled = value.toBool();
-        lineEdit->setEnabled(enabled);
-        browseButton->setEnabled(enabled);
-        clearButton->setEnabled(enabled);
+        qDebug() << "Failed to open file:" << filename; // ADD THIS
+        // ...
       }
-    });
+      
+      QByteArray fileData = file.readAll();
+      qDebug() << "Read" << fileData.size() << "bytes"; // ADD THIS
+      
+      // ...
+    }
+  });
   
   const bool enabled = property.getAttributeBool(AttributeName::Enabled, true);
   lineEdit->setEnabled(enabled);

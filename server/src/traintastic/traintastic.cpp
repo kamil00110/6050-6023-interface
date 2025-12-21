@@ -212,6 +212,7 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
   Log::log(*this, LogMessage::I1008_X, std::string_view{archive_version_details()});
   Log::log(*this, LogMessage::I1009_ZLIB_X, std::string_view{zlibVersion()});
   Log::log(*this, LogMessage::I9002_X, Lua::getVersion());
+  logAllAudioDevices();
 
   settings = std::make_shared<Settings>(m_dataDir);
   Attributes::setEnabled(restart, settings->allowClientServerRestart);
@@ -268,7 +269,6 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
     Log::log(id, LogMessage::F1008_EVENTLOOP_CRASHED_X, e.what());
     return ExitFailure;
   }
-  logAllAudioDevices();
   return m_restart ? Restart : ExitSuccess;
 }
 

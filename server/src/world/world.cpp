@@ -707,3 +707,4 @@ void World::getAudioDevices()
 }
 
 }
+world->getAudioDevices();

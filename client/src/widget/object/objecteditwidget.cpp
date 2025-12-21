@@ -130,13 +130,22 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
         progress.setWindowModality(Qt::WindowModal);
         progress.setValue(50);
         
+        // Get the object from the property's parent
+        Object* obj = static_cast<Object*>(property.parent());
+        if(!obj)
+        {
+          QMessageBox::critical(parent,
+            QObject::tr("Error"),
+            QObject::tr("Failed to get object"));
+          return;
+        }
+        
         // Get the upload method
-        Method* uploadMethod = object.getMethod("upload_audio_file");
-        qDebug() << "Upload method found:" << (uploadMethod != nullptr);
+        Method* uploadMethod = obj->getMethod("upload_audio_file");
         
         if(uploadMethod)
         {
-          Connection* connection = object.connection().get();
+          Connection* connection = obj->connection().get();
           QFileInfo fileInfo(filename);
           
           QStringList args;
@@ -172,30 +181,17 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
     });
   
   // Handle enabled state
-  // In objecteditwidget.cpp, in the browse button callback:
-QObject::connect(browseButton, &QPushButton::clicked, container,
-  [&property, lineEdit, parent]()
-  {
-    qDebug() << "Browse button clicked"; // ADD THIS
-    
-    QString filename = QFileDialog::getOpenFileName(/*...*/);
-    qDebug() << "Selected file:" << filename; // ADD THIS
-    
-    if(!filename.isEmpty())
+  QObject::connect(&property, &Property::attributeChanged, container,
+    [browseButton, clearButton, lineEdit](AttributeName name, const QVariant& value)
     {
-      QFile file(filename);
-      if(!file.open(QIODevice::ReadOnly))
+      if(name == AttributeName::Enabled)
       {
-        qDebug() << "Failed to open file:" << filename; // ADD THIS
-        // ...
+        const bool enabled = value.toBool();
+        lineEdit->setEnabled(enabled);
+        browseButton->setEnabled(enabled);
+        clearButton->setEnabled(enabled);
       }
-      
-      QByteArray fileData = file.readAll();
-      qDebug() << "Read" << fileData.size() << "bytes"; // ADD THIS
-      
-      // ...
-    }
-  });
+    });
   
   const bool enabled = property.getAttributeBool(AttributeName::Enabled, true);
   lineEdit->setEnabled(enabled);

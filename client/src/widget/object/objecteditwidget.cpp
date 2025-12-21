@@ -124,11 +124,16 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
         QByteArray fileData = file.readAll();
         file.close();
         
-        // Show progress dialog
-        QProgressDialog progress(QObject::tr("Uploading audio file..."), 
-                                QObject::tr("Cancel"), 0, 100, parent);
-        progress.setWindowModality(Qt::WindowModal);
-        progress.setValue(50);
+        // Show progress dialog (heap allocated, will be deleted when closed)
+        QProgressDialog* progress = new QProgressDialog(
+          QObject::tr("Uploading audio file..."), 
+          QString(), 0, 100, parent);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->setCancelButton(nullptr); // No cancel button
+        progress->setAutoClose(true);
+        progress->setAutoReset(true);
+        progress->setValue(50);
+        progress->show();
         
         // Get the object from the property's parent
         Object* obj = static_cast<Object*>(property.parent());
@@ -152,20 +157,23 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
           args << fileInfo.fileName(); // Original filename
           
           connection->callMethodWithBinaryData(*uploadMethod, args, fileData,
-            [&progress, &property, fileInfo](std::optional<const Error> error)
+            [progress, parent](std::optional<const Error> error)
             {
-              progress.setValue(100);
+              // Close and delete progress dialog
+              progress->setValue(100);
+              progress->close();
+              progress->deleteLater();
               
               if(error)
               {
-                QMessageBox::critical(nullptr, 
+                QMessageBox::critical(parent, 
                   QObject::tr("Upload Failed"), 
                   QObject::tr("Failed to upload audio file: %1").arg(error->toString()));
               }
               else
               {
                 // Success - property will be updated by server
-                QMessageBox::information(nullptr,
+                QMessageBox::information(parent,
                   QObject::tr("Success"),
                   QObject::tr("Audio file uploaded successfully"));
               }
@@ -204,7 +212,6 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
   
   return container;
 }
-
 ObjectEditWidget::ObjectEditWidget(const ObjectPtr& object, QWidget* parent) :
   AbstractEditWidget(object, parent)
 {

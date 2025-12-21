@@ -81,6 +81,7 @@ class World : public Object
 
     void updateEnabled();
     void updateScaleRatio();
+    void getaudiodevices():
 
   protected:
     static void init(World& world);

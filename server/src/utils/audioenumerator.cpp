@@ -21,7 +21,6 @@
 #include <Audioclient.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <comdef.h>
-#include <sstream>
 
 // Link required libraries
 #pragma comment(lib, "ole32.lib")
@@ -104,47 +103,22 @@ private:
   T* ptr;
 };
 
-struct AudioEnumerator::Impl
+// Helper to initialize COM (returns true if this call initialized it)
+static bool initializeCOM()
 {
-  bool comInitialized = false;
-  
-  Impl()
-  {
-    // Initialize COM
-    HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    if(SUCCEEDED(hr))
-    {
-      comInitialized = true;
-    }
-    else if(hr == RPC_E_CHANGED_MODE)
-    {
-      // COM already initialized in a different mode, that's ok
-      comInitialized = false;
-    }
-  }
-  
-  ~Impl()
-  {
-    if(comInitialized)
-      CoUninitialize();
-  }
-};
-
-AudioEnumerator::AudioEnumerator()
-  : m_impl(std::make_unique<Impl>())
-{
-}
-
-AudioEnumerator::~AudioEnumerator() = default;
-
-std::unique_ptr<AudioEnumerator> AudioEnumerator::create()
-{
-  return std::unique_ptr<AudioEnumerator>(new AudioEnumerator());
+  HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if(SUCCEEDED(hr))
+    return true;
+  if(hr == RPC_E_CHANGED_MODE)
+    return false; // Already initialized
+  return false;
 }
 
 std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
 {
   std::vector<AudioDeviceInfo> devices;
+  
+  bool comInitialized = initializeCOM();
   
   try
   {
@@ -278,17 +252,24 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
   catch(const std::exception& e)
   {
     // Log error but return whatever we collected
-    Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, std::string("Audio enumeration error: ") + e.what());
+    Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+      std::string("Audio enumeration error: ") + e.what());
   }
+  
+  if(comInitialized)
+    CoUninitialize();
   
   return devices;
 }
 
-void AudioEnumerator::logDeviceInfo()
+void AudioEnumerator::logDevices()
 {
   auto devices = enumerateDevices();
-  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, std::string("=== Windows Audio Devices (WASAPI) ==="));
-  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
+  
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("=== Windows Audio Devices (WASAPI) ==="));
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
   
   for(size_t i = 0; i < devices.size(); i++)
   {
@@ -311,33 +292,93 @@ void AudioEnumerator::logDeviceInfo()
     }
   }
   
-  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, std::string("=== End Audio Device List ==="));
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("=== End Audio Device List ==="));
+}
+
+std::string AudioEnumerator::getSpeakerName(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.deviceName;
+  }
+  
+  return "Sound controller missing";
+}
+
+std::vector<std::string> AudioEnumerator::listSpeakerIds()
+{
+  std::vector<std::string> ids;
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    ids.push_back(device.deviceId);
+  }
+  
+  return ids;
+}
+
+uint32_t AudioEnumerator::getSpeakerChannels(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.channelCount;
+  }
+  
+  return 0;
+}
+
+std::vector<AudioChannelInfo> AudioEnumerator::getSpeakerChannelInfo(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.channels;
+  }
+  
+  return {};
 }
 
 #else // Not Windows
-
-struct AudioEnumerator::Impl {};
-
-AudioEnumerator::AudioEnumerator()
-  : m_impl(std::make_unique<Impl>())
-{
-}
-
-AudioEnumerator::~AudioEnumerator() = default;
-
-std::unique_ptr<AudioEnumerator> AudioEnumerator::create()
-{
-  return std::unique_ptr<AudioEnumerator>(new AudioEnumerator());
-}
 
 std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
 {
   return {}; // Empty list on non-Windows platforms
 }
 
-void AudioEnumerator::logDeviceInfo()
+void AudioEnumerator::logDevices()
 {
-  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, std::string("Audio enumeration not implemented for this platform"));
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("Audio enumeration not implemented for this platform"));
+}
+
+std::string AudioEnumerator::getSpeakerName(const std::string& /*deviceId*/)
+{
+  return "Sound controller missing";
+}
+
+std::vector<std::string> AudioEnumerator::listSpeakerIds()
+{
+  return {};
+}
+
+uint32_t AudioEnumerator::getSpeakerChannels(const std::string& /*deviceId*/)
+{
+  return 0;
+}
+
+std::vector<AudioChannelInfo> AudioEnumerator::getSpeakerChannelInfo(const std::string& /*deviceId*/)
+{
+  return {};
 }
 
 #endif // _WIN32

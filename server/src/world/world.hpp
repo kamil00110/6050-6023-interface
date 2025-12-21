@@ -170,7 +170,6 @@ class World : public Object
     ~World() override;
 
     std::filesystem::path audioFilesDir() const;
-    void getAudioDevices();
 
 
     std::string getObjectId() const final { return std::string(classId); }

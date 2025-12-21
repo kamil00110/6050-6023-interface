@@ -81,13 +81,13 @@ class World : public Object
 
     void updateEnabled();
     void updateScaleRatio();
-    void getaudiodevices():
+
 
   protected:
     static void init(World& world);
 
     std::unordered_map<std::string, std::weak_ptr<Object>> m_objects;
-
+    
     void loaded() final;
     void worldEvent(WorldState worldState, WorldEvent worldEvent) final;
     void event(WorldEvent value);
@@ -170,6 +170,7 @@ class World : public Object
     ~World() override;
 
     std::filesystem::path audioFilesDir() const;
+    void getaudiodevices():
 
     std::string getObjectId() const final { return std::string(classId); }
 

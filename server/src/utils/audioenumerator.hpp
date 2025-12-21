@@ -15,7 +15,7 @@
 
 #include <string>
 #include <vector>
-#include <memory>
+#include <optional>
 
 struct AudioChannelInfo
 {
@@ -35,19 +35,21 @@ struct AudioDeviceInfo
 class AudioEnumerator
 {
 public:
-  static std::unique_ptr<AudioEnumerator> create();
-  
-  ~AudioEnumerator();
-  
   // Enumerate all audio output devices
-  std::vector<AudioDeviceInfo> enumerateDevices();
+  static std::vector<AudioDeviceInfo> enumerateDevices();
   
   // Log all device information
-  void logDeviceInfo();
+  static void logDevices();
   
-private:
-  AudioEnumerator();
+  // Get speaker name by ID, returns "Sound controller missing" if not found
+  static std::string getSpeakerName(const std::string& deviceId);
   
-  struct Impl;
-  std::unique_ptr<Impl> m_impl;
+  // Get list of all speaker IDs
+  static std::vector<std::string> listSpeakerIds();
+  
+  // Get channel count for a specific speaker, returns 0 if not found
+  static uint32_t getSpeakerChannels(const std::string& deviceId);
+  
+  // Get detailed channel information for a specific speaker
+  static std::vector<AudioChannelInfo> getSpeakerChannelInfo(const std::string& deviceId);
 };

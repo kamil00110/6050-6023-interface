@@ -131,8 +131,8 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
         progress.setValue(50);
         
         // Get the upload method
-        Object& object = *static_cast<Object*>(property.parent());
         Method* uploadMethod = object.getMethod("upload_audio_file");
+        qDebug() << "Upload method found:" << (uploadMethod != nullptr);
         
         if(uploadMethod)
         {

@@ -703,6 +703,7 @@ void World::getAudioDevices()
   auto devices = enumerator->enumerateDevices();
   for(const auto& device : devices)
 {
-    Log::log("World", LogMessage::I1006_X, std::string("Device: ") + device.deviceName);
+    Log::log(std::string("world"), LogMessage::I1006_X, "Device: " + device.deviceName);
 }
+
 }

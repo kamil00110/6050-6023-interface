@@ -689,4 +689,3 @@ std::filesystem::path World::audioFilesDir() const
     Traintastic::instance->worldDir() / uuid.value();
   return worldPath / "audio";
 }
-}

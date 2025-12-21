@@ -41,6 +41,8 @@
 #include "../log/log.hpp"
 #include "../log/logmessageexception.hpp"
 #include "../lua/getversion.hpp"
+#include "../utils/audioenumerator.hpp"
+
 
 using nlohmann::json;
 
@@ -352,9 +354,6 @@ void Traintastic::signalHandler(const boost::system::error_code& ec, int signalN
  * Example code to log all speakers with their channel names and IDs
  * Add this to traintastic.cpp or any other appropriate location
  */
-
-#include "utils/audioenumerator.hpp"
-#include "log/log.hpp"
 
 void logAllAudioDevices()
 {

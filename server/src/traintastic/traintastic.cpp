@@ -255,6 +255,7 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
   try
   {
     EventLoop::exec();
+    EventLoop::reset();
   }
   catch(const std::exception& e)
   {
@@ -272,10 +273,10 @@ void Traintastic::exit()
   else
     Log::log(*this, LogMessage::N1004_SHUTTING_DOWN);
 
-  if(settings && settings->autoSaveWorldOnExit && world)
+  if(settings->autoSaveWorldOnExit && world)
     world->save();
 
-  shutdownInternal();
+  EventLoop::stop();
 }
 
 void Traintastic::loadWorldUUID(const boost::uuids::uuid& uuid)
@@ -412,26 +413,3 @@ void Traintastic::logAllAudioDevices()
   Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
     std::string("=== End Detailed Audio Device Information ==="));
 }
-
-void Traintastic::shutdownInternal()
-{
-  boost::system::error_code ec;
-  m_signalSet.cancel(ec);
-
-  if(m_server)
-  {
-    m_server.reset();
-  }
-
-  if(world)
-  {
-    world->destroy();
-    world = nullptr;
-  }
-
-  worldList.reset();
-  settings.reset();
-
-  EventLoop::stop();
-}
-

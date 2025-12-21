@@ -421,7 +421,7 @@ MainWindow::MainWindow(QWidget* parent) :
     
     SoundMenu = m_menuObjects->addMenu(Locale::tr("qtapp.mainmenu:3dSound"));
     SoundMenu->addAction(Locale::tr("world:sound_files") + "...", [this](){ showObject("world.three_d_sounds", Locale::tr("world:sound_files")); });
-    SoundMenu->addAction(Locale::tr("world:sound_zones") + "...", [this](){ showObject("world.three_d_files", Locale::tr("world:sound_zones")); });
+    SoundMenu->addAction(Locale::tr("world:sound_zones") + "...", [this](){ showObject("world.three_d_zones", Locale::tr("world:sound_zones")); });
     
     m_menuObjects->addAction(Theme::getIcon("clock"), Locale::tr("world:clock") + "...", [this](){ showObject("world.clock", Locale::tr("world:clock")); });
     trainsAction = m_menuObjects->addAction(Theme::getIcon("train"), Locale::tr("world:trains") + "...",

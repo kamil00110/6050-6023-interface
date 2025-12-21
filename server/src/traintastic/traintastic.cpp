@@ -254,7 +254,7 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
     Log::log(id, LogMessage::F1008_EVENTLOOP_CRASHED_X, e.what());
     return ExitFailure;
   }
-
+  logAllAudioDevices();
   return m_restart ? Restart : ExitSuccess;
 }
 
@@ -347,4 +347,64 @@ void Traintastic::signalHandler(const boost::system::error_code& ec, int signalN
 
   Log::log(*Traintastic::instance, LogMessage::N1001_RECEIVED_SIGNAL_X, std::string_view{val});
   instance->exit();
+}
+/**
+ * Example code to log all speakers with their channel names and IDs
+ * Add this to traintastic.cpp or any other appropriate location
+ */
+
+#include "utils/audioenumerator.hpp"
+#include "log/log.hpp"
+
+void logAllAudioDevices()
+{
+  // Get all speaker IDs
+  auto speakerIds = AudioEnumerator::listSpeakerIds();
+  
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("=== Detailed Audio Device Information ==="));
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("Total devices found: ") + std::to_string(speakerIds.size()));
+  
+  // Iterate through each speaker
+  for(size_t i = 0; i < speakerIds.size(); i++)
+  {
+    const auto& speakerId = speakerIds[i];
+    
+    // Get speaker information
+    std::string name = AudioEnumerator::getSpeakerName(speakerId);
+    uint32_t channelCount = AudioEnumerator::getSpeakerChannels(speakerId);
+    auto channels = AudioEnumerator::getSpeakerChannelInfo(speakerId);
+    
+    // Log speaker header
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("\n--- Speaker ") + std::to_string(i + 1) + " ---");
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("Name: ") + name);
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("ID: ") + speakerId);
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("Total Channels: ") + std::to_string(channelCount));
+    
+    // Log each channel
+    if(!channels.empty())
+    {
+      Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+        std::string("Channels:"));
+      
+      for(const auto& channel : channels)
+      {
+        Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+          std::string("  [") + std::to_string(channel.channelIndex) + "] " + channel.channelName);
+      }
+    }
+    else
+    {
+      Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+        std::string("  No channel information available"));
+    }
+  }
+  
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("=== End Detailed Audio Device Information ==="));
 }

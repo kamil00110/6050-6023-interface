@@ -13,7 +13,6 @@
 
 #include "audioenumerator.hpp"
 #include "../log/log.hpp"
-#include "../log/logmessageexception.hpp"
 
 #ifdef _WIN32
 
@@ -279,7 +278,7 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
   catch(const std::exception& e)
   {
     // Log error but return whatever we collected
-    Log::log(LogMessage::E1001_X, std::string("Audio enumeration error: ") + e.what());
+    Log::log(LogMessage::I1006_X, std::string("Audio enumeration error: ") + e.what());
   }
   
   return devices;
@@ -288,7 +287,6 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
 void AudioEnumerator::logDeviceInfo()
 {
   auto devices = enumerateDevices();
-  
   Log::log(LogMessage::I1006_X, std::string("=== Windows Audio Devices (WASAPI) ==="));
   Log::log(LogMessage::I1006_X, std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
   

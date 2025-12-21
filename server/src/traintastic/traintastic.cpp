@@ -355,7 +355,7 @@ void Traintastic::signalHandler(const boost::system::error_code& ec, int signalN
  * Add this to traintastic.cpp or any other appropriate location
  */
 
-void logAllAudioDevices()
+void Traintastic::logAllAudioDevices()
 {
   // Get all speaker IDs
   auto speakerIds = AudioEnumerator::listSpeakerIds();

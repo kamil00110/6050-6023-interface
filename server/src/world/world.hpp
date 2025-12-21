@@ -36,6 +36,7 @@
 #include "../enum/worldscale.hpp"
 #include "../status/status.hpp"
 #include <traintastic/set/worldstate.hpp>
+#include "../hardware/3dZone/list/3dZoneList.hpp"
 
 class WorldLoader;
 class LNCVProgrammer;
@@ -125,6 +126,7 @@ class World : public Object
     ObjectProperty<ControllerList<LNCVProgrammingController>> lncvProgrammingControllers;
 
     ObjectProperty<ThreeDSoundList> threeDSounds;
+    ObjectProperty<ThreeDZoneList> threeDZones;
     ObjectProperty<InterfaceList> interfaces;
     ObjectProperty<DecoderList> decoders;
     ObjectProperty<InputList> inputs;

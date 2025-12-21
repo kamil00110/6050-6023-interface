@@ -13,7 +13,7 @@
 
 #include "audioenumerator.hpp"
 #include "../log/log.hpp"
-#include "../log/logmessage.hpp"
+#include "../log/logmessageexception.hpp"
 
 #ifdef _WIN32
 

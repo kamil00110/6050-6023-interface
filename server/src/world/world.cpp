@@ -466,7 +466,7 @@ World::World(Private /*unused*/) :
   m_interfaceItems.add(getLNCVProgrammer);
 
   m_interfaceItems.add(onEvent);
-
+  world->getAudioDevices();
   updateEnabled();
 }
 

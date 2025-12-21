@@ -262,7 +262,6 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
   try
   {
     EventLoop::exec();
-    EventLoop::reset();
   }
   catch(const std::exception& e)
   {

@@ -76,6 +76,7 @@
 #include "../lua/scriptlist.hpp"
 #include "../status/simulationstatus.hpp"
 #include "../utils/category.hpp"
+#include "../utils/audioenumerator.hpp"
 
 using nlohmann::json;
 
@@ -688,4 +689,20 @@ std::filesystem::path World::audioFilesDir() const
   const std::filesystem::path worldPath = 
     Traintastic::instance->worldDir() / uuid.value();
   return worldPath / "audio";
+}
+
+void getaudidevices()
+{
+  // Create enumerator
+  auto enumerator = AudioEnumerator::create();
+  
+  // Log all device info to the global log
+  enumerator->logDeviceInfo();
+  
+  // Or get devices programmatically
+  auto devices = enumerator->enumerateDevices();
+  for(const auto& device : devices)
+  {
+    // Use device.deviceName, device.channelCount, etc.
+  }
 }

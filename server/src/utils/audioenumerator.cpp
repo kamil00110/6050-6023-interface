@@ -278,7 +278,7 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
   catch(const std::exception& e)
   {
     // Log error but return whatever we collected
-    Log::log(LogMessage::I1006_X, std::string("Audio enumeration error: ") + e.what());
+    Log::log(*this,LogMessage::I1006_X, std::string("Audio enumeration error: ") + e.what());
   }
   
   return devices;
@@ -287,8 +287,8 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
 void AudioEnumerator::logDeviceInfo()
 {
   auto devices = enumerateDevices();
-  Log::log(LogMessage::I1006_X, std::string("=== Windows Audio Devices (WASAPI) ==="));
-  Log::log(LogMessage::I1006_X, std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
+  Log::log(*this,LogMessage::I1006_X, std::string("=== Windows Audio Devices (WASAPI) ==="));
+  Log::log(*this,LogMessage::I1006_X, std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
   
   for(size_t i = 0; i < devices.size(); i++)
   {
@@ -301,17 +301,17 @@ void AudioEnumerator::logDeviceInfo()
     deviceHeader += "\nID: " + device.deviceId;
     deviceHeader += "\nChannels: " + std::to_string(device.channelCount);
     
-    Log::log(LogMessage::I1006_X, deviceHeader);
+    Log::log(*this,LogMessage::I1006_X, deviceHeader);
     
     // Log each channel
     for(const auto& channel : device.channels)
     {
-      Log::log(LogMessage::I1006_X, 
+      Log::log(*this,LogMessage::I1006_X, 
         std::string("  Channel ") + std::to_string(channel.channelIndex) + ": " + channel.channelName);
     }
   }
   
-  Log::log(LogMessage::I1006_X, std::string("=== End Audio Device List ==="));
+  Log::log(*this,LogMessage::I1006_X, std::string("=== End Audio Device List ==="));
 }
 
 #else // Not Windows
@@ -332,7 +332,7 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
 
 void AudioEnumerator::logDeviceInfo()
 {
-  Log::log(LogMessage::I1006_X, std::string("Audio enumeration not implemented for this platform"));
+  Log::log(*this,LogMessage::I1006_X, std::string("Audio enumeration not implemented for this platform"));
 }
 
 #endif // _WIN32

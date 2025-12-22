@@ -79,27 +79,27 @@ jobs:
          #  build_deb: true
          #  defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
 
-        - name: "macos-15-intel"
-          os: "macos-15-intel"
-          generator: "Unix Makefiles"
-          arch: ""
-          osx_arch: x86_64
-          target: traintastic-client
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
+       #  - name: "macos-15-intel"
+       #    os: "macos-15-intel"
+       #    generator: "Unix Makefiles"
+       #    arch: ""
+       #    osx_arch: x86_64
+       #    target: traintastic-client
+       #    jobs: 4
+       #    build_type: Release
+       #    build_deb: false
+       #    defines: ""
 
-        - name: "macos-15-arm64"
-          os: "macos-15"
-          generator: "Unix Makefiles"
-          arch: ""
-          osx_arch: arm64
-          target: traintastic-client
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
+      #   - name: "macos-15-arm64"
+      #     os: "macos-15"
+      #     generator: "Unix Makefiles"
+      #     arch: ""
+      #     osx_arch: arm64
+     #      target: traintastic-client
+     #      jobs: 4
+     #      build_type: Release
+     #      build_deb: false
+      #     defines: ""
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -118,14 +118,14 @@ jobs:
         cache: true
         version: 5.15
 
-    # macOS only:
-    - name: Install Qt 6.5
-      if: startswith(matrix.config.os, 'macos')
-      uses: jurplel/install-qt-action@v4
-      with:
-        cache: true
-        modules: qtwebsockets
-        version: 6.5.*
+  #   # macOS only:
+  #   - name: Install Qt 6.5
+  #     if: startswith(matrix.config.os, 'macos')
+  #     uses: jurplel/install-qt-action@v4
+  #     with:
+   #      cache: true
+   #      modules: qtwebsockets
+   #      version: 6.5.*
 
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')
@@ -271,29 +271,29 @@ jobs:
           # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
           # ccov: false
 
-        - name: "macos-15-intel"
-          os: "macos-15-intel"
-          generator: "Unix Makefiles"
-          arch: ""
-          toolset: ""
-          target: all
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
-          ccov: false
+    #     - name: "macos-15-intel"
+     #      os: "macos-15-intel"
+     #      generator: "Unix Makefiles"
+      #     arch: ""
+     #      toolset: ""
+      #     target: all
+      #     jobs: 4
+      #     build_type: Release
+     #      build_deb: false
+      #     defines: ""
+      #     ccov: false
 
-        - name: "macos-15-arm64"
-          os: "macos-15"
-          generator: "Unix Makefiles"
-          arch: ""
-          toolset: ""
-          target: all
-          jobs: 4
-          build_type: Release
-          build_deb: false
-          defines: ""
-          ccov: false
+      #   - name: "macos-15-arm64"
+      #     os: "macos-15"
+     #      generator: "Unix Makefiles"
+     #      arch: ""
+     #      toolset: ""
+     #      target: all
+      #     jobs: 4
+      #     build_type: Release
+      #     build_deb: false
+      #     defines: ""
+      #     ccov: false
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2

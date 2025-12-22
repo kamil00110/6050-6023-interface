@@ -1,3 +1,6 @@
+/**
+ * server/src/hardware/3dZone/list/3dZoneList.cpp
+ */
 #include "3dZoneList.hpp"
 #include "3dZoneListTableModel.hpp"
 #include "../3dZone.hpp"
@@ -19,11 +22,9 @@ ThreeDZoneList::ThreeDZoneList(Object& _parent, std::string_view parentPropertyN
   , delete_{*this, "delete", std::bind(&ThreeDZoneList::deleteMethodHandler, this, std::placeholders::_1)}
 {
   const bool editable = contains(getWorld(parent()).state.value(), WorldState::Edit);
-  
   Attributes::addDisplayName(create, DisplayName::List::create);
   Attributes::addEnabled(create, editable);
   m_interfaceItems.add(create);
-  
   Attributes::addDisplayName(delete_, DisplayName::List::delete_);
   Attributes::addEnabled(delete_, editable);
   m_interfaceItems.add(delete_);
@@ -37,7 +38,6 @@ TableModelPtr ThreeDZoneList::getModel()
 void ThreeDZoneList::worldEvent(WorldState state, WorldEvent event)
 {
   ObjectList<ThreeDZone>::worldEvent(state, event);
-  
   const bool editable = contains(state, WorldState::Edit);
   Attributes::setEnabled(create, editable);
   Attributes::setEnabled(delete_, editable);

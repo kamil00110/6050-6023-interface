@@ -36,7 +36,7 @@
 #include "../enum/worldscale.hpp"
 #include "../status/status.hpp"
 #include <traintastic/set/worldstate.hpp>
-#include "../hardware/3dZone/list/3dZoneList.hpp"
+#include "../hardware/3dZone/3dZone.hpp"
 
 class WorldLoader;
 class LNCVProgrammer;

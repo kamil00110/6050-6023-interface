@@ -1,50 +1,31 @@
-#ifndef TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_3DZONELISTCOLUMN_HPP
-#define TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_3DZONELISTCOLUMN_HPP
+#ifndef TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_SPEAKERSETUP_HPP
+#define TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_SPEAKERSETUP_HPP
 
 #include <cstdint>
 #include <array>
 
-enum class ThreeDZoneListColumn : uint8_t
+enum class SpeakerSetup : uint8_t
 {
-  Id = 1,
-  Width = 2,
-  Height = 4,
-  SpeakerSetup = 8,
+  Quadraphonic = 4,    // 4 speakers
+  Surround5_1 = 6,     // 6 speakers
+  Surround7_1 = 8,     // 8 speakers
+  Surround9_1 = 10,    // 10 speakers
 };
 
-TRAINTASTIC_ENUM(ThreeDZoneListColumn, "3d_zone_list_column", 4,
+TRAINTASTIC_ENUM(SpeakerSetup, "speaker_setup", 4,
 {
-  {ThreeDZoneListColumn::Id, "id"},
-  {ThreeDZoneListColumn::Width, "width"},
-  {ThreeDZoneListColumn::Height, "height"},
-  {ThreeDZoneListColumn::SpeakerSetup, "speaker_setup"},
+  {SpeakerSetup::Quadraphonic, "quadraphonic"},
+  {SpeakerSetup::Surround5_1, "surround_5_1"},
+  {SpeakerSetup::Surround7_1, "surround_7_1"},
+  {SpeakerSetup::Surround9_1, "surround_9_1"},
 });
 
-constexpr auto threeDZoneListColumnValues = std::array<ThreeDZoneListColumn, 4>{
-  ThreeDZoneListColumn::Id,
-  ThreeDZoneListColumn::Width,
-  ThreeDZoneListColumn::Height,
-  ThreeDZoneListColumn::SpeakerSetup,
+// ADD THIS: values array for Attributes::addValues()
+constexpr auto speakerSetupValues = std::array<SpeakerSetup, 4>{
+  SpeakerSetup::Quadraphonic,
+  SpeakerSetup::Surround5_1,
+  SpeakerSetup::Surround7_1,
+  SpeakerSetup::Surround9_1,
 };
-
-constexpr ThreeDZoneListColumn operator|(ThreeDZoneListColumn lhs, ThreeDZoneListColumn rhs)
-{
-  return static_cast<ThreeDZoneListColumn>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
-}
-
-constexpr ThreeDZoneListColumn operator&(ThreeDZoneListColumn lhs, ThreeDZoneListColumn rhs)
-{
-  return static_cast<ThreeDZoneListColumn>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
-}
-
-constexpr ThreeDZoneListColumn operator~(ThreeDZoneListColumn value)
-{
-  return static_cast<ThreeDZoneListColumn>(~static_cast<uint8_t>(value));
-}
-
-constexpr bool contains(ThreeDZoneListColumn value, ThreeDZoneListColumn mask)
-{
-  return (static_cast<uint8_t>(value) & static_cast<uint8_t>(mask)) == static_cast<uint8_t>(mask);
-}
 
 #endif

@@ -87,12 +87,8 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
 void ThreeDZone::addToWorld()
 {
   IdObject::addToWorld();
-  if(auto list = getWorld(*this).threeDZones.value())
-  {
-    auto self = std::static_pointer_cast<ThreeDZone>(Object::shared_from_this());
-    list->addObject(self);
-  }
 }
+
 
 void ThreeDZone::destroying()
 {
@@ -104,12 +100,19 @@ void ThreeDZone::destroying()
   IdObject::destroying();
 }
 
-
 void ThreeDZone::loaded()
 {
   IdObject::loaded();
+
+  if(auto list = getWorld(*this).threeDZones.value())
+  {
+    auto self = std::static_pointer_cast<ThreeDZone>(Object::shared_from_this());
+    list->addObject(self);
+  }
+
   updateEnabled();
 }
+
 
 void ThreeDZone::worldEvent(WorldState state, WorldEvent event)
 {

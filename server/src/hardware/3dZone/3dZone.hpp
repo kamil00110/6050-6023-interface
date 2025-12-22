@@ -82,5 +82,3 @@ class ThreeDZone : public IdObject
 };
 
 #endif
-
-#endif

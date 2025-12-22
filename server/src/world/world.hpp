@@ -60,6 +60,7 @@ class TrainList;
 class RailVehicleList;
 class SimulationStatus;
 class ThreeDSoundList;
+class ThreeDZoneList;
 
 template <typename T>
 class ControllerList;

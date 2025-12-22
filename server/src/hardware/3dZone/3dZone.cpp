@@ -88,13 +88,19 @@ void ThreeDZone::addToWorld()
 {
   IdObject::addToWorld();
   if(auto list = getWorld(*this).threeDZones.value())
-    list->addObject(shared_from_this());
+  {
+    auto self = std::static_pointer_cast<ThreeDZone>(Object::shared_from_this());
+    list->addObject(self);
+  }
 }
 
 void ThreeDZone::destroying()
 {
   if(auto list = getWorld(*this).threeDZones.value())
-    list->removeObject(shared_from_this());
+  {
+    auto self = std::static_pointer_cast<ThreeDZone>(Object::shared_from_this());
+    list->removeObject(self);
+  }
   IdObject::destroying();
 }
 

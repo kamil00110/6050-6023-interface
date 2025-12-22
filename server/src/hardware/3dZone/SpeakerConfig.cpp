@@ -5,7 +5,7 @@
 #include "../../utils/displayname.hpp"
 
 SpeakerConfig::SpeakerConfig(ThreeDZone& parent, int speakerIndex)
-  : SubObject(parent)
+  : SubObject(parent, "speakers")  // FIX: SubObject needs parent property name
   , m_speakerIndex{speakerIndex}
   , volumeOverride{this, "volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , audioDevice{this, "audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store}

@@ -57,10 +57,15 @@ ThreeDZoneListTableModel::ThreeDZoneListTableModel(ThreeDZoneList& list)
 
 std::string ThreeDZoneListTableModel::getText(uint32_t column, uint32_t row) const
 {
-  if(row < rowCount())
+  try
   {
+    if(row >= rowCount())
+      return "";
+    
     const ThreeDZone& zone = getItem(row);
-    assert(column < m_columns.size());
+    
+    if(column >= m_columns.size())
+      return "";
     
     switch(m_columns[column])
     {
@@ -87,40 +92,62 @@ std::string ThreeDZoneListTableModel::getText(uint32_t column, uint32_t row) con
       case ThreeDZoneListColumn::Speakers:
         return zone.getSpeakersFormatted();
     }
-    assert(false);
+    
+    return "";
   }
-  return "";
+  catch(const std::exception& e)
+  {
+    return std::string("Error: ") + e.what();
+  }
+  catch(...)
+  {
+    return "Unknown error";
+  }
 }
 
 void ThreeDZoneListTableModel::propertyChanged(BaseProperty& property, uint32_t row)
 {
-  std::string_view name = property.name();
-  
-  if(name == "id") 
-    changed(row, ThreeDZoneListColumn::Id);
-  else if(name == "width") 
-    changed(row, ThreeDZoneListColumn::Width);
-  else if(name == "height") 
-    changed(row, ThreeDZoneListColumn::Height);
-  else if(name == "speaker_setup") 
+  try
   {
-    changed(row, ThreeDZoneListColumn::SpeakerSetup);
-    changed(row, ThreeDZoneListColumn::Speakers);
+    std::string_view name = property.name();
+    
+    if(name == "id") 
+      changed(row, ThreeDZoneListColumn::Id);
+    else if(name == "width") 
+      changed(row, ThreeDZoneListColumn::Width);
+    else if(name == "height") 
+      changed(row, ThreeDZoneListColumn::Height);
+    else if(name == "speaker_setup") 
+    {
+      changed(row, ThreeDZoneListColumn::SpeakerSetup);
+      changed(row, ThreeDZoneListColumn::Speakers);
+    }
+    else if(name == "speakers_data")
+    {
+      changed(row, ThreeDZoneListColumn::Speakers);
+    }
   }
-  else if(name == "speakers_data")
+  catch(...)
   {
-    changed(row, ThreeDZoneListColumn::Speakers);
+    // Silently ignore errors in property change notifications
   }
 }
 
 void ThreeDZoneListTableModel::changed(uint32_t row, ThreeDZoneListColumn column)
 {
-  for(size_t i = 0; i < m_columns.size(); i++)
+  try
   {
-    if(m_columns[i] == column)
+    for(size_t i = 0; i < m_columns.size(); i++)
     {
-      TableModel::changed(row, static_cast<uint32_t>(i));
-      return;
+      if(m_columns[i] == column)
+      {
+        TableModel::changed(row, static_cast<uint32_t>(i));
+        return;
+      }
     }
+  }
+  catch(...)
+  {
+    // Silently ignore errors in change notifications
   }
 }

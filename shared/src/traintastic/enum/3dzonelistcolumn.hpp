@@ -1,20 +1,31 @@
+/**
+ * shared/src/traintastic/enum/3dzonelistcolumn.hpp
+ */
 #ifndef TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_3DZONELISTCOLUMN_HPP
 #define TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_3DZONELISTCOLUMN_HPP
 
 #include <cstdint>
 #include <array>
-#include <type_traits>
 
-enum class ThreeDZoneListColumn
+enum class ThreeDZoneListColumn : uint8_t
 {
-  Id = 1 << 0,
-  Width = 1 << 1,
-  Height = 1 << 2,
-  SpeakerSetup = 1 << 3,
-  Speakers = 1 << 4,
+  Id = 1,
+  Width = 2,
+  Height = 4,
+  SpeakerSetup = 8,
+  Speakers = 16,
 };
 
-constexpr std::array<ThreeDZoneListColumn, 5> threeDZoneListColumnValues = {
+TRAINTASTIC_ENUM(ThreeDZoneListColumn, "3d_zone_list_column", 5,
+{
+  {ThreeDZoneListColumn::Id, "id"},
+  {ThreeDZoneListColumn::Width, "width"},
+  {ThreeDZoneListColumn::Height, "height"},
+  {ThreeDZoneListColumn::SpeakerSetup, "speaker_setup"},
+  {ThreeDZoneListColumn::Speakers, "speakers"},
+});
+
+constexpr auto threeDZoneListColumnValues = std::array<ThreeDZoneListColumn, 5>{
   ThreeDZoneListColumn::Id,
   ThreeDZoneListColumn::Width,
   ThreeDZoneListColumn::Height,
@@ -22,14 +33,24 @@ constexpr std::array<ThreeDZoneListColumn, 5> threeDZoneListColumnValues = {
   ThreeDZoneListColumn::Speakers,
 };
 
-constexpr ThreeDZoneListColumn operator|(const ThreeDZoneListColumn lhs, const ThreeDZoneListColumn rhs)
+constexpr ThreeDZoneListColumn operator|(ThreeDZoneListColumn lhs, ThreeDZoneListColumn rhs)
 {
-  return static_cast<ThreeDZoneListColumn>(static_cast<std::underlying_type_t<ThreeDZoneListColumn>>(lhs) | static_cast<std::underlying_type_t<ThreeDZoneListColumn>>(rhs));
+  return static_cast<ThreeDZoneListColumn>(static_cast<uint8_t>(lhs) | static_cast<uint8_t>(rhs));
 }
 
-constexpr bool contains(const ThreeDZoneListColumn value, const ThreeDZoneListColumn mask)
+constexpr ThreeDZoneListColumn operator&(ThreeDZoneListColumn lhs, ThreeDZoneListColumn rhs)
 {
-  return (static_cast<std::underlying_type_t<ThreeDZoneListColumn>>(value) & static_cast<std::underlying_type_t<ThreeDZoneListColumn>>(mask)) == static_cast<std::underlying_type_t<ThreeDZoneListColumn>>(mask);
+  return static_cast<ThreeDZoneListColumn>(static_cast<uint8_t>(lhs) & static_cast<uint8_t>(rhs));
+}
+
+constexpr ThreeDZoneListColumn operator~(ThreeDZoneListColumn value)
+{
+  return static_cast<ThreeDZoneListColumn>(~static_cast<uint8_t>(value));
+}
+
+constexpr bool contains(ThreeDZoneListColumn value, ThreeDZoneListColumn mask)
+{
+  return (static_cast<uint8_t>(value) & static_cast<uint8_t>(mask)) == static_cast<uint8_t>(mask);
 }
 
 #endif

@@ -92,10 +92,10 @@ void ThreeDZone::updateSpeakerCount()
   }
   else if(currentCount > requiredCount)
   {
-    // Remove excess speakers - get the object at the last index and remove it
+    // Remove excess speakers - cast to the correct type
     while(speakers.size() > static_cast<size_t>(requiredCount))
     {
-      auto lastSpeaker = speakers.getObject(speakers.size() - 1);
+      auto lastSpeaker = std::dynamic_pointer_cast<SpeakerConfig>(speakers.getObject(speakers.size() - 1));
       speakers.removeInternal(lastSpeaker);
     }
   }

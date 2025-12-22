@@ -1,3 +1,6 @@
+/**
+ * server/src/hardware/3dZone/list/3dZoneListTableModel.cpp
+ */
 #include "3dZoneListTableModel.hpp"
 #include "3dZoneList.hpp"
 #include "../../../utils/displayname.hpp"
@@ -28,18 +31,6 @@ static std::string_view displayName(ThreeDZoneListColumn column)
   return {};
 }
 
-static std::string speakerSetupToString(SpeakerSetup setup)
-{
-  switch(setup)
-  {
-    case SpeakerSetup::Quadraphonic: return "4.0";
-    case SpeakerSetup::Surround5_1: return "5.1";
-    case SpeakerSetup::Surround7_1: return "7.1";
-    case SpeakerSetup::Surround9_1: return "9.1";
-  }
-  return "Unknown";
-}
-
 ThreeDZoneListTableModel::ThreeDZoneListTableModel(ThreeDZoneList& list)
   : ObjectListTableModel<ThreeDZone>(list)
 {
@@ -57,15 +48,10 @@ ThreeDZoneListTableModel::ThreeDZoneListTableModel(ThreeDZoneList& list)
 
 std::string ThreeDZoneListTableModel::getText(uint32_t column, uint32_t row) const
 {
-  try
+  if(row < rowCount())
   {
-    if(row >= rowCount())
-      return "";
-    
     const ThreeDZone& zone = getItem(row);
-    
-    if(column >= m_columns.size())
-      return "";
+    assert(column < m_columns.size());
     
     switch(m_columns[column])
     {
@@ -75,79 +61,58 @@ std::string ThreeDZoneListTableModel::getText(uint32_t column, uint32_t row) con
       case ThreeDZoneListColumn::Width:
       {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(1) << zone.width.value() << "m";
+        oss << std::fixed << std::setprecision(1);
+        oss << zone.width.value() << "m";
         return oss.str();
       }
       
       case ThreeDZoneListColumn::Height:
       {
         std::ostringstream oss;
-        oss << std::fixed << std::setprecision(1) << zone.height.value() << "m";
+        oss << std::fixed << std::setprecision(1);
+        oss << zone.height.value() << "m";
         return oss.str();
       }
       
       case ThreeDZoneListColumn::SpeakerSetup:
-        return speakerSetupToString(zone.speakerSetup.value());
-        
+      {
+        switch(zone.speakerSetup.value())
+        {
+          case SpeakerSetup::Quadraphonic: return "4.0";
+          case SpeakerSetup::Surround5_1: return "5.1";
+          case SpeakerSetup::Surround7_1: return "7.1";
+          case SpeakerSetup::Surround9_1: return "9.1";
+        }
+        return "Unknown";
+      }
+      
       case ThreeDZoneListColumn::Speakers:
-        return zone.getSpeakersFormatted();
+        return zone.speakersData.value();
     }
-    
-    return "";
+    assert(false);
   }
-  catch(const std::exception& e)
-  {
-    return std::string("Error: ") + e.what();
-  }
-  catch(...)
-  {
-    return "Unknown error";
-  }
+  return "";
 }
 
 void ThreeDZoneListTableModel::propertyChanged(BaseProperty& property, uint32_t row)
 {
-  try
-  {
-    std::string_view name = property.name();
-    
-    if(name == "id") 
-      changed(row, ThreeDZoneListColumn::Id);
-    else if(name == "width") 
-      changed(row, ThreeDZoneListColumn::Width);
-    else if(name == "height") 
-      changed(row, ThreeDZoneListColumn::Height);
-    else if(name == "speaker_setup") 
-    {
-      changed(row, ThreeDZoneListColumn::SpeakerSetup);
-      changed(row, ThreeDZoneListColumn::Speakers);
-    }
-    else if(name == "speakers_data")
-    {
-      changed(row, ThreeDZoneListColumn::Speakers);
-    }
-  }
-  catch(...)
-  {
-    // Silently ignore errors in property change notifications
-  }
+  std::string_view name = property.name();
+  
+  if(name == "id") changed(row, ThreeDZoneListColumn::Id);
+  else if(name == "width") changed(row, ThreeDZoneListColumn::Width);
+  else if(name == "height") changed(row, ThreeDZoneListColumn::Height);
+  else if(name == "speaker_setup") changed(row, ThreeDZoneListColumn::SpeakerSetup);
+  else if(name == "speakers_data") changed(row, ThreeDZoneListColumn::Speakers);
 }
 
 void ThreeDZoneListTableModel::changed(uint32_t row, ThreeDZoneListColumn column)
 {
-  try
+  for(size_t i = 0; i < m_columns.size(); i++)
   {
-    for(size_t i = 0; i < m_columns.size(); i++)
+    if(m_columns[i] == column)
     {
-      if(m_columns[i] == column)
-      {
-        TableModel::changed(row, static_cast<uint32_t>(i));
-        return;
-      }
+      TableModel::changed(row, static_cast<uint32_t>(i));
+      return;
     }
-  }
-  catch(...)
-  {
-    // Silently ignore errors in change notifications
   }
 }

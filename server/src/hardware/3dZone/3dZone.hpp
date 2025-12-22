@@ -20,9 +20,8 @@ class ThreeDZone : public IdObject
   CREATE(ThreeDZone)
   
   private:
-    std::array<SpeakerConfiguration, 10> m_speakers;
-    
     void updateEnabled();
+    void syncSpeakerData();
     
   protected:
     void addToWorld() override;
@@ -79,8 +78,9 @@ class ThreeDZone : public IdObject
     ThreeDZone(World& world, std::string_view _id);
     
     // Helper to get speaker config
-    const SpeakerConfiguration& getSpeaker(int index) const { return m_speakers[index]; }
-    void setSpeaker(int index, const SpeakerConfiguration& config);
+    SpeakerConfiguration getSpeaker(int index) const;
 };
+
+#endif
 
 #endif

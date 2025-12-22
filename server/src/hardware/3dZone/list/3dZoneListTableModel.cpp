@@ -11,7 +11,7 @@ bool ThreeDZoneListTableModel::isListedProperty(std::string_view name)
     name == "width" ||
     name == "height" ||
     name == "speaker_setup" ||
-    name.find("speaker_") == 0;  // Any speaker property
+    name == "speakers_data";
 }
 
 static std::string_view displayName(ThreeDZoneListColumn column)
@@ -38,32 +38,6 @@ static std::string speakerSetupToString(SpeakerSetup setup)
     case SpeakerSetup::Surround9_1: return "9.1";
   }
   return "Unknown";
-}
-
-static std::string formatSpeaker(const SpeakerConfiguration& speaker, int index)
-{
-  std::ostringstream oss;
-  oss << "[" << index << "] ";
-  oss << "Vol:" << std::fixed << std::setprecision(0) << (speaker.volumeOverride * 100) << "%";
-  if(!speaker.audioDevice.empty())
-    oss << " Dev:" << speaker.audioDevice;
-  oss << " Ch:" << speaker.audioChannel;
-  return oss.str();
-}
-
-static std::string formatAllSpeakers(const ThreeDZone& zone)
-{
-  const int speakerCount = static_cast<int>(zone.speakerSetup.value());
-  std::ostringstream oss;
-  
-  for(int i = 0; i < speakerCount; i++)
-  {
-    if(i > 0)
-      oss << " | ";
-    oss << formatSpeaker(zone.getSpeaker(i), i);
-  }
-  
-  return oss.str();
 }
 
 ThreeDZoneListTableModel::ThreeDZoneListTableModel(ThreeDZoneList& list)
@@ -111,7 +85,7 @@ std::string ThreeDZoneListTableModel::getText(uint32_t column, uint32_t row) con
         return speakerSetupToString(zone.speakerSetup.value());
         
       case ThreeDZoneListColumn::Speakers:
-        return formatAllSpeakers(zone);
+        return zone.getSpeakersFormatted();
     }
     assert(false);
   }
@@ -131,11 +105,10 @@ void ThreeDZoneListTableModel::propertyChanged(BaseProperty& property, uint32_t 
   else if(name == "speaker_setup") 
   {
     changed(row, ThreeDZoneListColumn::SpeakerSetup);
-    changed(row, ThreeDZoneListColumn::Speakers);  // Update speakers column when setup changes
+    changed(row, ThreeDZoneListColumn::Speakers);
   }
-  else if(name.find("speaker_") == 0)
+  else if(name == "speakers_data")
   {
-    // Any speaker property change updates the Speakers column
     changed(row, ThreeDZoneListColumn::Speakers);
   }
 }

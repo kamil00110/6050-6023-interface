@@ -89,7 +89,8 @@ constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColum
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
 constexpr auto threeDSoundListColumns = ThreeDSoundListColumn::Id | ThreeDSoundListColumn::File | ThreeDSoundListColumn::Loop | ThreeDSoundListColumn::Volume | ThreeDSoundListColumn::Speed;
-constexpr auto threeDZoneListColumns = ThreeDZoneListColumn::Id | ThreeDZoneListColumn::Width | ThreeDZoneListColumn::Height | ThreeDZoneListColumn::SpeakerSetup;
+constexpr auto threeDZoneListColumns = ThreeDZoneListColumn::Id | ThreeDZoneListColumn::Width | ThreeDZoneListColumn::Height | ThreeDZoneListColumn::SpeakerSetup |ThreeDZoneListColumn::Speaker0 |ThreeDZoneListColumn::Speaker1 |ThreeDZoneListColumn::Speaker2 |
+  ThreeDZoneListColumn::Speaker3 | ThreeDZoneListColumn::Speaker4 | ThreeDZoneListColumn::Speaker5 |ThreeDZoneListColumn::Speaker6 |ThreeDZoneListColumn::Speaker7 |ThreeDZoneListColumn::Speaker8 |ThreeDZoneListColumn::Speaker9;
 
 template<class T>
 inline static void deleteAll(T& objectList)

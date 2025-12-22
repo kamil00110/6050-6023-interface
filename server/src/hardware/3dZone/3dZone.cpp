@@ -88,20 +88,21 @@ void ThreeDZone::addToWorld()
 {
   IdObject::addToWorld();
   if(auto list = getWorld(*this).threeDZones.value())
-    list->addObject(shared_ptr<ThreeDZone>());
-}
-
-void ThreeDZone::loaded()
-{
-  IdObject::loaded();
-  updateEnabled();
+    list->addObject(shared_from_this());
 }
 
 void ThreeDZone::destroying()
 {
   if(auto list = getWorld(*this).threeDZones.value())
-    list->removeObject(shared_ptr<ThreeDZone>());
+    list->removeObject(shared_from_this());
   IdObject::destroying();
+}
+
+
+void ThreeDZone::loaded()
+{
+  IdObject::loaded();
+  updateEnabled();
 }
 
 void ThreeDZone::worldEvent(WorldState state, WorldEvent event)

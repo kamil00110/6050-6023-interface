@@ -56,6 +56,8 @@
 #include "../hardware/programming/lncv/lncvprogrammingcontroller.hpp"
 #include "../hardware/3dSound/3dSound.hpp"
 #include "../hardware/3dSound/list/3dSoundList.hpp"
+#include "../hardware/3dZone/3dZone.hpp"
+#include "../hardware/3dZone/list/3dZoneList.hpp"
 
 #include "../clock/clock.hpp"
 

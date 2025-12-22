@@ -13,8 +13,9 @@ struct SpeakerConfiguration
   int audioChannel = 0;
 };
 
-class ThreeDZone : public IdObject
+class ThreeDZone : public IdObject, public std::enable_shared_from_this<ThreeDZone>
 {
+
   CLASS_ID("3d_zone")
   DEFAULT_ID("zone")
   CREATE(ThreeDZone)

@@ -6,7 +6,7 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
-#include <traintastic/enum/speakersetup.hpp>
+//#include <traintastic/enum/speakersetup.hpp>
 
 class ThreeDZone : public IdObject
 {

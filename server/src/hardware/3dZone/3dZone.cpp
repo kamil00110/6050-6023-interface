@@ -10,14 +10,12 @@
 
 using nlohmann::json;
 
-using nlohmann::json;
-
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
   , width{this, "width", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , height{this, "height", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speakerSetup{this, "speaker_setup", SpeakerSetup::Quadraphonic, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , speakersData{this, "speakers_data", "[]", PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , speakersData{this, "speakers_data", "", PropertyFlags::ReadWrite | PropertyFlags::Store}  // Start with empty string
 {
   Attributes::addDisplayName(width, "Width (m)");
   Attributes::addMinMax(width, 0.1, 1000.0);
@@ -34,7 +32,9 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addDisplayName(speakersData, "Speakers Configuration");
   m_interfaceItems.add(speakersData);
   
-  // Initialize default speaker data based on setup
+  updateEnabled();
+  
+  // Initialize default speaker data AFTER all properties are set up
   const int speakerCount = static_cast<int>(speakerSetup.value());
   json speakers = json::array();
   for(int i = 0; i < speakerCount; i++)
@@ -47,28 +47,26 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
     });
   }
   speakersData.setValueInternal(speakers.dump());
-  
-  updateEnabled();
 }
 
 void ThreeDZone::addToWorld()
 {
   IdObject::addToWorld();
   if(auto list = getWorld(*this).threeDZones.value())
-    list->addObject(std::static_pointer_cast<ThreeDZone>(Object::shared_from_this()));
+    list->addObject(shared_ptr<ThreeDZone>());
+}
+
+void ThreeDZone::destroying()
+{
+  if(auto list = getWorld(*this).threeDZones.value())
+    list->removeObject(shared_ptr<ThreeDZone>());
+  IdObject::destroying();
 }
 
 void ThreeDZone::loaded()
 {
   IdObject::loaded();
   updateEnabled();
-}
-
-void ThreeDZone::destroying()
-{
-  if(auto list = getWorld(*this).threeDZones.value())
-    list->removeObject(std::static_pointer_cast<ThreeDZone>(Object::shared_from_this()));
-  IdObject::destroying();
 }
 
 void ThreeDZone::worldEvent(WorldState state, WorldEvent event)

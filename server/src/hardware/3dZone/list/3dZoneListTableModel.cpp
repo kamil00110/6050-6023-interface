@@ -159,4 +159,16 @@ void ThreeDZoneListTableModel::propertyChanged(BaseProperty& property, uint32_t 
     changed(row, ThreeDZoneListColumn::Speaker7);
   else if(name.find("speaker_8_") == 0)
     changed(row, ThreeDZoneListColumn::Speaker8);
-  else if(name.find("speaker_
+  else if(name.find("speaker_9_") == 0)
+changed(row, ThreeDZoneListColumn::Speaker9);
+}void ThreeDZoneListTableModel::changed(uint32_t row, ThreeDZoneListColumn column)
+{
+for(size_t i = 0; i < m_columns.size(); i++)
+{
+if(m_columns[i] == column)
+{
+TableModel::changed(row, static_cast<uint32_t>(i));
+return;
+}
+}
+}

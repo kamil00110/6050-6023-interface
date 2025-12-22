@@ -1,11 +1,12 @@
 #include "3dZone.hpp"
 #include "SpeakerConfig.hpp"
 #include "list/3dZoneList.hpp"
-#include "list/3dZoneListTableModel.hpp"  // ADD THIS - needed for complete type
+#include "list/3dZoneListTableModel.hpp"
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectvectorproperty.tpp"
+#include "../../core/objectproperty.tpp"  // ADD THIS LINE
 #include "../../utils/displayname.hpp"
 
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)

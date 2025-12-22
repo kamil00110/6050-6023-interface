@@ -6,6 +6,9 @@
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
+#include <sstream> 
+
+using nlohmann::json;
 
 using nlohmann::json;
 
@@ -99,9 +102,13 @@ std::string ThreeDZone::getSpeakersFormatted() const
 {
   try
   {
-    json speakers = getSpeakersJson();
-    if(!speakers.is_array())
-      return "[]";
+    const std::string dataStr = speakersData.value();
+    if(dataStr.empty() || dataStr == "[]")
+      return "";
+    
+    json speakers = json::parse(dataStr);
+    if(!speakers.is_array() || speakers.empty())
+      return "";
     
     const int speakerCount = static_cast<int>(speakerSetup.value());
     std::ostringstream oss;
@@ -114,27 +121,41 @@ std::string ThreeDZone::getSpeakersFormatted() const
       const auto& speaker = speakers[i];
       oss << "[" << i << "] ";
       
-      if(speaker.contains("volume"))
+      if(speaker.contains("volume") && speaker["volume"].is_number())
       {
-        double vol = speaker["volume"];
+        double vol = speaker["volume"].get<double>();
         oss << "Vol:" << std::fixed << std::setprecision(0) << (vol * 100) << "%";
       }
-      
-      if(speaker.contains("device") && !speaker["device"].get<std::string>().empty())
+      else
       {
-        oss << " Dev:" << speaker["device"].get<std::string>();
+        oss << "Vol:100%";
       }
       
-      if(speaker.contains("channel"))
+      if(speaker.contains("device") && speaker["device"].is_string())
+      {
+        std::string dev = speaker["device"].get<std::string>();
+        if(!dev.empty())
+          oss << " Dev:" << dev;
+      }
+      
+      if(speaker.contains("channel") && speaker["channel"].is_number())
       {
         oss << " Ch:" << speaker["channel"].get<int>();
+      }
+      else
+      {
+        oss << " Ch:0";
       }
     }
     
     return oss.str();
   }
+  catch(const std::exception& e)
+  {
+    return std::string("Parse error: ") + e.what();
+  }
   catch(...)
   {
-    return "Error parsing speaker data";
+    return "Unknown error";
   }
 }

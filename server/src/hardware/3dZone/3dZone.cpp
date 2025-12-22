@@ -1,6 +1,7 @@
 #include "3dZone.hpp"
 #include "SpeakerConfig.hpp"
 #include "list/3dZoneList.hpp"
+#include "list/3dZoneListTableModel.hpp"  // ADD THIS - needed for complete type
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
@@ -17,7 +18,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       {
         updateSpeakerCount();
       }}
-  , speakers{this, "speakers", {}, PropertyFlags::ReadOnly | PropertyFlags::Store | PropertyFlags::SubObject}
+  , speakers{*this, "speakers", {}, PropertyFlags::ReadOnly | PropertyFlags::Store | PropertyFlags::SubObject}  // FIX: Use *this instead of this
 {
   Attributes::addDisplayName(width, "Width");
   Attributes::addMinMax(width, 0.1, 1000.0);
@@ -30,7 +31,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   m_interfaceItems.add(height);
   
   Attributes::addDisplayName(speakerSetup, "Speaker Setup");
-  Attributes::addValues(speakerSetup, SpeakerSetupValues);
+  Attributes::addValues(speakerSetup, speakerSetupValues);  // FIX: lowercase 'speakerSetupValues'
   Attributes::addEnabled(speakerSetup, true);
   m_interfaceItems.add(speakerSetup);
   
@@ -91,10 +92,10 @@ void ThreeDZone::updateSpeakerCount()
   }
   else if(currentCount > requiredCount)
   {
-    // Remove excess speakers
+    // Remove excess speakers - FIX: use eraseInternal with index
     while(speakers.size() > static_cast<size_t>(requiredCount))
     {
-      speakers.removeInternal(speakers.size() - 1);
+      speakers.eraseInternal(speakers.size() - 1);
     }
   }
 }

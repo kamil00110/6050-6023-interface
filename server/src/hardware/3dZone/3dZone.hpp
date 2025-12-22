@@ -11,10 +11,6 @@ struct SpeakerConfiguration
   double volumeOverride = 1.0;
   std::string audioDevice;
   int audioChannel = 0;
-  
-  // Serialization helpers
-  void save(nlohmann::json& j) const;
-  void load(const nlohmann::json& j);
 };
 
 class ThreeDZone : public IdObject
@@ -33,8 +29,6 @@ class ThreeDZone : public IdObject
     void loaded() override;
     void destroying() override;
     void worldEvent(WorldState state, WorldEvent event) override;
-    void save(WorldSaver& saver, nlohmann::json& data, nlohmann::json& state) override;
-    void load(WorldLoader& loader, const nlohmann::json& data) override;
     
   public:
     Property<double> width;

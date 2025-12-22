@@ -3,30 +3,9 @@
 #include "list/3dZoneListTableModel.hpp"
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"
-#include "../../world/worldsaver.hpp"
-#include "../../world/worldloader.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
-
-using nlohmann::json;
-
-void SpeakerConfiguration::save(json& j) const
-{
-  j["volume_override"] = volumeOverride;
-  j["audio_device"] = audioDevice;
-  j["audio_channel"] = audioChannel;
-}
-
-void SpeakerConfiguration::load(const json& j)
-{
-  if(j.contains("volume_override"))
-    volumeOverride = j["volume_override"];
-  if(j.contains("audio_device"))
-    audioDevice = j["audio_device"];
-  if(j.contains("audio_channel"))
-    audioChannel = j["audio_channel"];
-}
 
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
@@ -34,65 +13,65 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   , height{this, "height", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speakerSetup{this, "speaker_setup", SpeakerSetup::Quadraphonic, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , speaker0VolumeOverride{this, "speaker_0_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[0].volumeOverride = value; }}
+      [this](double value) { m_speakers[0].volumeOverride = value; return true; }}
   , speaker0AudioDevice{this, "speaker_0_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[0].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[0].audioDevice = value; return true; }}
   , speaker0AudioChannel{this, "speaker_0_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[0].audioChannel = value; }}
+      [this](int value) { m_speakers[0].audioChannel = value; return true; }}
   , speaker1VolumeOverride{this, "speaker_1_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[1].volumeOverride = value; }}
+      [this](double value) { m_speakers[1].volumeOverride = value; return true; }}
   , speaker1AudioDevice{this, "speaker_1_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[1].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[1].audioDevice = value; return true; }}
   , speaker1AudioChannel{this, "speaker_1_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[1].audioChannel = value; }}
+      [this](int value) { m_speakers[1].audioChannel = value; return true; }}
   , speaker2VolumeOverride{this, "speaker_2_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[2].volumeOverride = value; }}
+      [this](double value) { m_speakers[2].volumeOverride = value; return true; }}
   , speaker2AudioDevice{this, "speaker_2_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[2].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[2].audioDevice = value; return true; }}
   , speaker2AudioChannel{this, "speaker_2_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[2].audioChannel = value; }}
+      [this](int value) { m_speakers[2].audioChannel = value; return true; }}
   , speaker3VolumeOverride{this, "speaker_3_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[3].volumeOverride = value; }}
+      [this](double value) { m_speakers[3].volumeOverride = value; return true; }}
   , speaker3AudioDevice{this, "speaker_3_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[3].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[3].audioDevice = value; return true; }}
   , speaker3AudioChannel{this, "speaker_3_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[3].audioChannel = value; }}
+      [this](int value) { m_speakers[3].audioChannel = value; return true; }}
   , speaker4VolumeOverride{this, "speaker_4_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[4].volumeOverride = value; }}
+      [this](double value) { m_speakers[4].volumeOverride = value; return true; }}
   , speaker4AudioDevice{this, "speaker_4_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[4].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[4].audioDevice = value; return true; }}
   , speaker4AudioChannel{this, "speaker_4_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[4].audioChannel = value; }}
+      [this](int value) { m_speakers[4].audioChannel = value; return true; }}
   , speaker5VolumeOverride{this, "speaker_5_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[5].volumeOverride = value; }}
+      [this](double value) { m_speakers[5].volumeOverride = value; return true; }}
   , speaker5AudioDevice{this, "speaker_5_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[5].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[5].audioDevice = value; return true; }}
   , speaker5AudioChannel{this, "speaker_5_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[5].audioChannel = value; }}
+      [this](int value) { m_speakers[5].audioChannel = value; return true; }}
   , speaker6VolumeOverride{this, "speaker_6_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[6].volumeOverride = value; }}
+      [this](double value) { m_speakers[6].volumeOverride = value; return true; }}
   , speaker6AudioDevice{this, "speaker_6_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[6].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[6].audioDevice = value; return true; }}
   , speaker6AudioChannel{this, "speaker_6_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[6].audioChannel = value; }}
+      [this](int value) { m_speakers[6].audioChannel = value; return true; }}
   , speaker7VolumeOverride{this, "speaker_7_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[7].volumeOverride = value; }}
+      [this](double value) { m_speakers[7].volumeOverride = value; return true; }}
   , speaker7AudioDevice{this, "speaker_7_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[7].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[7].audioDevice = value; return true; }}
   , speaker7AudioChannel{this, "speaker_7_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[7].audioChannel = value; }}
+      [this](int value) { m_speakers[7].audioChannel = value; return true; }}
   , speaker8VolumeOverride{this, "speaker_8_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[8].volumeOverride = value; }}
+      [this](double value) { m_speakers[8].volumeOverride = value; return true; }}
   , speaker8AudioDevice{this, "speaker_8_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[8].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[8].audioDevice = value; return true; }}
   , speaker8AudioChannel{this, "speaker_8_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[8].audioChannel = value; }}
+      [this](int value) { m_speakers[8].audioChannel = value; return true; }}
   , speaker9VolumeOverride{this, "speaker_9_volume_override", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](double value) { m_speakers[9].volumeOverride = value; }}
+      [this](double value) { m_speakers[9].volumeOverride = value; return true; }}
   , speaker9AudioDevice{this, "speaker_9_audio_device", "", PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const std::string& value) { m_speakers[9].audioDevice = value; }}
+      [this](const std::string& value) { m_speakers[9].audioDevice = value; return true; }}
   , speaker9AudioChannel{this, "speaker_9_audio_channel", 0, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](int value) { m_speakers[9].audioChannel = value; }}
+      [this](int value) { m_speakers[9].audioChannel = value; return true; }}
 {
   Attributes::addDisplayName(width, "Width");
   Attributes::addMinMax(width, 0.1, 1000.0);
@@ -159,34 +138,6 @@ void ThreeDZone::worldEvent(WorldState state, WorldEvent event)
 {
   IdObject::worldEvent(state, event);
   updateEnabled();
-}
-
-void ThreeDZone::save(WorldSaver& saver, json& data, json& state)
-{
-  IdObject::save(saver, data, state);
-  
-  json speakers = json::array();
-  for(const auto& speaker : m_speakers)
-  {
-    json s;
-    speaker.save(s);
-    speakers.push_back(s);
-  }
-  data["speakers"] = speakers;
-}
-
-void ThreeDZone::load(WorldLoader& loader, const json& data)
-{
-  IdObject::load(loader, data);
-  
-  if(data.contains("speakers") && data["speakers"].is_array())
-  {
-    const auto& speakers = data["speakers"];
-    for(size_t i = 0; i < std::min(speakers.size(), m_speakers.size()); i++)
-    {
-      m_speakers[i].load(speakers[i]);
-    }
-  }
 }
 
 void ThreeDZone::updateEnabled()

@@ -92,10 +92,11 @@ void ThreeDZone::updateSpeakerCount()
   }
   else if(currentCount > requiredCount)
   {
-    // Remove excess speakers - FIX: use eraseInternal with index
+    // Remove excess speakers - get the object at the last index and remove it
     while(speakers.size() > static_cast<size_t>(requiredCount))
     {
-      speakers.eraseInternal(speakers.size() - 1);
+      auto lastSpeaker = speakers.getObject(speakers.size() - 1);
+      speakers.removeInternal(lastSpeaker);
     }
   }
 }

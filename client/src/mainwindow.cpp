@@ -55,6 +55,7 @@
 #include "subwindow/objectsubwindow.hpp"
 #include "subwindow/boardsubwindow.hpp"
 #include "subwindow/throttlesubwindow.hpp"
+#include "subwindow/3dzonesubwindow.hpp"
 #include "widget/object/objecteditwidget.hpp"
 #include "widget/serverlogwidget.hpp"
 #include "utils/menu.hpp"

@@ -2,29 +2,35 @@
 #define TRAINTASTIC_CLIENT_SUBWINDOW_3DZONESUBWINDOW_HPP
 
 #include "subwindow.hpp"
+#include <memory>
 
 class ThreeDZoneEditorWidget;
+class Object;
+
+using ObjectPtr = std::shared_ptr<Object>;
 
 class ThreeDZoneSubWindow : public SubWindow
 {
-  Q_OBJECT
-
-protected:
-  ThreeDZoneSubWindow(const ObjectPtr& object, QWidget* parent = nullptr);
-  ThreeDZoneSubWindow(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
+    Q_OBJECT
 
 public:
-  static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
-  static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
-
-  SubWindowType type() const { return SubWindowType::ThreeDZone; }
+    static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
+    static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
 
 protected:
-  void objectChanged();
-  void buildWidget();
+    // Only keep constructors that match the base
+    explicit ThreeDZoneSubWindow(SubWindowType type, QWidget* parent = nullptr);
+    explicit ThreeDZoneSubWindow(SubWindowType type, std::shared_ptr<Connection> connection, const QString& id, QWidget* parent = nullptr);
+
+    // implement pure virtual
+    QWidget* createWidget(const ObjectPtr& object) override;
+
+    void objectChanged();
+    void buildWidget();
 
 private:
-  ThreeDZoneEditorWidget* m_editor;
+    ObjectPtr m_object;                         // needed for your code
+    ThreeDZoneEditorWidget* m_editor = nullptr;
 };
 
 #endif

@@ -1,5 +1,5 @@
 #include "3dzonesubwindow.hpp"
-#include "../widget/3dZone/3dzoneeditorwidget.hpp"
+#include "../widget/3dzone/3dzoneeditorwidget.hpp"
 #include "../network/object.hpp"
 #include "../network/property.hpp"
 #include <QVBoxLayout>
@@ -19,15 +19,13 @@ ThreeDZoneSubWindow::ThreeDZoneSubWindow(const std::shared_ptr<Connection>& conn
 
 ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const ObjectPtr& object, QWidget* parent)
 {
-    if (!object) return nullptr;
-    return new ThreeDZoneSubWindow(object, parent);
+  return new ThreeDZoneSubWindow(object, parent);
 }
 
-ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(std::shared_ptr<Connection> connection, const QString& id, QWidget* parent)
+ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent)
 {
-    return new ThreeDZoneSubWindow(std::move(connection), id, parent);
+  return new ThreeDZoneSubWindow(connection, id, parent);
 }
-
 
 void ThreeDZoneSubWindow::objectChanged()
 {

@@ -14,7 +14,7 @@ bool ThreeDZoneListTableModel::isListedProperty(std::string_view name)
     name == "width" ||
     name == "height" ||
     name == "speaker_setup" ||
-    name == "speakers_data";
+    name == "open_editor";  // Add this instead of speakers_data
 }
 
 static std::string_view displayName(ThreeDZoneListColumn column)
@@ -25,7 +25,7 @@ static std::string_view displayName(ThreeDZoneListColumn column)
     case ThreeDZoneListColumn::Width: return "Width";
     case ThreeDZoneListColumn::Height: return "Height";
     case ThreeDZoneListColumn::SpeakerSetup: return "Setup";
-    case ThreeDZoneListColumn::Speakers: return "Speakers";
+    case ThreeDZoneListColumn::Speakers: return "Edit";  // Change this to "Edit"
   }
   assert(false);
   return {};

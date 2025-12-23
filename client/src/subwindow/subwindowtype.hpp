@@ -30,6 +30,7 @@ enum class SubWindowType
   Object,
   Board,
   Throttle,
+  ThreeDZone,
 };
 
 inline QString toString(SubWindowType value)

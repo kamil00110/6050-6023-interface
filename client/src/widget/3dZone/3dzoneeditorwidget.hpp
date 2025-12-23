@@ -28,9 +28,6 @@ public:
   int getChannel() const;
   double getVolume() const;
 
-private slots:
-  void onDeviceChanged(int index);
-
 private:
   QComboBox* m_deviceCombo;
   QComboBox* m_channelCombo;

@@ -18,7 +18,9 @@ public:
   static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
 
   // Remove 'final' and just override if it exists in base, or remove if not virtual
-  SubWindowType type() const override { return SubWindowType::ThreeDZone; }
+ 
+  SubWindowType type() override { return SubWindowType::ThreeDZone; }
+
 
 protected:
   // Remove 'final' - check if these are virtual in SubWindow base class

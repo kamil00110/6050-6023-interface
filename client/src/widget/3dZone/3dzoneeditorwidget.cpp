@@ -158,6 +158,7 @@ QPointF ThreeDZoneEditorWidget::worldToScreen(double x, double y) const
 
 void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
 {
+  Q_UNUSED(event);
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);
   

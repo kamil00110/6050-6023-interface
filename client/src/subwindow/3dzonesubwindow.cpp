@@ -1,5 +1,5 @@
 #include "3dzonesubwindow.hpp"
-#include "../widget/3dzone/3dzoneeditorwidget.hpp"
+#include "../widget/3dZone/3dzoneeditorwidget.hpp"
 #include "../network/object.hpp"
 #include "../network/property.hpp"
 #include <QVBoxLayout>

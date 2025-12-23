@@ -253,7 +253,7 @@ void ObjectEditWidget::buildForm()
             w = createWidget(*property, this);
           }
         }
-        else if(Method* method = dynamic_cast<Method*>(item))
+        else if(dynamic_cast<Method*>(item))
         {
           // Skip methods for now, or add them if needed
           continue;

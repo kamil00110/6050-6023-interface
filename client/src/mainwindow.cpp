@@ -102,6 +102,9 @@ static SubWindow* createSubWindow(SubWindowType type, Args... args)
 
     case SubWindowType::Throttle:
       return ThrottleSubWindow::create(args...);
+      
+    case SubWindowType::ThreeDZone: 
+      return ThreeDZoneSubWindow::create(args...);
   }
   return nullptr;
 }

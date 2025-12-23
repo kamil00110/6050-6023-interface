@@ -4,28 +4,35 @@
 #include "../network/property.hpp"
 #include <QVBoxLayout>
 
-ThreeDZoneSubWindow::ThreeDZoneSubWindow(const ObjectPtr& object, QWidget* parent)
-  : SubWindow(object, parent)
-  , m_editor{nullptr}
+ThreeDZoneSubWindow::ThreeDZoneSubWindow(SubWindowType type, QWidget* parent)
+  : SubWindow(type, parent)
+  , m_editor(nullptr)
 {
-  buildWidget();
 }
 
-ThreeDZoneSubWindow::ThreeDZoneSubWindow(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent)
-  : SubWindow(connection, id, parent)
-  , m_editor{nullptr}
+ThreeDZoneSubWindow::ThreeDZoneSubWindow(SubWindowType type, std::shared_ptr<Connection> connection, const QString& id, QWidget* parent)
+  : SubWindow(type, connection, id, parent)
+  , m_editor(nullptr)
 {
+}
+
+QWidget* ThreeDZoneSubWindow::createWidget(const ObjectPtr& object)
+{
+    m_object = object;
+    buildWidget();
+    return widget();  // return the main widget
 }
 
 ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const ObjectPtr& object, QWidget* parent)
 {
-  return new ThreeDZoneSubWindow(object, parent);
+    return new ThreeDZoneSubWindow(SubWindowType::ThreeDZone, parent);
 }
 
 ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent)
 {
-  return new ThreeDZoneSubWindow(connection, id, parent);
+    return new ThreeDZoneSubWindow(SubWindowType::ThreeDZone, connection, id, parent);
 }
+
 
 void ThreeDZoneSubWindow::objectChanged()
 {

@@ -64,7 +64,7 @@
 #include "wizard/newworldwizard.hpp"
 #include "wizard/newboardwizard.hpp"
 #include "wizard/addinterfacewizard.hpp"
-
+#include "widget/3dZone/3dzoneeditorwidget.hpp"
 
 #include <QDesktopServices>
 #include <traintastic/locale/locale.hpp>
@@ -656,10 +656,7 @@ const ObjectPtr& MainWindow::world() const
   static const ObjectPtr null;
   return m_connection ? m_connection->world() : null;
 }
-// Add to the includes at the top:
-#include "widget/3dzone/3dzoneeditorwidget.hpp"
 
-// Modify the showObject method or add a new one:
 void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
 {
   if(!zone)

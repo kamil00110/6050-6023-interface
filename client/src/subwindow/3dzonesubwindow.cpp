@@ -19,13 +19,15 @@ ThreeDZoneSubWindow::ThreeDZoneSubWindow(const std::shared_ptr<Connection>& conn
 
 ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const ObjectPtr& object, QWidget* parent)
 {
-  return new ThreeDZoneSubWindow(object, parent);
+    if (!object) return nullptr;
+    return new ThreeDZoneSubWindow(object, parent);
 }
 
-ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent)
+ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(std::shared_ptr<Connection> connection, const QString& id, QWidget* parent)
 {
-  return new ThreeDZoneSubWindow(connection, id, parent);
+    return new ThreeDZoneSubWindow(std::move(connection), id, parent);
 }
+
 
 void ThreeDZoneSubWindow::objectChanged()
 {

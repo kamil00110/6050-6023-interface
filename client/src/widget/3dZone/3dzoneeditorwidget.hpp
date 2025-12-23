@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "../../network/object.hpp"
+#include "../../network/objectptr.hpp"
 
 class QPaintEvent;
 class QLabel;

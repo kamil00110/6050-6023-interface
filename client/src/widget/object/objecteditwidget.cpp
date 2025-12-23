@@ -57,7 +57,7 @@
 #include "../decoder/decoderwidget.hpp"
 #include "../decoder/decoderfunctionswidget.hpp"
 #include "../../theme/theme.hpp"
-#include "../3dzone/3dzoneeditorwidget.hpp"
+#include "../3dZone/3dzoneeditorwidget.hpp"
 #include <traintastic/enum/direction.hpp>
 #include <traintastic/locale/locale.hpp>
 

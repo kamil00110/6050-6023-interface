@@ -11,24 +11,21 @@ class ThreeDZoneSubWindow : public SubWindow
 
 protected:
   ThreeDZoneSubWindow(const ObjectPtr& object, QWidget* parent = nullptr);
-  ThreeDZoneSubWindow(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
+  ThreeDZoneSubWindow(const std::shared_ptr<Connection>& connection,
+                      const QString& id,
+                      QWidget* parent = nullptr);
+
+  QWidget* createWidget(const ObjectPtr& object) override;
 
 public:
   static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
-  static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
-
-  // Remove 'final' and just override if it exists in base, or remove if not virtual
- 
-  SubWindowType type() override { return SubWindowType::ThreeDZone; }
-
-
-protected:
-  // Remove 'final' - check if these are virtual in SubWindow base class
-  void objectChanged() override;
-  void buildWidget() override;
+  static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection,
+                                     const QString& id,
+                                     QWidget* parent = nullptr);
 
 private:
-  ThreeDZoneEditorWidget* m_editor;
+  ThreeDZoneEditorWidget* m_editor = nullptr;
 };
+
 
 #endif

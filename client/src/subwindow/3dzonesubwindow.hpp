@@ -17,11 +17,13 @@ public:
   static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
   static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
 
-  SubWindowType type() const final { return SubWindowType::ThreeDZone; }
+  // Remove 'final' and just override if it exists in base, or remove if not virtual
+  SubWindowType type() const override { return SubWindowType::ThreeDZone; }
 
 protected:
-  void objectChanged() final;
-  void buildWidget() final;
+  // Remove 'final' - check if these are virtual in SubWindow base class
+  void objectChanged() override;
+  void buildWidget() override;
 
 private:
   ThreeDZoneEditorWidget* m_editor;

@@ -19,7 +19,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-
 #ifndef TRAINTASTIC_CLIENT_SUBWINDOW_SUBWINDOWTYPE_HPP
 #define TRAINTASTIC_CLIENT_SUBWINDOW_SUBWINDOWTYPE_HPP
 
@@ -30,7 +29,7 @@ enum class SubWindowType
   Object,
   Board,
   Throttle,
-  ThreeDZone,
+  ThreeDZone,  // ADD THIS
 };
 
 inline QString toString(SubWindowType value)
@@ -39,12 +38,12 @@ inline QString toString(SubWindowType value)
   {
     case SubWindowType::Object:
       return QStringLiteral("object");
-
     case SubWindowType::Board:
       return QStringLiteral("board");
-
     case SubWindowType::Throttle:
       return QStringLiteral("throttle");
+    case SubWindowType::ThreeDZone:  // ADD THIS
+      return QStringLiteral("3dzone");
   }
   Q_ASSERT(false);
   return QString();

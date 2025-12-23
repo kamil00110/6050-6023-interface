@@ -335,7 +335,7 @@ void ThreeDZoneEditorWidget::saveSpeakersToProperty()
   speakersProp->setValueString(QString::fromStdString(speakers.dump()));
 }
 
-void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
+void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* /*event*/)
 {
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);

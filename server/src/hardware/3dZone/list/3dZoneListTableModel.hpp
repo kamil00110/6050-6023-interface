@@ -7,7 +7,6 @@
 #include "../../../core/objectlisttablemodel.hpp"
 #include "3dZoneListColumn.hpp"
 #include "../3dZone.hpp"
-#include "../network/object.hpp"  // Add this
 
 
 class ThreeDZoneList;

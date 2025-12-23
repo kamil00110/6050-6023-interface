@@ -38,9 +38,10 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   m_deviceCombo = new QComboBox(this);
   m_deviceCombo->addItem("(None)", QString());
   
-  for(const QString& dev : availableDevices)
+  // Add available devices (these are already device names, not IDs)
+  for(const QString& deviceName : availableDevices)
   {
-    m_deviceCombo->addItem(dev);
+    m_deviceCombo->addItem(deviceName);
   }
   
   // Find and select current device
@@ -50,7 +51,11 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
     if(idx >= 0)
       m_deviceCombo->setCurrentIndex(idx);
     else
+    {
+      // Device not in list, add it
+      m_deviceCombo->addItem(device);
       m_deviceCombo->setCurrentText(device);
+    }
   }
   
   layout->addRow("Sound Controller:", m_deviceCombo);
@@ -187,48 +192,64 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
   if(!m_zone)
     return;
   
-  // Get the world object to call the audio enumeration method
-  Object* parent = m_zone.get();
-  while(parent && parent->classId() != "world")
-  {
-    if(auto* parentProp = parent->getProperty("parent"))
-      parent = parentProp->toObject().get();
-    else
-      break;
-  }
-  
-  if(!parent || parent->classId() != "world")
+  // Get the world object through the connection
+  auto connection = m_zone->connection();
+  if(!connection)
     return;
   
-  // Call method to get audio devices (you'll need to add this method to World)
-  if(Method* method = parent->getMethod("get_audio_devices"))
-  {
-    callMethod(*method, nullptr,
-      [this](const Message& response, std::optional<const Error> /*error*/)
+  // Request the world object
+  connection->getObject("world",
+    [this](const ObjectPtr& world, std::optional<const Error> error)
+    {
+      if(!world || error)
+        return;
+      
+      // Call method to get audio devices
+      if(Method* method = world->getMethod("get_audio_devices"))
       {
-        if(response.isError())
-          return;
-        
-        // Parse the JSON response containing audio devices
-        try
-        {
-          // Expected format: { "devices": [ { "id": "...", "name": "...", "channels": ["ch1", "ch2", ...] }, ... ] }
-          // You'll need to implement this on the server side
-          
-          // For now, use placeholder data
-          m_availableDevices.clear();
-          m_availableDeviceNames.clear();
-          m_deviceChannels.clear();
-          
-          // TODO: Parse actual response from server
-          // This is a placeholder implementation
-        }
-        catch(...)
-        {
-          // Parse error - use defaults
-        }
-      });
-  }
+        method->call(
+          [this](const QString& result)
+          {
+            // Parse the JSON response containing audio devices
+            try
+            {
+              json devicesJson = json::parse(result.toStdString());
+              
+              m_availableDevices.clear();
+              m_availableDeviceNames.clear();
+              m_deviceChannels.clear();
+              
+              if(devicesJson.contains("devices") && devicesJson["devices"].is_array())
+              {
+                for(const auto& device : devicesJson["devices"])
+                {
+                  QString deviceId = QString::fromStdString(device.value("id", ""));
+                  QString deviceName = QString::fromStdString(device.value("name", ""));
+                  
+                  m_availableDevices.append(deviceId);
+                  m_availableDeviceNames.append(deviceName);
+                  
+                  // Parse channels
+                  QStringList channels;
+                  if(device.contains("channels") && device["channels"].is_array())
+                  {
+                    for(const auto& channel : device["channels"])
+                    {
+                      channels.append(QString::fromStdString(channel.get<std::string>()));
+                    }
+                  }
+                  
+                  m_deviceChannels[deviceId] = channels;
+                }
+              }
+            }
+            catch(const std::exception& e)
+            {
+              // JSON parse error - use defaults
+            }
+          });
+      }
+    });
 }
 
 void ThreeDZoneEditorWidget::updateFromProperties()

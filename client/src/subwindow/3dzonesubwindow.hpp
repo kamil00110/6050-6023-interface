@@ -16,7 +16,7 @@ protected:
     explicit ThreeDZoneSubWindow(const ObjectPtr& object, QWidget* parent = nullptr);
     explicit ThreeDZoneSubWindow(std::shared_ptr<Connection> connection, const QString& id, QWidget* parent = nullptr);
 
-    void objectChanged() override;
+    void objectChanged();
     void buildWidget();
 };
 

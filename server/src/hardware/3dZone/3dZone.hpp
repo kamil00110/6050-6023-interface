@@ -1,11 +1,9 @@
-/**
- * server/src/hardware/3dZone/3dZone.hpp
- */
 #ifndef TRAINTASTIC_SERVER_HARDWARE_3DZONE_3DZONE_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_3DZONE_3DZONE_HPP
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
+#include "../../core/method.hpp"  // Add this
 #include <traintastic/enum/speakersetup.hpp>
 
 class ThreeDZone : public IdObject
@@ -28,6 +26,9 @@ class ThreeDZone : public IdObject
     Property<double> height;
     Property<SpeakerSetup> speakerSetup;
     Property<std::string> speakersData;
+    
+    // Add this method for opening the editor
+    Method<void()> openEditor;
     
     ThreeDZone(World& world, std::string_view _id);
 };

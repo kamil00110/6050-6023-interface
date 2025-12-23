@@ -57,6 +57,7 @@
 #include "../decoder/decoderwidget.hpp"
 #include "../decoder/decoderfunctionswidget.hpp"
 #include "../../theme/theme.hpp"
+#include "../3dzone/3dzoneeditorwidget.hpp"
 #include <traintastic/enum/direction.hpp>
 #include <traintastic/locale/locale.hpp>
 
@@ -213,6 +214,64 @@ void ObjectEditWidget::buildForm()
   setObjectWindowTitle();
   Theme::setWindowIcon(*this, m_object->classId());
 
+  // NEW: Add special handling for 3D Zone editor
+  if(m_object->classId() == "3d_zone")
+  {
+    QVBoxLayout* mainLayout = new QVBoxLayout();
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    
+    // Add the visual editor at the top
+    ThreeDZoneEditorWidget* zoneEditor = new ThreeDZoneEditorWidget(m_object, this);
+    mainLayout->addWidget(zoneEditor);
+    
+    // Add a separator or some spacing
+    mainLayout->addSpacing(10);
+    
+    // Create a collapsible section for properties (optional)
+    // Or just add the properties directly below
+    QWidget* propertiesWidget = new QWidget(this);
+    QFormLayout* propsLayout = new QFormLayout(propertiesWidget);
+    
+    // Add the basic properties (width, height, speaker setup)
+    for(const QString& name : m_object->interfaceItems().names())
+    {
+      if(InterfaceItem* item = m_object->getInterfaceItem(name))
+      {
+        if(!item->getAttributeBool(AttributeName::ObjectEditor, true))
+          continue;
+          
+        // Only show specific properties, skip the hidden ones
+        if(name == "speakers_data" || name == "open_editor")
+          continue;
+        
+        QWidget* w = nullptr;
+        
+        if(AbstractProperty* baseProperty = dynamic_cast<AbstractProperty*>(item))
+        {
+          if(Property* property = dynamic_cast<Property*>(baseProperty))
+          {
+            w = createWidget(*property, this);
+          }
+        }
+        else if(Method* method = dynamic_cast<Method*>(item))
+        {
+          // Skip methods for now, or add them if needed
+          continue;
+        }
+        
+        if(w)
+        {
+          propsLayout->addRow(new InterfaceItemNameLabel(*item, this), w);
+        }
+      }
+    }
+    
+    mainLayout->addWidget(propertiesWidget);
+    mainLayout->addStretch(); 
+    
+    setLayout(mainLayout);
+    return; 
+  }
   if(QWidget* widget = createWidgetIfCustom(m_object))
   {
     QVBoxLayout* l = new QVBoxLayout();

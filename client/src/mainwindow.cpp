@@ -659,38 +659,40 @@ const ObjectPtr& MainWindow::world() const
 
 void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
 {
-  if(!zone)
-    return;
-    
-  QString windowId = QString("3dzone_editor_%1").arg(zone->getProperty("id")->toString());
-  
-  if(!m_subWindows.contains(windowId))
-  {
-    auto* window = new ObjectSubWindow(zone);
+    if(!zone)
+        return;
 
-    window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
-    
-    auto* editor = new ThreeDZoneEditorWidget(zone, window);
-    window->setWidget(editor);
-    window->setAttribute(Qt::WA_DeleteOnClose);
-    
-    m_mdiArea->addSubWindow(window);
-    m_subWindows[windowId] = window;
-    
-    connect(window, &QMdiSubWindow::destroyed, this,
-      [this, windowId]()
-      {
-        m_subWindows.remove(windowId);
-      });
-    
-    window->resize(700, 700);
-    window->show();
-  }
-  else
-  {
-    m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
-  }
+    QString windowId = QString("3dzone_editor_%1").arg(zone->getProperty("id")->toString());
+
+    if(!m_subWindows.contains(windowId))
+    {
+        // Use QWidget constructor
+        auto* window = new ObjectSubWindow();
+
+        window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
+
+        auto* editor = new ThreeDZoneEditorWidget(zone, window);
+        window->setWidget(editor);
+        window->setAttribute(Qt::WA_DeleteOnClose);
+
+        m_mdiArea->addSubWindow(window);
+        m_subWindows[windowId] = window;
+
+        connect(window, &QMdiSubWindow::destroyed, this,
+            [this, windowId]()
+            {
+                m_subWindows.remove(windowId);
+            });
+
+        window->resize(700, 700);
+        window->show();
+    }
+    else
+    {
+        m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
+    }
 }
+
 
 void MainWindow::showLuaScriptsList()
 {

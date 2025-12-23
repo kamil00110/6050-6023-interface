@@ -11,6 +11,8 @@
 #include <QDialogButtonBox>
 #include <cmath>
 #include "../../network/property.hpp"
+#include "../../network/method.hpp"
+#include "../../network/callmethod.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -22,6 +24,8 @@ constexpr double SPEAKER_RADIUS = 10.0;
 // Speaker Configuration Dialog Implementation
 SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label, 
                                          const QString& device, int channel, double volume,
+                                         const QStringList& availableDevices,
+                                         const QStringList& availableChannels,
                                          QWidget* parent)
   : QDialog(parent)
 {
@@ -32,25 +36,47 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   
   // Sound Controller selector
   m_deviceCombo = new QComboBox(this);
-  m_deviceCombo->setEditable(true);
-  m_deviceCombo->addItem("(None)");
-  m_deviceCombo->addItem("Sound Controller 1");
-  m_deviceCombo->addItem("Sound Controller 2");
-  m_deviceCombo->addItem("Sound Controller 3");
-  m_deviceCombo->addItem("Sound Controller 4");
+  m_deviceCombo->addItem("(None)", QString());
   
+  for(const QString& dev : availableDevices)
+  {
+    m_deviceCombo->addItem(dev);
+  }
+  
+  // Find and select current device
   if(!device.isEmpty())
-    m_deviceCombo->setCurrentText(device);
+  {
+    int idx = m_deviceCombo->findText(device);
+    if(idx >= 0)
+      m_deviceCombo->setCurrentIndex(idx);
+    else
+      m_deviceCombo->setCurrentText(device);
+  }
   
   layout->addRow("Sound Controller:", m_deviceCombo);
   
   // Speaker/Channel selector
   m_channelCombo = new QComboBox(this);
-  for(int i = 0; i < 16; i++)
+  
+  // Populate with available channels
+  if(!availableChannels.isEmpty())
   {
-    m_channelCombo->addItem(QString("Channel %1").arg(i + 1), i);
+    for(int i = 0; i < availableChannels.size(); i++)
+    {
+      m_channelCombo->addItem(availableChannels[i], i);
+    }
   }
-  m_channelCombo->setCurrentIndex(channel);
+  else
+  {
+    // Fallback: generic channel list
+    for(int i = 0; i < 16; i++)
+    {
+      m_channelCombo->addItem(QString("Channel %1").arg(i + 1), i);
+    }
+  }
+  
+  if(channel >= 0 && channel < m_channelCombo->count())
+    m_channelCombo->setCurrentIndex(channel);
   
   layout->addRow("Controller Channel:", m_channelCombo);
   
@@ -141,6 +167,7 @@ ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* p
     }
   }
   
+  loadAudioDevices();
   calculateLayout();
   updateSpeakers();
 }
@@ -155,10 +182,62 @@ QSize ThreeDZoneEditorWidget::minimumSizeHint() const
   return QSize(400, 400);
 }
 
+void ThreeDZoneEditorWidget::loadAudioDevices()
+{
+  if(!m_zone)
+    return;
+  
+  // Get the world object to call the audio enumeration method
+  Object* parent = m_zone.get();
+  while(parent && parent->classId() != "world")
+  {
+    if(auto* parentProp = parent->getProperty("parent"))
+      parent = parentProp->toObject().get();
+    else
+      break;
+  }
+  
+  if(!parent || parent->classId() != "world")
+    return;
+  
+  // Call method to get audio devices (you'll need to add this method to World)
+  if(Method* method = parent->getMethod("get_audio_devices"))
+  {
+    callMethod(*method, nullptr,
+      [this](const Message& response, std::optional<const Error> /*error*/)
+      {
+        if(response.isError())
+          return;
+        
+        // Parse the JSON response containing audio devices
+        try
+        {
+          // Expected format: { "devices": [ { "id": "...", "name": "...", "channels": ["ch1", "ch2", ...] }, ... ] }
+          // You'll need to implement this on the server side
+          
+          // For now, use placeholder data
+          m_availableDevices.clear();
+          m_availableDeviceNames.clear();
+          m_deviceChannels.clear();
+          
+          // TODO: Parse actual response from server
+          // This is a placeholder implementation
+        }
+        catch(...)
+        {
+          // Parse error - use defaults
+        }
+      });
+  }
+}
+
 void ThreeDZoneEditorWidget::updateFromProperties()
 {
   if(m_zone)
   {
+    // Store old speaker configurations before updating
+    QVector<SpeakerInfo> oldSpeakers = m_speakers;
+    
     if(auto* widthProp = m_zone->getProperty("width"))
       m_width = widthProp->toDouble() * 100.0; // meters to cm
     
@@ -167,6 +246,10 @@ void ThreeDZoneEditorWidget::updateFromProperties()
     
     if(auto* setupProp = m_zone->getProperty("speaker_setup"))
       m_speakerCount = static_cast<int>(setupProp->toInt64());
+    
+    // Recalculate positions and merge with old configurations
+    updateSpeakers();
+    mergeSpeakerConfigurations(oldSpeakers);
   }
   
   calculateLayout();
@@ -175,6 +258,7 @@ void ThreeDZoneEditorWidget::updateFromProperties()
 
 void ThreeDZoneEditorWidget::updateSpeakers()
 {
+  QVector<SpeakerInfo> oldSpeakers = m_speakers;
   m_speakers.clear();
   
   if(!m_zone)
@@ -214,7 +298,95 @@ void ThreeDZoneEditorWidget::updateSpeakers()
     // JSON parse error - ignore
   }
   
+  // If we had old configurations, merge them
+  if(!oldSpeakers.isEmpty())
+  {
+    mergeSpeakerConfigurations(oldSpeakers);
+  }
+  
   update();
+}
+
+void ThreeDZoneEditorWidget::mergeSpeakerConfigurations(const QVector<SpeakerInfo>& oldSpeakers)
+{
+  // Merge device/channel/volume settings from old speakers to new ones
+  // Match by speaker ID
+  for(int i = 0; i < m_speakers.size(); i++)
+  {
+    for(const auto& oldSpeaker : oldSpeakers)
+    {
+      if(m_speakers[i].id == oldSpeaker.id)
+      {
+        // Preserve configuration
+        m_speakers[i].device = oldSpeaker.device;
+        m_speakers[i].channel = oldSpeaker.channel;
+        m_speakers[i].volume = oldSpeaker.volume;
+        break;
+      }
+    }
+  }
+  
+  // Save merged configuration back
+  saveSpeakersToProperty();
+}
+
+void ThreeDZoneEditorWidget::recalculateSpeakerPositions()
+{
+  // This recalculates speaker positions based on current width/height
+  // while preserving their device/channel/volume settings
+  
+  const int count = m_speakerCount;
+  
+  // Clear and regenerate positions only
+  QVector<SpeakerInfo> oldConfigs = m_speakers;
+  m_speakers.clear();
+  
+  if(count == 4)
+  {
+    // 4 speakers: one at each corner
+    m_speakers.append({0, QPointF(0.0, 0.0), "Front Left", "", 0, 1.0});
+    m_speakers.append({1, QPointF(m_width, 0.0), "Front Right", "", 1, 1.0});
+    m_speakers.append({2, QPointF(m_width, m_height), "Rear Right", "", 2, 1.0});
+    m_speakers.append({3, QPointF(0.0, m_height), "Rear Left", "", 3, 1.0});
+  }
+  else if(count == 6)
+  {
+    m_speakers.append({0, QPointF(0.0, 0.0), "Front Left", "", 0, 1.0});
+    m_speakers.append({1, QPointF(m_width / 2.0, 0.0), "Front Center", "", 1, 1.0});
+    m_speakers.append({2, QPointF(m_width, 0.0), "Front Right", "", 2, 1.0});
+    m_speakers.append({3, QPointF(m_width, m_height), "Rear Right", "", 3, 1.0});
+    m_speakers.append({4, QPointF(m_width / 2.0, m_height), "Rear Center", "", 4, 1.0});
+    m_speakers.append({5, QPointF(0.0, m_height), "Rear Left", "", 5, 1.0});
+  }
+  else if(count == 8)
+  {
+    for(int i = 0; i < 4; i++)
+    {
+      m_speakers.append({i, QPointF(m_width * i / 3.0, 0.0), 
+                        QString("Front %1").arg(i + 1), "", i, 1.0});
+    }
+    for(int i = 0; i < 4; i++)
+    {
+      m_speakers.append({i + 4, QPointF(m_width * i / 3.0, m_height), 
+                        QString("Rear %1").arg(i + 1), "", i + 4, 1.0});
+    }
+  }
+  else if(count == 10)
+  {
+    for(int i = 0; i < 5; i++)
+    {
+      m_speakers.append({i, QPointF(m_width * i / 4.0, 0.0), 
+                        QString("Front %1").arg(i + 1), "", i, 1.0});
+    }
+    for(int i = 0; i < 5; i++)
+    {
+      m_speakers.append({i + 5, QPointF(m_width * i / 4.0, m_height), 
+                        QString("Rear %1").arg(i + 1), "", i + 5, 1.0});
+    }
+  }
+  
+  // Merge with old configurations
+  mergeSpeakerConfigurations(oldConfigs);
 }
 
 void ThreeDZoneEditorWidget::resizeEvent(QResizeEvent* event)
@@ -285,12 +457,21 @@ void ThreeDZoneEditorWidget::openSpeakerConfig(int speakerId)
   
   const SpeakerInfo& speaker = m_speakers[speakerId];
   
+  // Get available channels for the selected device
+  QStringList availableChannels;
+  if(!speaker.device.isEmpty() && m_deviceChannels.contains(speaker.device))
+  {
+    availableChannels = m_deviceChannels[speaker.device];
+  }
+  
   SpeakerConfigDialog dialog(
     speaker.id,
     speaker.label,
     speaker.device,
     speaker.channel,
     speaker.volume,
+    m_availableDeviceNames,
+    availableChannels,
     this
   );
   
@@ -335,8 +516,9 @@ void ThreeDZoneEditorWidget::saveSpeakersToProperty()
   speakersProp->setValueString(QString::fromStdString(speakers.dump()));
 }
 
-void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* /*event*/)
+void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
 {
+  Q_UNUSED(event);
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);
   

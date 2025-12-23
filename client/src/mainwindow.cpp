@@ -666,14 +666,12 @@ void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
 
     if(!m_subWindows.contains(windowId))
     {
-        // Use QWidget constructor
-        auto* window = new ObjectSubWindow(connection(), zone->getProperty("id")->toString());
+        // Use the proper factory / constructor
+        SubWindow* window = createSubWindow(SubWindowType::ThreeDZone, zone);
+        if(!window)
+            return;
 
         window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
-
-        auto* editor = new ThreeDZoneEditorWidget(zone, window);
-        window->setWidget(editor);
-        window->setAttribute(Qt::WA_DeleteOnClose);
 
         m_mdiArea->addSubWindow(window);
         m_subWindows[windowId] = window;
@@ -692,6 +690,7 @@ void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
         m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
     }
 }
+
 
 
 void MainWindow::showLuaScriptsList()

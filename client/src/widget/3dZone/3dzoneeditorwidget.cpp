@@ -12,7 +12,6 @@
 #include <cmath>
 #include "../../network/property.hpp"
 #include "../../network/method.hpp"
-#include "../../network/callmethod.hpp"
 #include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
@@ -38,10 +37,9 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   m_deviceCombo = new QComboBox(this);
   m_deviceCombo->addItem("(None)", QString());
   
-  // Add available devices (these are already device names, not IDs)
-  for(const QString& deviceName : availableDevices)
+  for(const QString& dev : availableDevices)
   {
-    m_deviceCombo->addItem(deviceName);
+    m_deviceCombo->addItem(dev);
   }
   
   // Find and select current device
@@ -189,67 +187,31 @@ QSize ThreeDZoneEditorWidget::minimumSizeHint() const
 
 void ThreeDZoneEditorWidget::loadAudioDevices()
 {
-  if(!m_zone)
-    return;
+  // Use placeholder audio devices for now
+  // TODO: Implement proper server call when get_audio_devices method is added to World
   
-  // Get the world object through the connection
-  auto connection = m_zone->connection();
-  if(!connection)
-    return;
+  m_availableDevices.clear();
+  m_availableDeviceNames.clear();
+  m_deviceChannels.clear();
   
-  // Request the world object
-  connection->getObject("world",
-    [this](const ObjectPtr& world, std::optional<const Error> error)
+  // Add placeholder devices
+  for(int i = 1; i <= 4; i++)
+  {
+    QString deviceId = QString("sound_controller_%1").arg(i);
+    QString deviceName = QString("Sound Controller %1").arg(i);
+    
+    m_availableDevices.append(deviceId);
+    m_availableDeviceNames.append(deviceName);
+    
+    // Add default channels for each device
+    QStringList channels;
+    for(int ch = 0; ch < 16; ch++)
     {
-      if(!world || error)
-        return;
-      
-      // Call method to get audio devices
-      if(Method* method = world->getMethod("get_audio_devices"))
-      {
-        method->call(
-          [this](const QString& result)
-          {
-            // Parse the JSON response containing audio devices
-            try
-            {
-              json devicesJson = json::parse(result.toStdString());
-              
-              m_availableDevices.clear();
-              m_availableDeviceNames.clear();
-              m_deviceChannels.clear();
-              
-              if(devicesJson.contains("devices") && devicesJson["devices"].is_array())
-              {
-                for(const auto& device : devicesJson["devices"])
-                {
-                  QString deviceId = QString::fromStdString(device.value("id", ""));
-                  QString deviceName = QString::fromStdString(device.value("name", ""));
-                  
-                  m_availableDevices.append(deviceId);
-                  m_availableDeviceNames.append(deviceName);
-                  
-                  // Parse channels
-                  QStringList channels;
-                  if(device.contains("channels") && device["channels"].is_array())
-                  {
-                    for(const auto& channel : device["channels"])
-                    {
-                      channels.append(QString::fromStdString(channel.get<std::string>()));
-                    }
-                  }
-                  
-                  m_deviceChannels[deviceId] = channels;
-                }
-              }
-            }
-            catch(const std::exception& e)
-            {
-              // JSON parse error - use defaults
-            }
-          });
-      }
-    });
+      channels.append(QString("Channel %1").arg(ch + 1));
+    }
+    
+    m_deviceChannels[deviceId] = channels;
+  }
 }
 
 void ThreeDZoneEditorWidget::updateFromProperties()
@@ -539,7 +501,6 @@ void ThreeDZoneEditorWidget::saveSpeakersToProperty()
 
 void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
 {
-  Q_UNUSED(event);
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);
   

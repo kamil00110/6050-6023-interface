@@ -23,9 +23,10 @@ QWidget* ThreeDZoneSubWindow::createWidget(const ObjectPtr& object)
     return widget();  // return the main widget
 }
 
-ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const ObjectPtr& object, QWidget* parent)
+ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const ObjectPtr& /*object*/, QWidget* parent)
 {
     return new ThreeDZoneSubWindow(SubWindowType::ThreeDZone, parent);
+  
 }
 
 ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent)

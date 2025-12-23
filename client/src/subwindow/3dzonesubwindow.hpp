@@ -2,6 +2,7 @@
 #define TRAINTASTIC_CLIENT_SUBWINDOW_3DZONE_SUBWINDOW_HPP
 
 #include "subwindow.hpp"
+#include "../network/object.hpp"
 
 class ThreeDZoneSubWindow final : public SubWindow
 {

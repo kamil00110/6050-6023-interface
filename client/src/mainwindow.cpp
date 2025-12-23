@@ -666,7 +666,8 @@ void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
   
   if(!m_subWindows.contains(windowId))
   {
-    auto* window = new QMdiSubWindow();
+    auto* window = new SubWindow(); // instead of QMdiSubWindow
+
     window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
     
     auto* editor = new ThreeDZoneEditorWidget(zone, window);

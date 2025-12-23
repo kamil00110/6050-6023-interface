@@ -19,131 +19,113 @@ static std::string initializeSpeakers(SpeakerSetup setup, double width, double h
   const int count = static_cast<int>(setup);
   json speakers = json::array();
   
-  // Position speakers around the rectangle
-  // 4 speakers: one at each corner
-  // 6 speakers: corners + 2 on long sides
-  // 8 speakers: corners + 4 on sides
-  // 10 speakers: corners + 6 on sides
-  
-  if(count >= 4)
+  if(count == 4)
   {
-    // Corner speakers (always present)
+    // 4 speakers: one at each corner
     speakers.push_back({
-      {"id", 0},
-      {"x", 0.0},
-      {"y", 0.0},
-      {"label", "Front Left"},
-      {"device", ""},
-      {"channel", 0},
-      {"volume", 1.0}
+      {"id", 0}, {"x", 0.0}, {"y", 0.0},
+      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
     });
-    
     speakers.push_back({
-      {"id", 1},
-      {"x", width},
-      {"y", 0.0},
-      {"label", "Front Right"},
-      {"device", ""},
-      {"channel", 1},
-      {"volume", 1.0}
+      {"id", 1}, {"x", width}, {"y", 0.0},
+      {"label", "Front Right"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
     });
-    
     speakers.push_back({
-      {"id", 2},
-      {"x", width},
-      {"y", height},
-      {"label", "Rear Right"},
-      {"device", ""},
-      {"channel", 2},
-      {"volume", 1.0}
+      {"id", 2}, {"x", width}, {"y", height},
+      {"label", "Rear Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
     });
-    
     speakers.push_back({
-      {"id", 3},
-      {"x", 0.0},
-      {"y", height},
-      {"label", "Rear Left"},
-      {"device", ""},
-      {"channel", 3},
-      {"volume", 1.0}
+      {"id", 3}, {"x", 0.0}, {"y", height},
+      {"label", "Rear Left"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
     });
   }
-  
-  if(count >= 6)
+  else if(count == 6)
   {
-    // Add center speakers on front and back
+    // 6 speakers: corners + 2 on top/bottom (horizontal edges only)
     speakers.push_back({
-      {"id", 4},
-      {"x", width / 2.0},
-      {"y", 0.0},
-      {"label", "Front Center"},
-      {"device", ""},
-      {"channel", 4},
-      {"volume", 1.0}
+      {"id", 0}, {"x", 0.0}, {"y", 0.0},
+      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
     });
-    
     speakers.push_back({
-      {"id", 5},
-      {"x", width / 2.0},
-      {"y", height},
-      {"label", "Rear Center"},
-      {"device", ""},
-      {"channel", 5},
-      {"volume", 1.0}
+      {"id", 1}, {"x", width / 2.0}, {"y", 0.0},
+      {"label", "Front Center"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 2}, {"x", width}, {"y", 0.0},
+      {"label", "Front Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 3}, {"x", width}, {"y", height},
+      {"label", "Rear Right"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 4}, {"x", width / 2.0}, {"y", height},
+      {"label", "Rear Center"}, {"device", ""}, {"channel", 4}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 5}, {"x", 0.0}, {"y", height},
+      {"label", "Rear Left"}, {"device", ""}, {"channel", 5}, {"volume", 1.0}
     });
   }
-  
-  if(count >= 8)
+  else if(count == 8)
   {
-    // Add side speakers
-    speakers.push_back({
-      {"id", 6},
-      {"x", 0.0},
-      {"y", height / 2.0},
-      {"label", "Side Left"},
-      {"device", ""},
-      {"channel", 6},
-      {"volume", 1.0}
-    });
-    
-    speakers.push_back({
-      {"id", 7},
-      {"x", width},
-      {"y", height / 2.0},
-      {"label", "Side Right"},
-      {"device", ""},
-      {"channel", 7},
-      {"volume", 1.0}
-    });
+    // 8 speakers: 4 on top, 4 on bottom (horizontal edges only)
+    for(int i = 0; i < 4; i++)
+    {
+      speakers.push_back({
+        {"id", i},
+        {"x", width * i / 3.0},
+        {"y", 0.0},
+        {"label", "Front " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i},
+        {"volume", 1.0}
+      });
+    }
+    for(int i = 0; i < 4; i++)
+    {
+      speakers.push_back({
+        {"id", i + 4},
+        {"x", width * i / 3.0},
+        {"y", height},
+        {"label", "Rear " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i + 4},
+        {"volume", 1.0}
+      });
+    }
   }
-  
-  if(count >= 10)
+  else if(count == 10)
   {
-    // Add more intermediate speakers
-    speakers.push_back({
-      {"id", 8},
-      {"x", width / 3.0},
-      {"y", 0.0},
-      {"label", "Front Left-Center"},
-      {"device", ""},
-      {"channel", 8},
-      {"volume", 1.0}
-    });
-    
-    speakers.push_back({
-      {"id", 9},
-      {"x", width * 2.0 / 3.0},
-      {"y", 0.0},
-      {"label", "Front Right-Center"},
-      {"device", ""},
-      {"channel", 9},
-      {"volume", 1.0}
-    });
+    // 10 speakers: 5 on top, 5 on bottom (horizontal edges only)
+    for(int i = 0; i < 5; i++)
+    {
+      speakers.push_back({
+        {"id", i},
+        {"x", width * i / 4.0},
+        {"y", 0.0},
+        {"label", "Front " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i},
+        {"volume", 1.0}
+      });
+    }
+    for(int i = 0; i < 5; i++)
+    {
+      speakers.push_back({
+        {"id", i + 5},
+        {"x", width * i / 4.0},
+        {"y", height},
+        {"label", "Rear " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i + 5},
+        {"volume", 1.0}
+      });
+    }
   }
   
   return speakers.dump();
 }
-
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
   , width{this, "width", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store,

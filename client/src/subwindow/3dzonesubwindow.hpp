@@ -17,7 +17,7 @@ public:
   static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
   static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection, const QString& id, QWidget* parent = nullptr);
 
-  SubWindowType type() const final { return SubWindowType::ThreeDZone; }
+  SubWindowType type() const { return SubWindowType::ThreeDZone; }
 
 protected:
   void objectChanged();

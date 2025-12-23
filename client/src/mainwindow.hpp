@@ -153,6 +153,7 @@ class MainWindow final : public QMainWindow
 
     const ObjectPtr& world() const;
     const ObjectPtr& worldClock() const { return m_clock; }
+    void show3DZoneEditor(const ObjectPtr& zone);
 
     IntroductionWizard* showIntroductionWizard();
     void showAddInterfaceWizard();

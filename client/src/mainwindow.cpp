@@ -667,8 +667,7 @@ void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
     if(!m_subWindows.contains(windowId))
     {
         // Use QWidget constructor
-        auto* window = new ObjectSubWindow(connection, zone->getProperty("id")->toString());
-
+        auto* window = new ObjectSubWindow(connection(), zone->getProperty("id")->toString());
 
         window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
 

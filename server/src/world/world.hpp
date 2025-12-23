@@ -148,7 +148,9 @@ class World : public Object
     Property<uint32_t> hardwareThrottles; //<! number of connected hardware throttles
 
     Property<WorldState> state;
+    
     Property<bool> edit;
+    Method<std::string()> getAudioDevices;
     Method<void()> offline;
     Method<void()> online;
     Method<void()> powerOff;
@@ -163,7 +165,7 @@ class World : public Object
     Method<void()> save;
 
     Method<ObjectPtr(const std::string&)> getObject_;
-    Method<std::string()> getAudioDevices;
+    
 
     Method<std::shared_ptr<LNCVProgrammer>(const ObjectPtr&)> getLNCVProgrammer;
 

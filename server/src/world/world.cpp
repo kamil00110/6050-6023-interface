@@ -205,6 +205,33 @@ World::World(Private /*unused*/) :
   statuses(*this, "statuses", {}, PropertyFlags::ReadOnly | PropertyFlags::Store),
   hardwareThrottles{this, "hardware_throttles", 0, PropertyFlags::ReadOnly | PropertyFlags::NoStore | PropertyFlags::NoScript},
   state{this, "state", WorldState(), PropertyFlags::ReadOnly | PropertyFlags::NoStore | PropertyFlags::ScriptReadOnly},
+  getAudioDevices{*this, "get_audio_devices", MethodFlags::NoScript,
+    []() -> std::string
+    {
+      auto devices = AudioEnumerator::enumerateDevices();
+      json result = json::object();
+      json deviceArray = json::array();
+      
+      for(const auto& device : devices)
+      {
+        json channels = json::array();
+        for(const auto& channel : device.channels)
+        {
+          channels.push_back(channel.channelName);
+        }
+        
+        deviceArray.push_back({
+          {"id", device.deviceId},
+          {"name", device.deviceName},
+          {"channelCount", device.channelCount},
+          {"channels", channels},
+          {"isDefault", device.isDefault}
+        });
+      }
+      
+      result["devices"] = deviceArray;
+      return result.dump();
+    }},
   edit{this, "edit", false, PropertyFlags::ReadWrite | PropertyFlags::NoStore,
     [this](bool value)
     {
@@ -360,6 +387,7 @@ World::World(Private /*unused*/) :
 
   Attributes::addObjectEditor(threeDZones, false);
   m_interfaceItems.add(threeDZones);
+  m_interfaceItems.add(getAudioDevices);
 
   m_interfaceItems.add(onlineWhenLoaded);
   m_interfaceItems.add(powerOnWhenLoaded);

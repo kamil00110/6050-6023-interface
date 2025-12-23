@@ -3,11 +3,30 @@
 
 #include "subwindow.hpp"
 
-class ThreeDZoneSubWindow : public SubWindow
+class ThreeDZoneSubWindow final : public SubWindow
 {
   Q_OBJECT
 
   public:
+    static ThreeDZoneSubWindow* create(const ObjectPtr& object)
+    {
+      if(!object)
+        return nullptr;
+
+      return new ThreeDZoneSubWindow(
+        object->connection(),
+        object->getProperty("id")->toString()
+      );
+    }
+
+    static ThreeDZoneSubWindow* create(
+      std::shared_ptr<Connection> connection,
+      const QString& id)
+    {
+      return new ThreeDZoneSubWindow(std::move(connection), id);
+    }
+
+  protected:
     explicit ThreeDZoneSubWindow(
       std::shared_ptr<Connection> connection,
       const QString& id,
@@ -16,9 +35,7 @@ class ThreeDZoneSubWindow : public SubWindow
     {
     }
 
-  protected:
     QWidget* createWidget(const ObjectPtr& object) override;
-    QSize defaultSize() const override { return QSize(600, 400); }
 };
 
 #endif

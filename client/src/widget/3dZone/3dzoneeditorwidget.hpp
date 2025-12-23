@@ -2,11 +2,37 @@
 #define TRAINTASTIC_CLIENT_WIDGET_3DZONE_3DZONEEDITORWIDGET_HPP
 
 #include <QWidget>
+#include <QDialog>
 #include "../../network/object.hpp"
 #include "../../network/objectptr.hpp"
 
+
 class QPaintEvent;
 class QLabel;
+class QComboBox;
+class QDoubleSpinBox;
+class QPushButton;
+
+// Speaker configuration dialog
+class SpeakerConfigDialog : public QDialog
+{
+  Q_OBJECT
+
+public:
+  SpeakerConfigDialog(int speakerId, const QString& label, 
+                      const QString& device, int channel, double volume,
+                      QWidget* parent = nullptr);
+  
+  QString getDevice() const;
+  int getChannel() const;
+  double getVolume() const;
+
+private:
+  QComboBox* m_deviceCombo;
+  QComboBox* m_channelCombo;
+  QDoubleSpinBox* m_volumeSpin;
+  QPushButton* m_testButton;
+};
 
 class ThreeDZoneEditorWidget : public QWidget
 {
@@ -21,6 +47,7 @@ public:
 protected:
   void paintEvent(QPaintEvent* event) override;
   void resizeEvent(QResizeEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
 
 private slots:
   void updateFromProperties();
@@ -28,11 +55,21 @@ private slots:
 
 private:
   ObjectPtr m_zone;
-  double m_width;
-  double m_height;
+  double m_width;   // in cm
+  double m_height;  // in cm
   int m_speakerCount;
-  QVector<QPointF> m_speakerPositions;
-  QVector<QString> m_speakerLabels;
+  
+  struct SpeakerInfo {
+    int id;
+    QPointF position;  // in cm
+    QString label;
+    QString device;
+    int channel;
+    double volume;
+  };
+  
+  QVector<SpeakerInfo> m_speakers;
+  int m_selectedSpeaker;
   
   QRectF m_zoneRect;
   double m_scale;
@@ -40,6 +77,9 @@ private:
   void calculateLayout();
   void calculateSpeakerPositions();
   QPointF worldToScreen(double x, double y) const;
+  int getSpeakerAtPosition(const QPointF& pos) const;
+  void openSpeakerConfig(int speakerId);
+  void saveSpeakersToProperty();
 };
 
 #endif

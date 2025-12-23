@@ -656,6 +656,43 @@ const ObjectPtr& MainWindow::world() const
   static const ObjectPtr null;
   return m_connection ? m_connection->world() : null;
 }
+// Add to the includes at the top:
+#include "widget/3dzone/3dzoneeditorwidget.hpp"
+
+// Modify the showObject method or add a new one:
+void MainWindow::show3DZoneEditor(const ObjectPtr& zone)
+{
+  if(!zone)
+    return;
+    
+  QString windowId = QString("3dzone_editor_%1").arg(zone->getProperty("id")->toString());
+  
+  if(!m_subWindows.contains(windowId))
+  {
+    auto* window = new QMdiSubWindow();
+    window->setWindowTitle(QString("3D Zone Editor - %1").arg(zone->getProperty("id")->toString()));
+    
+    auto* editor = new ThreeDZoneEditorWidget(zone, window);
+    window->setWidget(editor);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+    
+    m_mdiArea->addSubWindow(window);
+    m_subWindows[windowId] = window;
+    
+    connect(window, &QMdiSubWindow::destroyed, this,
+      [this, windowId]()
+      {
+        m_subWindows.remove(windowId);
+      });
+    
+    window->resize(700, 700);
+    window->show();
+  }
+  else
+  {
+    m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
+  }
+}
 
 void MainWindow::showLuaScriptsList()
 {

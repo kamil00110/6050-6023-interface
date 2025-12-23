@@ -20,8 +20,8 @@ public:
   SubWindowType type() const final { return SubWindowType::ThreeDZone; }
 
 protected:
-  void objectChanged() final;
-  void buildWidget() final;
+  void objectChanged();
+  void buildWidget();
 
 private:
   ThreeDZoneEditorWidget* m_editor;

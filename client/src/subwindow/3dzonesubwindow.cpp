@@ -37,8 +37,6 @@ ThreeDZoneSubWindow* ThreeDZoneSubWindow::create(const std::shared_ptr<Connectio
 
 void ThreeDZoneSubWindow::objectChanged()
 {
-  SubWindow::objectChanged();
-  
   if(m_object)
   {
     if(auto* idProp = m_object->getProperty("id"))

@@ -82,6 +82,8 @@ file(GLOB SOURCES
   "src/widget/status/*.cpp"
   "src/widget/throttle/*.hpp"
   "src/widget/throttle/*.cpp"
+  "src/widget/3dZone/*.hpp"
+  "src/widget/3dZone/*.cpp"
   "src/widget/tile/*.cpp"
   "src/wizard/*.hpp"
   "src/wizard/*.cpp"

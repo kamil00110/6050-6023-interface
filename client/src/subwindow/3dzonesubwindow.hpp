@@ -1,31 +1,24 @@
-#ifndef TRAINTASTIC_CLIENT_SUBWINDOW_3DZONESUBWINDOW_HPP
-#define TRAINTASTIC_CLIENT_SUBWINDOW_3DZONESUBWINDOW_HPP
+#ifndef TRAINTASTIC_CLIENT_SUBWINDOW_3DZONE_SUBWINDOW_HPP
+#define TRAINTASTIC_CLIENT_SUBWINDOW_3DZONE_SUBWINDOW_HPP
 
 #include "subwindow.hpp"
-
-class ThreeDZoneEditorWidget;
 
 class ThreeDZoneSubWindow : public SubWindow
 {
   Q_OBJECT
 
-protected:
-  ThreeDZoneSubWindow(const ObjectPtr& object, QWidget* parent = nullptr);
-  ThreeDZoneSubWindow(const std::shared_ptr<Connection>& connection,
-                      const QString& id,
-                      QWidget* parent = nullptr);
+  public:
+    explicit ThreeDZoneSubWindow(
+      std::shared_ptr<Connection> connection,
+      const QString& id,
+      QWidget* parent = nullptr)
+      : SubWindow(SubWindowType::ThreeDZone, std::move(connection), id, parent)
+    {
+    }
 
-  QWidget* createWidget(const ObjectPtr& object) override;
-
-public:
-  static ThreeDZoneSubWindow* create(const ObjectPtr& object, QWidget* parent = nullptr);
-  static ThreeDZoneSubWindow* create(const std::shared_ptr<Connection>& connection,
-                                     const QString& id,
-                                     QWidget* parent = nullptr);
-
-private:
-  ThreeDZoneEditorWidget* m_editor = nullptr;
+  protected:
+    QWidget* createWidget(const ObjectPtr& object) override;
+    QSize defaultSize() const override { return QSize(600, 400); }
 };
-
 
 #endif

@@ -16,7 +16,6 @@
 #include "../../network/property.hpp"
 #include "../../network/method.hpp"
 #include "../../network/error.hpp"
-#include "../../network/callmethod.hpp"
 
 constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
@@ -96,7 +95,8 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   
   // Initialize channel combo based on selected device
   onDeviceChanged(selectedIndex);
-  m_channelCombo->setCurrentIndex(channel);
+  if(channel < m_channelCombo->count())
+    m_channelCombo->setCurrentIndex(channel);
 }
 
 void SpeakerConfigDialog::onDeviceChanged(int index)
@@ -142,6 +142,7 @@ double SpeakerConfigDialog::getVolume() const
   return m_volumeSpin->value();
 }
 
+// ThreeDZoneEditorWidget Implementation
 ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* parent)
   : QWidget(parent)
   , m_zone(zone)
@@ -186,6 +187,16 @@ ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* p
   
   calculateLayout();
   updateSpeakers();
+}
+
+QSize ThreeDZoneEditorWidget::sizeHint() const
+{
+  return QSize(600, 600);
+}
+
+QSize ThreeDZoneEditorWidget::minimumSizeHint() const
+{
+  return QSize(400, 400);
 }
 
 void ThreeDZoneEditorWidget::loadAudioDevices()
@@ -292,25 +303,6 @@ void ThreeDZoneEditorWidget::addDummyDevice()
   
   m_audioDevices.push_back(dummy);
 }
-QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const
-{
-  for(const auto& device : m_audioDevices)
-  {
-    if(device.deviceId == deviceId)
-      return device.deviceName;
-  }
-  return "Unknown Device";
-}
-
-QSize ThreeDZoneEditorWidget::sizeHint() const
-{
-  return QSize(600, 600);
-}
-
-QSize ThreeDZoneEditorWidget::minimumSizeHint() const
-{
-  return QSize(400, 400);
-}
 
 void ThreeDZoneEditorWidget::updateFromProperties()
 {
@@ -372,7 +364,66 @@ void ThreeDZoneEditorWidget::updateSpeakers()
   update();
 }
 
-// ... rest of the implementation (resizeEvent, calculateLayout, worldToScreen, etc.) stays the same ...
+void ThreeDZoneEditorWidget::resizeEvent(QResizeEvent* event)
+{
+  QWidget::resizeEvent(event);
+  calculateLayout();
+}
+
+void ThreeDZoneEditorWidget::calculateLayout()
+{
+  const double widgetWidth = width() - 2 * MARGIN;
+  const double widgetHeight = height() - 2 * MARGIN;
+  
+  // Calculate scale to fit the zone in the widget while maintaining aspect ratio
+  const double scaleX = widgetWidth / m_width;
+  const double scaleY = widgetHeight / m_height;
+  m_scale = std::min(scaleX, scaleY);
+  
+  // Center the zone rectangle
+  const double rectWidth = m_width * m_scale;
+  const double rectHeight = m_height * m_scale;
+  const double rectX = (width() - rectWidth) / 2.0;
+  const double rectY = (height() - rectHeight) / 2.0;
+  
+  m_zoneRect = QRectF(rectX, rectY, rectWidth, rectHeight);
+}
+
+QPointF ThreeDZoneEditorWidget::worldToScreen(double x, double y) const
+{
+  return QPointF(
+    m_zoneRect.left() + x * m_scale,
+    m_zoneRect.top() + y * m_scale
+  );
+}
+
+int ThreeDZoneEditorWidget::getSpeakerAtPosition(const QPointF& pos) const
+{
+  for(int i = 0; i < m_speakers.size(); i++)
+  {
+    QPointF screenPos = worldToScreen(m_speakers[i].position.x(), m_speakers[i].position.y());
+    double dx = pos.x() - screenPos.x();
+    double dy = pos.y() - screenPos.y();
+    double dist = std::sqrt(dx * dx + dy * dy);
+    
+    if(dist <= SPEAKER_RADIUS + 5) // Add 5px tolerance
+      return i;
+  }
+  return -1;
+}
+
+void ThreeDZoneEditorWidget::mousePressEvent(QMouseEvent* event)
+{
+  if(event->button() == Qt::LeftButton)
+  {
+    int speakerIdx = getSpeakerAtPosition(event->pos());
+    if(speakerIdx >= 0)
+    {
+      openSpeakerConfig(speakerIdx);
+    }
+  }
+  QWidget::mousePressEvent(event);
+}
 
 void ThreeDZoneEditorWidget::openSpeakerConfig(int speakerId)
 {
@@ -431,11 +482,20 @@ void ThreeDZoneEditorWidget::saveSpeakersToProperty()
   speakersProp->setValueString(doc.toJson(QJsonDocument::Compact));
 }
 
-// ... (keep the rest of paintEvent, mousePressEvent, etc. from before)
+QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const
+{
+  for(const auto& device : m_audioDevices)
+  {
+    if(device.deviceId == deviceId)
+      return device.deviceName;
+  }
+  return "Unknown Device";
+}
 
 void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
 {
-  Q_UNUSED(event); 
+  Q_UNUSED(event);
+  
   QPainter painter(this);
   painter.setRenderHint(QPainter::Antialiasing);
   

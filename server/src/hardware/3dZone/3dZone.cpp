@@ -1,6 +1,3 @@
-/**
- * server/src/hardware/3dZone/3dZone.cpp
- */
 #include "3dZone.hpp"
 #include "list/3dZoneList.hpp"
 #include "list/3dZoneListTableModel.hpp"
@@ -15,114 +12,105 @@
 
 using nlohmann::json;
 
-// IMPORTANT: Declare this function BEFORE the constructor
-static std::string initializeSpeakers(SpeakerSetup setup, double width, double height)
+// Helper to update speaker positions without losing configuration
+static std::string updateSpeakerPositions(const std::string& existingSpeakersJson, SpeakerSetup setup, double width, double height)
 {
   const int count = static_cast<int>(setup);
-  json speakers = json::array();
+  json speakers;
+  
+  // Try to parse existing speakers to preserve configuration
+  std::map<int, json> existingSpeakers;
+  try
+  {
+    if(!existingSpeakersJson.empty())
+    {
+      json existing = json::parse(existingSpeakersJson);
+      if(existing.is_array())
+      {
+        for(const auto& speaker : existing)
+        {
+          if(speaker.contains("id"))
+          {
+            existingSpeakers[speaker["id"].get<int>()] = speaker;
+          }
+        }
+      }
+    }
+  }
+  catch(...)
+  {
+    // If parsing fails, start fresh
+  }
+  
+  speakers = json::array();
+  
+  // Helper lambda to create or update speaker
+  auto addSpeaker = [&](int id, double x, double y, const std::string& label, int defaultChannel)
+  {
+    json speaker;
+    
+    // Check if speaker already exists
+    if(existingSpeakers.count(id))
+    {
+      // Preserve existing configuration, just update position
+      speaker = existingSpeakers[id];
+      speaker["x"] = x;
+      speaker["y"] = y;
+      speaker["label"] = label; // Update label in case setup changed
+    }
+    else
+    {
+      // Create new speaker
+      speaker = {
+        {"id", id},
+        {"x", x},
+        {"y", y},
+        {"label", label},
+        {"device", ""},
+        {"channel", defaultChannel},
+        {"volume", 1.0}
+      };
+    }
+    
+    speakers.push_back(speaker);
+  };
   
   if(count == 4)
   {
-    // 4 speakers: one at each corner
-    speakers.push_back({
-      {"id", 0}, {"x", 0.0}, {"y", 0.0},
-      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 1}, {"x", width}, {"y", 0.0},
-      {"label", "Front Right"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 2}, {"x", width}, {"y", height},
-      {"label", "Rear Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 3}, {"x", 0.0}, {"y", height},
-      {"label", "Rear Left"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
-    });
+    addSpeaker(0, 0.0, 0.0, "Front Left", 0);
+    addSpeaker(1, width, 0.0, "Front Right", 1);
+    addSpeaker(2, width, height, "Rear Right", 2);
+    addSpeaker(3, 0.0, height, "Rear Left", 3);
   }
   else if(count == 6)
   {
-    // 6 speakers: corners + 2 on top/bottom (horizontal edges only)
-    speakers.push_back({
-      {"id", 0}, {"x", 0.0}, {"y", 0.0},
-      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 1}, {"x", width / 2.0}, {"y", 0.0},
-      {"label", "Front Center"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 2}, {"x", width}, {"y", 0.0},
-      {"label", "Front Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 3}, {"x", width}, {"y", height},
-      {"label", "Rear Right"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 4}, {"x", width / 2.0}, {"y", height},
-      {"label", "Rear Center"}, {"device", ""}, {"channel", 4}, {"volume", 1.0}
-    });
-    speakers.push_back({
-      {"id", 5}, {"x", 0.0}, {"y", height},
-      {"label", "Rear Left"}, {"device", ""}, {"channel", 5}, {"volume", 1.0}
-    });
+    addSpeaker(0, 0.0, 0.0, "Front Left", 0);
+    addSpeaker(1, width / 2.0, 0.0, "Front Center", 1);
+    addSpeaker(2, width, 0.0, "Front Right", 2);
+    addSpeaker(3, width, height, "Rear Right", 3);
+    addSpeaker(4, width / 2.0, height, "Rear Center", 4);
+    addSpeaker(5, 0.0, height, "Rear Left", 5);
   }
   else if(count == 8)
   {
-    // 8 speakers: 4 on top, 4 on bottom (horizontal edges only)
     for(int i = 0; i < 4; i++)
     {
-      speakers.push_back({
-        {"id", i},
-        {"x", width * i / 3.0},
-        {"y", 0.0},
-        {"label", "Front " + std::to_string(i + 1)},
-        {"device", ""},
-        {"channel", i},
-        {"volume", 1.0}
-      });
+      addSpeaker(i, width * i / 3.0, 0.0, "Front " + std::to_string(i + 1), i);
     }
     for(int i = 0; i < 4; i++)
     {
-      speakers.push_back({
-        {"id", i + 4},
-        {"x", width * i / 3.0},
-        {"y", height},
-        {"label", "Rear " + std::to_string(i + 1)},
-        {"device", ""},
-        {"channel", i + 4},
-        {"volume", 1.0}
-      });
+      addSpeaker(i + 4, width * i / 3.0, height, "Rear " + std::to_string(i + 1), i + 4);
     }
   }
   else if(count == 10)
   {
-    // 10 speakers: 5 on top, 5 on bottom (horizontal edges only)
     for(int i = 0; i < 5; i++)
     {
-      speakers.push_back({
-        {"id", i},
-        {"x", width * i / 4.0},
-        {"y", 0.0},
-        {"label", "Front " + std::to_string(i + 1)},
-        {"device", ""},
-        {"channel", i},
-        {"volume", 1.0}
-      });
+      addSpeaker(i, width * i / 4.0, 0.0, "Front " + std::to_string(i + 1), i);
     }
     for(int i = 0; i < 5; i++)
     {
-      speakers.push_back({
-        {"id", i + 5},
-        {"x", width * i / 4.0},
-        {"y", height},
-        {"label", "Rear " + std::to_string(i + 1)},
-        {"device", ""},
-        {"channel", i + 5},
-        {"volume", 1.0}
-      });
+      addSpeaker(i + 5, width * i / 4.0, height, "Rear " + std::to_string(i + 1), i + 5);
     }
   }
   
@@ -131,22 +119,22 @@ static std::string initializeSpeakers(SpeakerSetup setup, double width, double h
 
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , width{this, "width", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , width{this, "width", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,  // Changed from 10.0 to 1.0 (100cm)
       [this](double value)
       {
-        speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), value, height.value()));
+        speakersData.setValueInternal(updateSpeakerPositions(speakersData.value(), speakerSetup.value(), value, height.value()));
         return true;
       }}
-  , height{this, "height", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , height{this, "height", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,  // Changed from 10.0 to 1.0 (100cm)
       [this](double value)
       {
-        speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), width.value(), value));
+        speakersData.setValueInternal(updateSpeakerPositions(speakersData.value(), speakerSetup.value(), width.value(), value));
         return true;
       }}
   , speakerSetup{this, "speaker_setup", SpeakerSetup::Quadraphonic, PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](SpeakerSetup value)
       {
-        speakersData.setValueInternal(initializeSpeakers(value, width.value(), height.value()));
+        speakersData.setValueInternal(updateSpeakerPositions(speakersData.value(), value, width.value(), height.value()));
         return true;
       }}
   , speakersData{this, "speakers_data", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
@@ -158,12 +146,12 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       }}
 {
   Attributes::addDisplayName(width, "Width (m)");
-  Attributes::addMinMax(width, 0.1, 1000.0);
+  Attributes::addMinMax(width, 0.1, 100.0);  // Max 100m = 10000cm
   Attributes::addEnabled(width, true);
   m_interfaceItems.add(width);
   
   Attributes::addDisplayName(height, "Height (m)");
-  Attributes::addMinMax(height, 0.1, 1000.0);
+  Attributes::addMinMax(height, 0.1, 100.0);  // Max 100m = 10000cm
   Attributes::addEnabled(height, true);
   m_interfaceItems.add(height);
   
@@ -177,18 +165,16 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addVisible(speakersData, false);
   m_interfaceItems.add(speakersData);
   
-  // Add audio devices JSON property
   Attributes::addDisplayName(audioDevicesJson, "Audio Devices (JSON)");
-  Attributes::addVisible(audioDevicesJson, false); // Hidden, used by client
+  Attributes::addVisible(audioDevicesJson, false);
   m_interfaceItems.add(audioDevicesJson);
   
-  // Add refresh method
   Attributes::addDisplayName(refreshAudioDevicesList, "Refresh Audio Devices");
   Attributes::addVisible(refreshAudioDevicesList, false);
   m_interfaceItems.add(refreshAudioDevicesList);
   
   // Initialize with default speaker layout
-  speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), width.value(), height.value()));
+  speakersData.setValueInternal(updateSpeakerPositions("", speakerSetup.value(), width.value(), height.value()));
   
   // Initialize audio devices list
   refreshAudioDevices();

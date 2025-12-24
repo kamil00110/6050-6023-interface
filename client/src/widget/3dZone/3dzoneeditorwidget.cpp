@@ -197,9 +197,9 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
   if(!method)
     return;
   
-  // FIXED: Use callMethod helper with correct signature
-  callMethod(*method, nullptr,
-    [this](const QVariant& result, std::optional<const Error> /*error*/)
+  // Connect to the method's result signal BEFORE calling
+  connect(method, &Method::valueChanged, this,
+    [this](const QVariant& result)
     {
       QString jsonStr = result.toString();
       if(jsonStr.isEmpty())
@@ -241,9 +241,13 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
         
         m_audioDevices.push_back(device);
       }
-    });
+      
+      update(); // Refresh the UI after loading devices
+    }, Qt::SingleShotConnection); // Use single shot so it disconnects after first call
+  
+  // Now call the method
+  method->call();
 }
-
 
 QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const
 {

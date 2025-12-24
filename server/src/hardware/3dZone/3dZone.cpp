@@ -1,6 +1,7 @@
 #include "3dZone.hpp"
 #include "list/3dZoneList.hpp"
 #include "list/3dZoneListTableModel.hpp"
+#include "../3dSound/3dSound.hpp"
 #include "../3dSound/3dAudioPlayer.hpp"
 #include "../3dSound/list/3dSoundList.hpp"
 #include "../../world/getworld.hpp"

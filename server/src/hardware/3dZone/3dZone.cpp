@@ -119,13 +119,13 @@ static std::string updateSpeakerPositions(const std::string& existingSpeakersJso
 
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , width{this, "width", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,  // Changed from 10.0 to 1.0 (100cm)
+  , width{this, "width", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](double value)
       {
         speakersData.setValueInternal(updateSpeakerPositions(speakersData.value(), speakerSetup.value(), value, height.value()));
         return true;
       }}
-  , height{this, "height", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,  // Changed from 10.0 to 1.0 (100cm)
+  , height{this, "height", 1.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](double value)
       {
         speakersData.setValueInternal(updateSpeakerPositions(speakersData.value(), speakerSetup.value(), width.value(), value));
@@ -144,14 +144,32 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       {
         refreshAudioDevices();
       }}
+  , testSoundAtPosition{*this, "test_sound_at_position", MethodFlags::NoScript,  // ADD THIS
+      [this](double x, double y)
+      {
+        // TODO: Implement 3D audio playback
+        // This will calculate speaker volumes based on position
+        // and play a test tone through the configured speakers
+        
+        // For now, just log the position
+        Log::log(*this, LogMessage::I1006_X, 
+          std::string("Test sound at position: x=") + std::to_string(x) + 
+          ", y=" + std::to_string(y));
+        
+        // Future implementation will:
+        // 1. Parse speakersData to get speaker positions and device assignments
+        // 2. Calculate distance from (x,y) to each speaker
+        // 3. Calculate volume for each speaker based on distance
+        // 4. Send audio output to each configured device/channel with calculated volume
+      }}
 {
   Attributes::addDisplayName(width, "Width (m)");
-  Attributes::addMinMax(width, 0.1, 100.0);  // Max 100m = 10000cm
+  Attributes::addMinMax(width, 0.1, 100.0);
   Attributes::addEnabled(width, true);
   m_interfaceItems.add(width);
   
   Attributes::addDisplayName(height, "Height (m)");
-  Attributes::addMinMax(height, 0.1, 100.0);  // Max 100m = 10000cm
+  Attributes::addMinMax(height, 0.1, 100.0);
   Attributes::addEnabled(height, true);
   m_interfaceItems.add(height);
   
@@ -173,10 +191,12 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addVisible(refreshAudioDevicesList, false);
   m_interfaceItems.add(refreshAudioDevicesList);
   
-  // Initialize with default speaker layout
-  speakersData.setValueInternal(updateSpeakerPositions("", speakerSetup.value(), width.value(), height.value()));
+  // ADD THIS
+  Attributes::addDisplayName(testSoundAtPosition, "Test Sound At Position");
+  Attributes::addVisible(testSoundAtPosition, false);
+  m_interfaceItems.add(testSoundAtPosition);
   
-  // Initialize audio devices list
+  speakersData.setValueInternal(updateSpeakerPositions("", speakerSetup.value(), width.value(), height.value()));
   refreshAudioDevices();
   
   updateEnabled();

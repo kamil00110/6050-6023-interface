@@ -33,7 +33,8 @@ class ThreeDZone : public IdObject
     Property<std::string> audioDevicesJson;  // Cached audio devices as JSON
     
     Method<void()> refreshAudioDevicesList;  // Method to refresh the list
-    
+    Method<void(double, double)> testSoundAtPosition; 
+
     ThreeDZone(World& world, std::string_view _id);
 };  // ADD SEMICOLON HERE
 

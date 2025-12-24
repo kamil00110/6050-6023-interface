@@ -15,6 +15,8 @@
 #include <cmath>
 #include "../../network/property.hpp"
 #include "../../network/method.hpp"
+#include "../../network/error.hpp"
+#include "../../network/callmethod.hpp"
 
 constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
@@ -140,7 +142,6 @@ double SpeakerConfigDialog::getVolume() const
   return m_volumeSpin->value();
 }
 
-// ThreeDZoneEditorWidget Implementation
 ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* parent)
   : QWidget(parent)
   , m_zone(zone)
@@ -196,13 +197,14 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
   if(!method)
     return;
   
-  method->call(
-    [this](const QVariant& result, std::optional<const Error> error)
+  // FIXED: Use callMethod helper with correct signature
+  callMethod(*method, nullptr,
+    [this](const QVariant& result, std::optional<const Error> /*error*/)
     {
-      if(error)
+      QString jsonStr = result.toString();
+      if(jsonStr.isEmpty())
         return;
       
-      QString jsonStr = result.toString();
       QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
       
       if(!doc.isArray())
@@ -241,6 +243,7 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
       }
     });
 }
+
 
 QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const
 {

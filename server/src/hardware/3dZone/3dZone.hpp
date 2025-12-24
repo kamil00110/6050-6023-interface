@@ -1,3 +1,6 @@
+/**
+ * server/src/hardware/3dZone/3dZone.hpp
+ */
 #ifndef TRAINTASTIC_SERVER_HARDWARE_3DZONE_3DZONE_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_3DZONE_3DZONE_HPP
 
@@ -14,7 +17,7 @@ class ThreeDZone : public IdObject
   
   private:
     void updateEnabled();
-    void refreshAudioDevices(); // Helper function
+    void refreshAudioDevices();  // Helper function
     
   protected:
     void addToWorld() override;
@@ -27,11 +30,11 @@ class ThreeDZone : public IdObject
     Property<double> height;
     Property<SpeakerSetup> speakerSetup;
     Property<std::string> speakersData;
-    Property<std::string> audioDevicesJson;  // ADD THIS - cached audio devices as JSON
+    Property<std::string> audioDevicesJson;  // Cached audio devices as JSON
     
-    Method<void()> refreshAudioDevicesList;  // ADD THIS - method to refresh the list
+    Method<void()> refreshAudioDevicesList;  // Method to refresh the list
     
     ThreeDZone(World& world, std::string_view _id);
-}
+};  // ADD SEMICOLON HERE
 
 #endif

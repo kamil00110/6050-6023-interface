@@ -14,6 +14,7 @@ class ThreeDZone : public IdObject
   
   private:
     void updateEnabled();
+    void refreshAudioDevices(); // Helper function
     
   protected:
     void addToWorld() override;
@@ -26,11 +27,11 @@ class ThreeDZone : public IdObject
     Property<double> height;
     Property<SpeakerSetup> speakerSetup;
     Property<std::string> speakersData;
+    Property<std::string> audioDevicesJson;  // ADD THIS - cached audio devices as JSON
     
-    // Method to get available audio devices as JSON
-    Method<std::string()> getAudioDevices;
+    Method<void()> refreshAudioDevicesList;  // ADD THIS - method to refresh the list
     
     ThreeDZone(World& world, std::string_view _id);
-};
+}
 
 #endif

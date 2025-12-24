@@ -34,6 +34,7 @@ class ThreeDZone : public IdObject
     
     Method<void()> refreshAudioDevicesList;  // Method to refresh the list
     Method<void(double, double)> testSoundAtPosition; 
+    Method<void(double, double, std::string)> playSoundAtPosition;  // x, y, soundId
 
     ThreeDZone(World& world, std::string_view _id);
 };  // ADD SEMICOLON HERE

@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QDialog>
+#include <QTimer>
 #include "../../network/object.hpp"
 #include "../../network/objectptr.hpp"
 
@@ -71,14 +72,14 @@ private slots:
   void updateFromProperties();
   void updateSpeakers();
   void loadAudioDevices();
-  void parseAudioDevices(const QString& jsonStr);  // ADD THIS
+  void parseAudioDevices(const QString& jsonStr);
+  void clearTestDot();  // ADD THIS
 
 private:
   ObjectPtr m_zone;
   double m_width;   // in cm
   double m_height;  // in cm
   int m_speakerCount;
-  void addDummyDevice();  // ADD THIS
   
   struct SpeakerInfo {
     int id;
@@ -96,13 +97,21 @@ private:
   QRectF m_zoneRect;
   double m_scale;
   
+  // ADD THESE for test dot visualization
+  QPointF m_testDotPosition;  // in screen coordinates
+  bool m_showTestDot;
+  QTimer* m_testDotTimer;
+  
   void calculateLayout();
   void calculateSpeakerPositions();
   QPointF worldToScreen(double x, double y) const;
+  QPointF screenToWorld(const QPointF& screenPos) const;  // ADD THIS
   int getSpeakerAtPosition(const QPointF& pos) const;
   void openSpeakerConfig(int speakerId);
   void saveSpeakersToProperty();
   QString getDeviceDisplayName(const QString& deviceId) const;
+  void addDummyDevice();
+  void testSoundAtPosition(const QPointF& worldPos);  // ADD THIS
 };
 
 #endif

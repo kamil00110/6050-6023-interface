@@ -212,7 +212,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       
       if(!success)
       {
-        Log::log(*this, LogMessage::W1003_X_FAILED_X,
+        Log::log(*this, LogMessage::I1006_X,
           std::string("Failed to play sound '") + soundId + "'");
       }
     }}

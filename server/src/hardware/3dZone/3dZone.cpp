@@ -161,7 +161,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         
         if(!soundsList || soundsList->empty())  // NOW WORKS: ThreeDSoundList is fully defined
         {
-          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+          Log::log(*this, LogMessage::I1006_X,
             std::string("No sound files available for testing"));
           return;
         }
@@ -170,7 +170,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         auto firstSound = soundsList->front();  // NOW WORKS
         if(!firstSound)
         {
-          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+          Log::log(*this, LogMessage::I1006_X,
             std::string("Invalid sound object"));
           return;
         }
@@ -193,7 +193,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         }
         else
         {
-          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+          Log::log(*this, LogMessage::I1006_X,
             std::string("Failed to play test sound"));
         }
       }}
@@ -213,7 +213,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         
         if(!success)
         {
-          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+          Log::log(*this, LogMessage::I1006_X,
             std::string("Failed to play sound '") + soundId + "'");
         }
       }}

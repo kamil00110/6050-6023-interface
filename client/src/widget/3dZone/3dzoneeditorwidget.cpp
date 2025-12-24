@@ -1,5 +1,6 @@
 #include "3dzoneeditorwidget.hpp"
 #include <QTimer>
+#include <QMessageBox>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QMouseEvent>
@@ -22,13 +23,16 @@ constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
 constexpr double SPEAKER_RADIUS = 10.0;
 
-// Speaker Configuration Dialog Implementation
 SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label, 
                                          const QString& device, int channel, double volume,
                                          const std::vector<AudioDeviceData>& audioDevices,
+                                         const ObjectPtr& zone,
+                                         const QPointF& speakerPosition,
                                          QWidget* parent)
   : QDialog(parent)
   , m_audioDevices(audioDevices)
+  , m_zone(zone)
+  , m_speakerPosition(speakerPosition)
 {
   setWindowTitle(QString("Configure Speaker %1 - %2").arg(speakerId + 1).arg(label));
   setModal(true);
@@ -75,14 +79,10 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   
   layout->addRow("Volume Override:", m_volumeSpin);
   
-  // Test button
+  // Test button - NOW FUNCTIONAL
   m_testButton = new QPushButton("Test Speaker", this);
-  m_testButton->setToolTip("Test this speaker (not yet implemented)");
-  connect(m_testButton, &QPushButton::clicked, this,
-    []()
-    {
-      // TODO: Implement speaker test
-    });
+  m_testButton->setToolTip("Play a test sound at this speaker's position");
+  connect(m_testButton, &QPushButton::clicked, this, &SpeakerConfigDialog::testThisSpeaker);
   
   layout->addRow("", m_testButton);
   
@@ -100,6 +100,37 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
     m_channelCombo->setCurrentIndex(channel);
 }
 
+void SpeakerConfigDialog::testThisSpeaker()
+{
+  if(!m_zone)
+    return;
+  
+  Method* method = m_zone->getMethod("test_sound_at_position");
+  if(!method)
+  {
+    QMessageBox::information(this, "Test Speaker", 
+      "Test sound feature not available on this server version.");
+    return;
+  }
+  
+  // Convert speaker position from cm to meters
+  double xMeters = m_speakerPosition.x() / 100.0;
+  double yMeters = m_speakerPosition.y() / 100.0;
+  
+  // Call the server method
+  QString args = QString("%1,%2").arg(xMeters).arg(yMeters);
+  method->call(args);
+  
+  // Visual feedback
+  m_testButton->setEnabled(false);
+  m_testButton->setText("Playing...");
+  
+  // Re-enable after 2 seconds
+  QTimer::singleShot(2000, this, [this]() {
+    m_testButton->setEnabled(true);
+    m_testButton->setText("Test Speaker");
+  });
+}
 void SpeakerConfigDialog::onDeviceChanged(int index)
 {
   m_channelCombo->clear();
@@ -498,6 +529,8 @@ void ThreeDZoneEditorWidget::openSpeakerConfig(int speakerId)
     speaker.channel,
     speaker.volume,
     m_audioDevices,
+    m_zone,  // ADD THIS
+    speaker.position,  // ADD THIS - already in cm
     this
   );
   
@@ -511,6 +544,7 @@ void ThreeDZoneEditorWidget::openSpeakerConfig(int speakerId)
     update();
   }
 }
+  
 
 void ThreeDZoneEditorWidget::saveSpeakersToProperty()
 {

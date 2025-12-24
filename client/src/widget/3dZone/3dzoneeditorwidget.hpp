@@ -71,12 +71,14 @@ private slots:
   void updateFromProperties();
   void updateSpeakers();
   void loadAudioDevices();
+  void parseAudioDevices(const QString& jsonStr);  // ADD THIS
 
 private:
   ObjectPtr m_zone;
   double m_width;   // in cm
   double m_height;  // in cm
   int m_speakerCount;
+  void addDummyDevice();  // ADD THIS
   
   struct SpeakerInfo {
     int id;

@@ -12,6 +12,19 @@ class QComboBox;
 class QDoubleSpinBox;
 class QPushButton;
 
+struct AudioDeviceData {
+  QString deviceId;
+  QString deviceName;
+  int channelCount;
+  bool isDefault;
+  
+  struct ChannelData {
+    int index;
+    QString name;
+  };
+  std::vector<ChannelData> channels;
+};
+
 // Speaker configuration dialog
 class SpeakerConfigDialog : public QDialog
 {
@@ -20,13 +33,15 @@ class SpeakerConfigDialog : public QDialog
 public:
   SpeakerConfigDialog(int speakerId, const QString& label, 
                       const QString& device, int channel, double volume,
-                      const QStringList& availableDevices,
-                      const QStringList& availableChannels,
+                      const std::vector<AudioDeviceData>& audioDevices,
                       QWidget* parent = nullptr);
   
   QString getDevice() const;
   int getChannel() const;
   double getVolume() const;
+
+private slots:
+  void onDeviceChanged(int index);
 
 private:
   QComboBox* m_deviceCombo;
@@ -34,8 +49,7 @@ private:
   QDoubleSpinBox* m_volumeSpin;
   QPushButton* m_testButton;
   
-  ObjectPtr m_zone;
-  QMap<QString, QStringList> m_deviceChannels; // Device ID -> channel names
+  const std::vector<AudioDeviceData>& m_audioDevices;
 };
 
 class ThreeDZoneEditorWidget : public QWidget
@@ -74,23 +88,19 @@ private:
   };
   
   QVector<SpeakerInfo> m_speakers;
+  std::vector<AudioDeviceData> m_audioDevices;
   int m_selectedSpeaker;
   
   QRectF m_zoneRect;
   double m_scale;
   
-  // Audio device info from server
-  QStringList m_availableDevices;
-  QStringList m_availableDeviceNames;
-  QMap<QString, QStringList> m_deviceChannels; // Device ID -> channel names
-  
   void calculateLayout();
-  void recalculateSpeakerPositions();
+  void calculateSpeakerPositions();
   QPointF worldToScreen(double x, double y) const;
   int getSpeakerAtPosition(const QPointF& pos) const;
   void openSpeakerConfig(int speakerId);
   void saveSpeakersToProperty();
-  void mergeSpeakerConfigurations(const QVector<SpeakerInfo>& oldSpeakers);
+  QString getDeviceDisplayName(const QString& deviceId) const;
 };
 
 #endif

@@ -35,6 +35,8 @@ public:
   SpeakerConfigDialog(int speakerId, const QString& label, 
                       const QString& device, int channel, double volume,
                       const std::vector<AudioDeviceData>& audioDevices,
+                      const ObjectPtr& zone,  // ADD THIS
+                      const QPointF& speakerPosition,  // ADD THIS - in world coordinates (cm)
                       QWidget* parent = nullptr);
   
   QString getDevice() const;
@@ -43,6 +45,7 @@ public:
 
 private slots:
   void onDeviceChanged(int index);
+  void testThisSpeaker();  // ADD THIS
 
 private:
   QComboBox* m_deviceCombo;
@@ -51,6 +54,8 @@ private:
   QPushButton* m_testButton;
   
   const std::vector<AudioDeviceData>& m_audioDevices;
+  ObjectPtr m_zone;  // ADD THIS
+  QPointF m_speakerPosition;  // ADD THIS
 };
 
 class ThreeDZoneEditorWidget : public QWidget

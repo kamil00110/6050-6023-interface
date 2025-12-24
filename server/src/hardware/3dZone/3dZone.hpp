@@ -3,7 +3,7 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
-#include "../../core/method.hpp"  // Add this
+#include "../../core/method.hpp"
 #include <traintastic/enum/speakersetup.hpp>
 
 class ThreeDZone : public IdObject
@@ -27,8 +27,8 @@ class ThreeDZone : public IdObject
     Property<SpeakerSetup> speakerSetup;
     Property<std::string> speakersData;
     
-    // Add this method for opening the editor
-    Method<void()> openEditor;
+    // Method to get available audio devices as JSON
+    Method<std::string()> getAudioDevices;
     
     ThreeDZone(World& world, std::string_view _id);
 };

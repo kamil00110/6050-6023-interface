@@ -10,10 +10,124 @@
 #include "../../core/method.tpp"
 #include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
-#include "../../utils/audioenumerator.hpp"  // ADD THIS
+#include "../../utils/audioenumerator.hpp"
 #include <nlohmann/json.hpp>
 
 using nlohmann::json;
+
+// IMPORTANT: Declare this function BEFORE the constructor
+static std::string initializeSpeakers(SpeakerSetup setup, double width, double height)
+{
+  const int count = static_cast<int>(setup);
+  json speakers = json::array();
+  
+  if(count == 4)
+  {
+    // 4 speakers: one at each corner
+    speakers.push_back({
+      {"id", 0}, {"x", 0.0}, {"y", 0.0},
+      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 1}, {"x", width}, {"y", 0.0},
+      {"label", "Front Right"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 2}, {"x", width}, {"y", height},
+      {"label", "Rear Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 3}, {"x", 0.0}, {"y", height},
+      {"label", "Rear Left"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
+    });
+  }
+  else if(count == 6)
+  {
+    // 6 speakers: corners + 2 on top/bottom (horizontal edges only)
+    speakers.push_back({
+      {"id", 0}, {"x", 0.0}, {"y", 0.0},
+      {"label", "Front Left"}, {"device", ""}, {"channel", 0}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 1}, {"x", width / 2.0}, {"y", 0.0},
+      {"label", "Front Center"}, {"device", ""}, {"channel", 1}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 2}, {"x", width}, {"y", 0.0},
+      {"label", "Front Right"}, {"device", ""}, {"channel", 2}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 3}, {"x", width}, {"y", height},
+      {"label", "Rear Right"}, {"device", ""}, {"channel", 3}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 4}, {"x", width / 2.0}, {"y", height},
+      {"label", "Rear Center"}, {"device", ""}, {"channel", 4}, {"volume", 1.0}
+    });
+    speakers.push_back({
+      {"id", 5}, {"x", 0.0}, {"y", height},
+      {"label", "Rear Left"}, {"device", ""}, {"channel", 5}, {"volume", 1.0}
+    });
+  }
+  else if(count == 8)
+  {
+    // 8 speakers: 4 on top, 4 on bottom (horizontal edges only)
+    for(int i = 0; i < 4; i++)
+    {
+      speakers.push_back({
+        {"id", i},
+        {"x", width * i / 3.0},
+        {"y", 0.0},
+        {"label", "Front " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i},
+        {"volume", 1.0}
+      });
+    }
+    for(int i = 0; i < 4; i++)
+    {
+      speakers.push_back({
+        {"id", i + 4},
+        {"x", width * i / 3.0},
+        {"y", height},
+        {"label", "Rear " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i + 4},
+        {"volume", 1.0}
+      });
+    }
+  }
+  else if(count == 10)
+  {
+    // 10 speakers: 5 on top, 5 on bottom (horizontal edges only)
+    for(int i = 0; i < 5; i++)
+    {
+      speakers.push_back({
+        {"id", i},
+        {"x", width * i / 4.0},
+        {"y", 0.0},
+        {"label", "Front " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i},
+        {"volume", 1.0}
+      });
+    }
+    for(int i = 0; i < 5; i++)
+    {
+      speakers.push_back({
+        {"id", i + 5},
+        {"x", width * i / 4.0},
+        {"y", height},
+        {"label", "Rear " + std::to_string(i + 1)},
+        {"device", ""},
+        {"channel", i + 5},
+        {"volume", 1.0}
+      });
+    }
+  }
+  
+  return speakers.dump();
+}
 
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
@@ -36,8 +150,8 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         return true;
       }}
   , speakersData{this, "speakers_data", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , audioDevicesJson{this, "audio_devices_json", "", PropertyFlags::ReadOnly | PropertyFlags::NoStore}  // ADD THIS
-  , refreshAudioDevicesList{*this, "refresh_audio_devices", MethodFlags::NoScript,  // ADD THIS
+  , audioDevicesJson{this, "audio_devices_json", "", PropertyFlags::ReadOnly | PropertyFlags::NoStore}
+  , refreshAudioDevicesList{*this, "refresh_audio_devices", MethodFlags::NoScript,
       [this]()
       {
         refreshAudioDevices();
@@ -63,22 +177,18 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addVisible(speakersData, false);
   m_interfaceItems.add(speakersData);
   
-  // Add the get audio devices method
-  Attributes::addDisplayName(getAudioDevices, "Get Audio Devices");
-  Attributes::addEnabled(getAudioDevices, true);
-  Attributes::addVisible(getAudioDevices, false); // Hidden from UI, used by client
-  m_interfaceItems.add(getAudioDevices);
-  
-  // Initialize with default speaker layout
-  speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), width.value(), height.value()));
-  
+  // Add audio devices JSON property
   Attributes::addDisplayName(audioDevicesJson, "Audio Devices (JSON)");
   Attributes::addVisible(audioDevicesJson, false); // Hidden, used by client
   m_interfaceItems.add(audioDevicesJson);
   
+  // Add refresh method
   Attributes::addDisplayName(refreshAudioDevicesList, "Refresh Audio Devices");
   Attributes::addVisible(refreshAudioDevicesList, false);
   m_interfaceItems.add(refreshAudioDevicesList);
+  
+  // Initialize with default speaker layout
+  speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), width.value(), height.value()));
   
   // Initialize audio devices list
   refreshAudioDevices();

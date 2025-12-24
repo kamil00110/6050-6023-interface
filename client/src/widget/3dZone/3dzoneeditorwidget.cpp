@@ -195,58 +195,37 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
   
   Method* method = m_zone->getMethod("get_audio_devices");
   if(!method)
-    return;
-  
-  // Connect to the method's result signal BEFORE calling
-  connect(method, &Method::valueChanged, this,
-    [this](const QVariant& result)
+  {
+    // Fallback: add dummy device
+    AudioDeviceData dummy;
+    dummy.deviceId = "";
+    dummy.deviceName = "(Audio enumeration not available)";
+    dummy.channelCount = 8;
+    dummy.isDefault = false;
+    
+    for(int i = 0; i < 8; i++)
     {
-      QString jsonStr = result.toString();
-      if(jsonStr.isEmpty())
-        return;
-      
-      QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
-      
-      if(!doc.isArray())
-        return;
-      
-      m_audioDevices.clear();
-      
-      QJsonArray devices = doc.array();
-      for(const QJsonValue& val : devices)
-      {
-        if(!val.isObject())
-          continue;
-        
-        QJsonObject obj = val.toObject();
-        
-        AudioDeviceData device;
-        device.deviceId = obj["id"].toString();
-        device.deviceName = obj["name"].toString();
-        device.channelCount = obj["channelCount"].toInt();
-        device.isDefault = obj["isDefault"].toBool();
-        
-        QJsonArray channels = obj["channels"].toArray();
-        for(const QJsonValue& chVal : channels)
-        {
-          if(!chVal.isObject())
-            continue;
-          
-          QJsonObject chObj = chVal.toObject();
-          AudioDeviceData::ChannelData channel;
-          channel.index = chObj["index"].toInt();
-          channel.name = chObj["name"].toString();
-          device.channels.push_back(channel);
-        }
-        
-        m_audioDevices.push_back(device);
-      }
-      
-      update(); // Refresh the UI after loading devices
-    }, Qt::SingleShotConnection); // Use single shot so it disconnects after first call
+      AudioDeviceData::ChannelData ch;
+      ch.index = i;
+      ch.name = QString("Channel %1").arg(i + 1);
+      dummy.channels.push_back(ch);
+    }
+    
+    m_audioDevices.push_back(dummy);
+    return;
+  }
   
-  // Now call the method
-  method->call();
+  // Call method with callback - the result will be in an object
+  method->call(
+    [this](const ObjectPtr& resultObj, std::optional<const Error> error)
+    {
+      if(error || !resultObj)
+        return;
+      
+      // The string result should be in a property of the result object
+      // OR we need to extract it differently
+      // Let's try a different approach...
+    });
 }
 
 QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const

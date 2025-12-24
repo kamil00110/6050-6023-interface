@@ -1,4 +1,5 @@
 #include "3dzoneeditorwidget.hpp"
+#include <QTimer>
 #include <QPainter>
 #include <QPaintEvent>
 #include <QMouseEvent>
@@ -142,19 +143,24 @@ double SpeakerConfigDialog::getVolume() const
   return m_volumeSpin->value();
 }
 
-// ThreeDZoneEditorWidget Implementation
 ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* parent)
   : QWidget(parent)
   , m_zone(zone)
-  , m_width(1000.0)
-  , m_height(1000.0)
+  , m_width(100.0)  // Changed from 1000.0 to 100.0 (1m = 100cm)
+  , m_height(100.0)
   , m_speakerCount(4)
   , m_selectedSpeaker(-1)
   , m_scale(1.0)
+  , m_showTestDot(false)  // ADD THIS
+  , m_testDotTimer(new QTimer(this))  // ADD THIS
 {
   setMinimumSize(400, 400);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setMouseTracking(true);
+  
+  // ADD THIS - Setup timer for test dot fade out
+  m_testDotTimer->setSingleShot(true);
+  connect(m_testDotTimer, &QTimer::timeout, this, &ThreeDZoneEditorWidget::clearTestDot);
   
   if(m_zone)
   {
@@ -182,9 +188,7 @@ ThreeDZoneEditorWidget::ThreeDZoneEditorWidget(const ObjectPtr& zone, QWidget* p
     }
   }
   
-  // Load audio devices from server
   loadAudioDevices();
-  
   calculateLayout();
   updateSpeakers();
 }
@@ -282,6 +286,44 @@ void ThreeDZoneEditorWidget::parseAudioDevices(const QString& jsonStr)
     addDummyDevice();
   }
   
+  update();
+}
+QPointF ThreeDZoneEditorWidget::screenToWorld(const QPointF& screenPos) const
+{
+  double x = (screenPos.x() - m_zoneRect.left()) / m_scale;
+  double y = (screenPos.y() - m_zoneRect.top()) / m_scale;
+  return QPointF(x, y);
+}
+
+void ThreeDZoneEditorWidget::testSoundAtPosition(const QPointF& worldPos)
+{
+  if(!m_zone)
+    return;
+  
+  Method* method = m_zone->getMethod("test_sound_at_position");
+  if(!method)
+    return;
+  
+  // Convert from cm to meters for server
+  double xMeters = worldPos.x() / 100.0;
+  double yMeters = worldPos.y() / 100.0;
+  
+  // Call the server method with position
+  QString args = QString("%1,%2").arg(xMeters).arg(yMeters);
+  method->call(args);
+  
+  // Show visual feedback
+  m_testDotPosition = worldToScreen(worldPos.x(), worldPos.y());
+  m_showTestDot = true;
+  update();
+  
+  // Hide dot after 1 second
+  m_testDotTimer->start(1000);
+}
+
+void ThreeDZoneEditorWidget::clearTestDot()
+{
+  m_showTestDot = false;
   update();
 }
 
@@ -416,10 +458,26 @@ void ThreeDZoneEditorWidget::mousePressEvent(QMouseEvent* event)
 {
   if(event->button() == Qt::LeftButton)
   {
-    int speakerIdx = getSpeakerAtPosition(event->pos());
-    if(speakerIdx >= 0)
+    // Check if click is inside the zone
+    if(m_zoneRect.contains(event->pos()))
     {
-      openSpeakerConfig(speakerIdx);
+      // First check if clicking on a speaker
+      int speakerIdx = getSpeakerAtPosition(event->pos());
+      if(speakerIdx >= 0)
+      {
+        openSpeakerConfig(speakerIdx);
+      }
+      else
+      {
+        // Clicked in empty zone - test sound at this position
+        QPointF worldPos = screenToWorld(event->pos());
+        
+        // Clamp to zone boundaries
+        worldPos.setX(qBound(0.0, worldPos.x(), m_width));
+        worldPos.setY(qBound(0.0, worldPos.y(), m_height));
+        
+        testSoundAtPosition(worldPos);
+      }
     }
   }
   QWidget::mousePressEvent(event);
@@ -578,6 +636,17 @@ void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
       painter.drawText(configRect, Qt::AlignCenter, configText);
     }
   }
+  if(m_showTestDot)
+  {
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(255, 0, 0, 180));  // Semi-transparent red
+    painter.drawEllipse(m_testDotPosition, 8, 8);
+    
+    // Draw pulsing ring
+    painter.setPen(QPen(QColor(255, 0, 0, 120), 2));
+    painter.setBrush(Qt::NoBrush);
+    painter.drawEllipse(m_testDotPosition, 12, 12);
+  }
   
   // Draw speaker count info
   painter.setPen(QColor(100, 100, 100));
@@ -596,5 +665,6 @@ void ThreeDZoneEditorWidget::paintEvent(QPaintEvent* event)
   painter.setFont(instructionFont);
   painter.drawText(QRectF(10, height() - 25, width() - 20, 20), 
                    Qt::AlignLeft | Qt::AlignVCenter, 
-                   "Click on a speaker to configure");
+                   "Click on speaker to configure • Click in zone to test sound");  // Updated instruction
+
 }

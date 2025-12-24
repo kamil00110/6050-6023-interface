@@ -1,6 +1,7 @@
 #include "3dZone.hpp"
 #include "list/3dZoneList.hpp"
 #include "list/3dZoneListTableModel.hpp"
+#include "../3dSound/3dAudioPlayer.hpp"
 #include "../../world/getworld.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
@@ -146,24 +147,55 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       {
         refreshAudioDevices();
       }}
-  , testSoundAtPosition{*this, "test_sound_at_position", MethodFlags::NoScript,  // ADD THIS
-      [this](double x, double y)
+  , testSoundAtPosition{*this, "test_sound_at_position", MethodFlags::NoScript,
+    [this](double x, double y)
+    {
+      Log::log(*this, LogMessage::I1006_X, 
+        std::string("Test sound at position: x=") + std::to_string(x) + 
+        ", y=" + std::to_string(y));
+      
+      // Find a sound file to play for testing
+      auto& world = getWorld(*this);
+      auto soundsList = world.threeDSounds.value();
+      
+      if(!soundsList || soundsList->empty())
       {
-        // TODO: Implement 3D audio playback
-        // This will calculate speaker volumes based on position
-        // and play a test tone through the configured speakers
-        
-        // For now, just log the position
-        Log::log(*this, LogMessage::I1006_X, 
-          std::string("Test sound at position: x=") + std::to_string(x) + 
-          ", y=" + std::to_string(y));
-        
-        // Future implementation will:
-        // 1. Parse speakersData to get speaker positions and device assignments
-        // 2. Calculate distance from (x,y) to each speaker
-        // 3. Calculate volume for each speaker based on distance
-        // 4. Send audio output to each configured device/channel with calculated volume
-      }}
+        Log::log(*this, LogMessage::I1006_X,
+          std::string("No sound files available for testing"));
+        return;
+      }
+      
+      // Use the first available sound file
+      auto firstSound = soundsList->front();
+      if(!firstSound)
+      {
+        Log::log(*this, LogMessage::I1006_X,
+          std::string("Invalid sound object"));
+        return;
+      }
+      
+      // Play the sound at the specified position
+      bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+        world,
+        id.value(),  // zone ID
+        x,           // x position in meters
+        y,           // y position in meters
+        firstSound->id.value(),  // sound ID
+        1.0          // volume (100%)
+      );
+      
+      if(success)
+      {
+        Log::log(*this, LogMessage::I1006_X,
+          std::string("Playing test sound '") + firstSound->id.value() + 
+          "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+      }
+      else
+      {
+        Log::log(*this, LogMessage::I1006_X,
+          std::string("Failed to play test sound"));
+      }
+    }}
 {
   Attributes::addDisplayName(width, "Width (m)");
   Attributes::addMinMax(width, 0.1, 100.0);

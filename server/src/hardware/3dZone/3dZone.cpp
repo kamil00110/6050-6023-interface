@@ -15,8 +15,6 @@
 
 using nlohmann::json;
 
-// ... existing initializeSpeakers function ...
-
 ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   : IdObject(world, _id)
   , width{this, "width", 10.0, PropertyFlags::ReadWrite | PropertyFlags::Store,
@@ -38,35 +36,11 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         return true;
       }}
   , speakersData{this, "speakers_data", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , getAudioDevices{*this, "get_audio_devices", MethodFlags::NoScript,  // ADD THIS
-      []() -> std::string
+  , audioDevicesJson{this, "audio_devices_json", "", PropertyFlags::ReadOnly | PropertyFlags::NoStore}  // ADD THIS
+  , refreshAudioDevicesList{*this, "refresh_audio_devices", MethodFlags::NoScript,  // ADD THIS
+      [this]()
       {
-        // Enumerate audio devices and return as JSON
-        auto devices = AudioEnumerator::enumerateDevices();
-        
-        json result = json::array();
-        for(const auto& device : devices)
-        {
-          json deviceJson;
-          deviceJson["id"] = device.deviceId;
-          deviceJson["name"] = device.deviceName;
-          deviceJson["channelCount"] = device.channelCount;
-          deviceJson["isDefault"] = device.isDefault;
-          
-          json channelsJson = json::array();
-          for(const auto& channel : device.channels)
-          {
-            json channelJson;
-            channelJson["index"] = channel.channelIndex;
-            channelJson["name"] = channel.channelName;
-            channelsJson.push_back(channelJson);
-          }
-          deviceJson["channels"] = channelsJson;
-          
-          result.push_back(deviceJson);
-        }
-        
-        return result.dump();
+        refreshAudioDevices();
       }}
 {
   Attributes::addDisplayName(width, "Width (m)");
@@ -98,7 +72,47 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   // Initialize with default speaker layout
   speakersData.setValueInternal(initializeSpeakers(speakerSetup.value(), width.value(), height.value()));
   
+  Attributes::addDisplayName(audioDevicesJson, "Audio Devices (JSON)");
+  Attributes::addVisible(audioDevicesJson, false); // Hidden, used by client
+  m_interfaceItems.add(audioDevicesJson);
+  
+  Attributes::addDisplayName(refreshAudioDevicesList, "Refresh Audio Devices");
+  Attributes::addVisible(refreshAudioDevicesList, false);
+  m_interfaceItems.add(refreshAudioDevicesList);
+  
+  // Initialize audio devices list
+  refreshAudioDevices();
+  
   updateEnabled();
+}
+
+void ThreeDZone::refreshAudioDevices()
+{
+  auto devices = AudioEnumerator::enumerateDevices();
+  
+  json result = json::array();
+  for(const auto& device : devices)
+  {
+    json deviceJson;
+    deviceJson["id"] = device.deviceId;
+    deviceJson["name"] = device.deviceName;
+    deviceJson["channelCount"] = device.channelCount;
+    deviceJson["isDefault"] = device.isDefault;
+    
+    json channelsJson = json::array();
+    for(const auto& channel : device.channels)
+    {
+      json channelJson;
+      channelJson["index"] = channel.channelIndex;
+      channelJson["name"] = channel.channelName;
+      channelsJson.push_back(channelJson);
+    }
+    deviceJson["channels"] = channelsJson;
+    
+    result.push_back(deviceJson);
+  }
+  
+  audioDevicesJson.setValueInternal(result.dump());
 }
 
 void ThreeDZone::addToWorld()

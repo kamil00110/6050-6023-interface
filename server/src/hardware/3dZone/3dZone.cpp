@@ -196,6 +196,26 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
           std::string("Failed to play test sound"));
       }
     }}
+, playSoundAtPosition{*this, "play_sound_at_position", MethodFlags::NoScript,
+    [this](double x, double y, const std::string& soundId)
+    {
+      auto& world = getWorld(*this);
+      
+      bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+        world,
+        id.value(),
+        x,
+        y,
+        soundId,
+        1.0
+      );
+      
+      if(!success)
+      {
+        Log::log(*this, LogMessage::W1003_X_FAILED_X,
+          std::string("Failed to play sound '") + soundId + "'");
+      }
+    }}
 {
   Attributes::addDisplayName(width, "Width (m)");
   Attributes::addMinMax(width, 0.1, 100.0);

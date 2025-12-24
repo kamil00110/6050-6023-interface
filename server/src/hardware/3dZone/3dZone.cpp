@@ -8,6 +8,8 @@
 #include "../../core/objectproperty.tpp"
 #include "../../utils/displayname.hpp"
 #include "../../utils/audioenumerator.hpp"
+#include "../../log/log.hpp"
+#include "../../log/logmessageexception.hpp"
 #include <nlohmann/json.hpp>
 
 using nlohmann::json;

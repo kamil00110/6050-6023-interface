@@ -193,41 +193,105 @@ void ThreeDZoneEditorWidget::loadAudioDevices()
   if(!m_zone)
     return;
   
-  Method* method = m_zone->getMethod("get_audio_devices");
-  if(!method)
+  // Try to refresh the audio devices list first
+  if(Method* refreshMethod = m_zone->getMethod("refresh_audio_devices"))
   {
-    // Fallback: add dummy device
-    AudioDeviceData dummy;
-    dummy.deviceId = "";
-    dummy.deviceName = "(Audio enumeration not available)";
-    dummy.channelCount = 8;
-    dummy.isDefault = false;
-    
-    for(int i = 0; i < 8; i++)
-    {
-      AudioDeviceData::ChannelData ch;
-      ch.index = i;
-      ch.name = QString("Channel %1").arg(i + 1);
-      dummy.channels.push_back(ch);
-    }
-    
-    m_audioDevices.push_back(dummy);
+    refreshMethod->call();
+  }
+  
+  // Now read the audio devices from the property
+  auto* devicesProp = m_zone->getProperty("audio_devices_json");
+  if(!devicesProp)
+  {
+    // Fallback
+    addDummyDevice();
     return;
   }
   
-  // Call method with callback - the result will be in an object
-  method->call(
-    [this](const ObjectPtr& resultObj, std::optional<const Error> error)
+  // Connect to property changes
+  connect(devicesProp, &AbstractProperty::valueChanged, this,
+    [this, devicesProp]()
     {
-      if(error || !resultObj)
-        return;
-      
-      // The string result should be in a property of the result object
-      // OR we need to extract it differently
-      // Let's try a different approach...
+      parseAudioDevices(devicesProp->toString());
     });
+  
+  // Parse current value
+  parseAudioDevices(devicesProp->toString());
 }
 
+void ThreeDZoneEditorWidget::parseAudioDevices(const QString& jsonStr)
+{
+  if(jsonStr.isEmpty())
+  {
+    addDummyDevice();
+    return;
+  }
+  
+  QJsonDocument doc = QJsonDocument::fromJson(jsonStr.toUtf8());
+  if(!doc.isArray())
+  {
+    addDummyDevice();
+    return;
+  }
+  
+  m_audioDevices.clear();
+  
+  QJsonArray devices = doc.array();
+  for(const QJsonValue& val : devices)
+  {
+    if(!val.isObject())
+      continue;
+    
+    QJsonObject obj = val.toObject();
+    
+    AudioDeviceData device;
+    device.deviceId = obj["id"].toString();
+    device.deviceName = obj["name"].toString();
+    device.channelCount = obj["channelCount"].toInt();
+    device.isDefault = obj["isDefault"].toBool();
+    
+    QJsonArray channels = obj["channels"].toArray();
+    for(const QJsonValue& chVal : channels)
+    {
+      if(!chVal.isObject())
+        continue;
+      
+      QJsonObject chObj = chVal.toObject();
+      AudioDeviceData::ChannelData channel;
+      channel.index = chObj["index"].toInt();
+      channel.name = chObj["name"].toString();
+      device.channels.push_back(channel);
+    }
+    
+    m_audioDevices.push_back(device);
+  }
+  
+  if(m_audioDevices.empty())
+  {
+    addDummyDevice();
+  }
+  
+  update();
+}
+
+void ThreeDZoneEditorWidget::addDummyDevice()
+{
+  AudioDeviceData dummy;
+  dummy.deviceId = "";
+  dummy.deviceName = "(No audio devices detected)";
+  dummy.channelCount = 8;
+  dummy.isDefault = false;
+  
+  for(int i = 0; i < 8; i++)
+  {
+    AudioDeviceData::ChannelData ch;
+    ch.index = i;
+    ch.name = QString("Channel %1").arg(i + 1);
+    dummy.channels.push_back(ch);
+  }
+  
+  m_audioDevices.push_back(dummy);
+}
 QString ThreeDZoneEditorWidget::getDeviceDisplayName(const QString& deviceId) const
 {
   for(const auto& device : m_audioDevices)

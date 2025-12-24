@@ -149,74 +149,74 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         refreshAudioDevices();
       }}
   , testSoundAtPosition{*this, "test_sound_at_position", MethodFlags::NoScript,
-    [this](double x, double y)
-    {
-      Log::log(*this, LogMessage::I1006_X, 
-        std::string("Test sound at position: x=") + std::to_string(x) + 
-        ", y=" + std::to_string(y));
-      
-      // Find a sound file to play for testing
-      auto& world = getWorld(*this);
-      auto soundsList = world.threeDSounds.value();
-      
-      if(!soundsList || soundsList->empty())
+      [this](double x, double y)
       {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("No sound files available for testing"));
-        return;
-      }
-      
-      // Use the first available sound file
-      auto firstSound = soundsList->front();
-      if(!firstSound)
+        Log::log(*this, LogMessage::I1006_X, 
+          std::string("Test sound at position: x=") + std::to_string(x) + 
+          ", y=" + std::to_string(y));
+        
+        // Find a sound file to play for testing
+        World& w = getWorld(*this);  // CHANGED: Renamed from 'world' to 'w' to avoid shadowing
+        auto soundsList = w.threeDSounds.value();
+        
+        if(!soundsList || soundsList->empty())  // NOW WORKS: ThreeDSoundList is fully defined
+        {
+          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+            std::string("No sound files available for testing"));
+          return;
+        }
+        
+        // Use the first available sound file
+        auto firstSound = soundsList->front();  // NOW WORKS
+        if(!firstSound)
+        {
+          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+            std::string("Invalid sound object"));
+          return;
+        }
+        
+        // Play the sound at the specified position
+        bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+          w,               // CHANGED: Use 'w' instead of 'world'
+          id.value(),      // zone ID
+          x,               // x position in meters
+          y,               // y position in meters
+          firstSound->id.value(),  // sound ID
+          1.0              // volume (100%)
+        );
+        
+        if(success)
+        {
+          Log::log(*this, LogMessage::I1006_X,
+            std::string("Playing test sound '") + firstSound->id.value() + 
+            "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+        }
+        else
+        {
+          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+            std::string("Failed to play test sound"));
+        }
+      }}
+  , playSoundAtPosition{*this, "play_sound_at_position", MethodFlags::NoScript,
+      [this](double x, double y, const std::string& soundId)
       {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Invalid sound object"));
-        return;
-      }
-      
-      // Play the sound at the specified position
-      bool success = ThreeDimensionalAudioPlayer::instance().playSound(
-        world,
-        id.value(),  // zone ID
-        x,           // x position in meters
-        y,           // y position in meters
-        firstSound->id.value(),  // sound ID
-        1.0          // volume (100%)
-      );
-      
-      if(success)
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Playing test sound '") + firstSound->id.value() + 
-          "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
-      }
-      else
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Failed to play test sound"));
-      }
-    }}
-, playSoundAtPosition{*this, "play_sound_at_position", MethodFlags::NoScript,
-    [this](double x, double y, const std::string& soundId)
-    {
-      auto& world = getWorld(*this);
-      
-      bool success = ThreeDimensionalAudioPlayer::instance().playSound(
-        world,
-        id.value(),
-        x,
-        y,
-        soundId,
-        1.0
-      );
-      
-      if(!success)
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Failed to play sound '") + soundId + "'");
-      }
-    }}
+        World& w = getWorld(*this);  // CHANGED: Renamed from 'world' to 'w'
+        
+        bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+          w,
+          id.value(),
+          x,
+          y,
+          soundId,
+          1.0
+        );
+        
+        if(!success)
+        {
+          Log::log(*this, LogMessage::W1003_X_FAILED_X,
+            std::string("Failed to play sound '") + soundId + "'");
+        }
+      }}
 {
   Attributes::addDisplayName(width, "Width (m)");
   Attributes::addMinMax(width, 0.1, 100.0);
@@ -246,17 +246,19 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addVisible(refreshAudioDevicesList, false);
   m_interfaceItems.add(refreshAudioDevicesList);
   
-  // ADD THIS
   Attributes::addDisplayName(testSoundAtPosition, "Test Sound At Position");
   Attributes::addVisible(testSoundAtPosition, false);
   m_interfaceItems.add(testSoundAtPosition);
+  
+  Attributes::addDisplayName(playSoundAtPosition, "Play Sound At Position");
+  Attributes::addVisible(playSoundAtPosition, false);
+  m_interfaceItems.add(playSoundAtPosition);
   
   speakersData.setValueInternal(updateSpeakerPositions("", speakerSetup.value(), width.value(), height.value()));
   refreshAudioDevices();
   
   updateEnabled();
 }
-
 void ThreeDZone::refreshAudioDevices()
 {
   auto devices = AudioEnumerator::enumerateDevices();

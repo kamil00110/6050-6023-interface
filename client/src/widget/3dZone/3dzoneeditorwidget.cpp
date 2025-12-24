@@ -448,7 +448,8 @@ int ThreeDZoneEditorWidget::getSpeakerAtPosition(const QPointF& pos) const
     double dy = pos.y() - screenPos.y();
     double dist = std::sqrt(dx * dx + dy * dy);
     
-    if(dist <= SPEAKER_RADIUS + 5) // Add 5px tolerance
+    // Increased tolerance from 5 to 15 pixels for easier clicking
+    if(dist <= SPEAKER_RADIUS + 15)
       return i;
   }
   return -1;
@@ -458,26 +459,26 @@ void ThreeDZoneEditorWidget::mousePressEvent(QMouseEvent* event)
 {
   if(event->button() == Qt::LeftButton)
   {
-    // Check if click is inside the zone
+    // IMPORTANT: Check for speaker clicks FIRST, before checking zone bounds
+    // This allows clicking on speakers even if they're on the edge of the zone
+    int speakerIdx = getSpeakerAtPosition(event->pos());
+    if(speakerIdx >= 0)
+    {
+      openSpeakerConfig(speakerIdx);
+      return;  // Exit early, don't test sound
+    }
+    
+    // If didn't click on a speaker, check if click is inside the zone
     if(m_zoneRect.contains(event->pos()))
     {
-      // First check if clicking on a speaker
-      int speakerIdx = getSpeakerAtPosition(event->pos());
-      if(speakerIdx >= 0)
-      {
-        openSpeakerConfig(speakerIdx);
-      }
-      else
-      {
-        // Clicked in empty zone - test sound at this position
-        QPointF worldPos = screenToWorld(event->pos());
-        
-        // Clamp to zone boundaries
-        worldPos.setX(qBound(0.0, worldPos.x(), m_width));
-        worldPos.setY(qBound(0.0, worldPos.y(), m_height));
-        
-        testSoundAtPosition(worldPos);
-      }
+      // Clicked in empty zone - test sound at this position
+      QPointF worldPos = screenToWorld(event->pos());
+      
+      // Clamp to zone boundaries
+      worldPos.setX(qBound(0.0, worldPos.x(), m_width));
+      worldPos.setY(qBound(0.0, worldPos.y(), m_height));
+      
+      testSoundAtPosition(worldPos);
     }
   }
   QWidget::mousePressEvent(event);

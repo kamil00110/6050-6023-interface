@@ -193,7 +193,11 @@ bool ThreeDimensionalAudioPlayer::stopSound(const std::string& soundId)
   Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
     std::string("Stopping sound: ") + soundId);
   
-  // TODO: Actually stop audio playback here
+  // Stop playback through WASAPI backend
+  WASAPIAudioBackend::instance().stopSound(soundId);
+  
+  // Unload audio file
+  WASAPIAudioBackend::instance().unloadAudioFile(soundId);
   
   m_activeSounds.erase(it);
   return true;
@@ -204,7 +208,14 @@ void ThreeDimensionalAudioPlayer::stopAllSounds()
   Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
     std::string("Stopping all sounds (") + std::to_string(m_activeSounds.size()) + " active)");
   
-  // TODO: Actually stop all audio playback
+  // Stop all sounds through WASAPI backend
+  WASAPIAudioBackend::instance().stopAllSounds();
+  
+  // Unload all audio files
+  for(const auto& [soundId, _] : m_activeSounds)
+  {
+    WASAPIAudioBackend::instance().unloadAudioFile(soundId);
+  }
   
   m_activeSounds.clear();
 }

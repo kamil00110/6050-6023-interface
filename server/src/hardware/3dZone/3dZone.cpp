@@ -150,11 +150,32 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         refreshAudioDevices();
       }}
   , testSoundAtPosition{*this, "test_sound_at_position", MethodFlags::NoScript,
-      [this](double x, double y)
+    [this](const std::string& coordsStr)
+    {
+      // Parse the coordinates from the string
+      double x = 0.0, y = 0.0;
+      
+      // Simple parsing: "x,y"
+      size_t commaPos = coordsStr.find(',');
+      if(commaPos != std::string::npos)
       {
-        Log::log(*this, LogMessage::I1006_X, 
-          std::string("Test sound at position: x=") + std::to_string(x) + 
-          ", y=" + std::to_string(y));
+        try
+        {
+          x = std::stod(coordsStr.substr(0, commaPos));
+          y = std::stod(coordsStr.substr(commaPos + 1));
+        }
+        catch(...)
+        {
+          Log::log(*this, LogMessage::I1006_X,
+            std::string("Failed to parse coordinates: ") + coordsStr);
+          return;
+        }
+      }
+      
+      Log::log(*this, LogMessage::I1006_X, 
+        std::string("Test sound at position: x=") + std::to_string(x) + 
+        ", y=" + std::to_string(y));
+    
         
         // Find a sound file to play for testing
         World& w = getWorld(*this);  // CHANGED: Renamed from 'world' to 'w' to avoid shadowing

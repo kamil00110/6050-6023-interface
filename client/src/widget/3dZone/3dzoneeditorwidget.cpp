@@ -18,7 +18,6 @@
 #include "../../network/property.hpp"
 #include "../../network/method.hpp"
 #include "../../network/error.hpp"
-#include "../../network/callmethod.hpp"
 
 constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
@@ -100,7 +99,6 @@ SpeakerConfigDialog::SpeakerConfigDialog(int speakerId, const QString& label,
   if(channel < m_channelCombo->count())
     m_channelCombo->setCurrentIndex(channel);
 }
-
 void SpeakerConfigDialog::testThisSpeaker()
 {
   if(!m_zone)
@@ -118,16 +116,13 @@ void SpeakerConfigDialog::testThisSpeaker()
   double xMeters = m_speakerPosition.x() / 100.0;
   double yMeters = m_speakerPosition.y() / 100.0;
   
-  // Call the server method with proper argument serialization
-  callMethod(*method, nullptr,
-    [](const QVariant& /*result*/, std::optional<const Error> error)
-    {
-      if(error)
-      {
-        qDebug() << "Error calling test_sound_at_position:" << error->toString();
-      }
-    },
-    xMeters, yMeters);  // Pass arguments as separate parameters
+  // Format arguments as comma-separated string
+  QString args = QString("%1,%2").arg(xMeters, 0, 'f', 6).arg(yMeters, 0, 'f', 6);
+  
+  qDebug() << "Calling test_sound_at_position for speaker at:" << args;
+  
+  // Call the method
+  method->call(args);
   
   // Visual feedback
   m_testButton->setEnabled(false);
@@ -342,22 +337,22 @@ void ThreeDZoneEditorWidget::testSoundAtPosition(const QPointF& worldPos)
   
   Method* method = m_zone->getMethod("test_sound_at_position");
   if(!method)
+  {
+    qDebug() << "test_sound_at_position method not found";
     return;
+  }
   
   // Convert from cm to meters for server
   double xMeters = worldPos.x() / 100.0;
   double yMeters = worldPos.y() / 100.0;
   
-  // Call the server method with proper argument serialization
-  callMethod(*method, nullptr,
-    [](const QVariant& /*result*/, std::optional<const Error> error)
-    {
-      if(error)
-      {
-        qDebug() << "Error calling test_sound_at_position:" << error->toString();
-      }
-    },
-    xMeters, yMeters);  // Pass arguments as separate parameters
+  // Format arguments as comma-separated string
+  QString args = QString("%1,%2").arg(xMeters, 0, 'f', 6).arg(yMeters, 0, 'f', 6);
+  
+  qDebug() << "Calling test_sound_at_position with args:" << args;
+  
+  // Call the method - no callback, just fire and forget
+  method->call(args);
   
   // Show visual feedback
   m_testDotPosition = worldToScreen(worldPos.x(), worldPos.y());

@@ -374,6 +374,16 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
     std::string("Audio info: ") + std::to_string(audioData.samples.size()) + " samples, " +
     std::to_string(sourceSamplesPerFrame) + " channels, " +
     std::to_string(totalSourceFrames) + " frames");
+
+  // Calculate sample rate ratio for resampling
+  const double sampleRateRatio = static_cast<double>(audioData.sampleRate) / 
+                                  static_cast<double>(stream->format->nSamplesPerSec);
+  const double playbackSpeed = speed * sampleRateRatio;
+
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Sample rate ratio: ") + std::to_string(sampleRateRatio) +
+    ", effective playback speed: " + std::to_string(playbackSpeed) +
+    ", source rate: " + std::to_string(audioData.sampleRate) + " Hz");
   
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
     std::string("Output format: ") + std::to_string(stream->format->nChannels) + " channels, " +
@@ -516,7 +526,7 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
         }
         
         // Advance source position with speed adjustment
-        sourcePosition += speed;
+          sourcePosition += playbackSpeed;
       }
       
       // Release the buffer

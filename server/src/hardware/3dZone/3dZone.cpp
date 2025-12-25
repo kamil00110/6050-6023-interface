@@ -242,11 +242,13 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
 {
   Attributes::addDisplayName(width, "Width (m)");
   Attributes::addMinMax(width, 0.1, 100.0);
+  Attributes::addStep(width, 0.1);
   Attributes::addEnabled(width, true);
   m_interfaceItems.add(width);
   
   Attributes::addDisplayName(height, "Height (m)");
   Attributes::addMinMax(height, 0.1, 100.0);
+  Attributes::addStep(height, 0.1);
   Attributes::addEnabled(height, true);
   m_interfaceItems.add(height);
   

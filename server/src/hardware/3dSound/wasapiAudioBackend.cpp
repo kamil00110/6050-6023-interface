@@ -537,11 +537,11 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     auto stream = std::make_unique<AudioStream>();
     
     // Get the audio device
-    stream->device = getDeviceByName(m_impl->deviceEnumerator, config.deviceName);
+    stream->device = getDeviceByName(m_impl->deviceEnumerator, config.device);
     if(!stream->device)
     {
       Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to get device: ") + config.deviceName);
+        std::string("Failed to get device: ") + config.device);
       continue;
     }
     
@@ -620,7 +620,7 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     streams.push_back(std::move(stream));
     
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Created stream for device: ") + config.deviceName +
+      std::string("Created stream for device: ") + config.device +
       ", channel: " + std::to_string(config.channel) +
       ", volume: " + std::to_string(config.volume) +
       ", delay: " + std::to_string(config.delay));

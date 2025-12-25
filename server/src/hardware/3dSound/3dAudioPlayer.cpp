@@ -258,7 +258,27 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
   // Calculate panning weights for all speakers
   auto panningWeights = calculatePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
   
-  // Process each speaker
+  // First pass: calculate all distances and find average distance
+  std::vector<double> distances;
+  double totalDistance = 0.0;
+  int validSpeakerCount = 0;
+  
+  for(const auto& speaker : speakers)
+  {
+    double distance = calculateDistance(soundX, soundY, speaker.x, speaker.y);
+    distances.push_back(distance);
+    
+    if(!speaker.deviceId.empty())
+    {
+      totalDistance += distance;
+      validSpeakerCount++;
+    }
+  }
+  
+  // Calculate average distance as reference point
+  double avgDistance = (validSpeakerCount > 0) ? (totalDistance / validSpeakerCount) : 0.0;
+  
+  // Second pass: process each speaker with delays relative to average distance
   for(size_t i = 0; i < speakers.size(); i++)
   {
     const auto& speaker = speakers[i];
@@ -267,14 +287,16 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
     if(speaker.deviceId.empty())
       continue;
     
-    // Calculate distance from sound to speaker
-    double distance = calculateDistance(soundX, soundY, speaker.x, speaker.y);
+    double speakerDistance = distances[i];
     
     // Calculate attenuation based on inverse square law
-    double attenuation = calculateAttenuation(distance, maxDistance);
+    double attenuation = calculateAttenuation(speakerDistance, maxDistance);
     
-    // Calculate delay based on distance
-    double delay = calculateDelay(distance);
+    // Calculate delay relative to the AVERAGE distance
+    // Speakers closer than average: 0ms delay (play immediately)
+    // Speakers farther than average: delayed by (distance - avgDistance)
+    double relativeDistance = speakerDistance - avgDistance;
+    double delay = (relativeDistance > 0) ? calculateDelay(relativeDistance) : 0.0;
     
     // Combine: master volume * speaker volume * attenuation * panning weight
     double finalVolume = masterVolume * speaker.volume * attenuation * panningWeights[i];
@@ -296,6 +318,7 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
   
   return outputs;
 }
+
 
 std::vector<SpeakerPosition> ThreeDimensionalAudioPlayer::parseZoneSpeakers(
   const std::string& speakersJson)

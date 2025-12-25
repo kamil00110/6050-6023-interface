@@ -286,65 +286,50 @@ void WASAPIAudioBackend::unloadAudioFile(const std::string& soundId)
   }
 }
 
-static IMMDevice* getDeviceByName(IMMDeviceEnumerator* enumerator, const std::string& deviceName)
+static IMMDevice* getDeviceById(IMMDeviceEnumerator* enumerator, const std::string& deviceId)
 {
-  if(deviceName.empty())
+  if(deviceId.empty())
   {
     // Get default device
     IMMDevice* device = nullptr;
     HRESULT hr = enumerator->GetDefaultAudioEndpoint(eRender, eConsole, &device);
     if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to get default device"));
       return nullptr;
+    }
     return device;
   }
   
-  // Enumerate devices to find by name
-  IMMDeviceCollection* collection = nullptr;
-  HRESULT hr = enumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &collection);
-  if(FAILED(hr))
-    return nullptr;
-  
-  UINT count = 0;
-  collection->GetCount(&count);
-  
-  for(UINT i = 0; i < count; i++)
+  // Convert string to wide string for device ID
+  int wideSize = MultiByteToWideChar(CP_UTF8, 0, deviceId.c_str(), -1, nullptr, 0);
+  if(wideSize <= 0)
   {
-    IMMDevice* device = nullptr;
-    hr = collection->Item(i, &device);
-    if(FAILED(hr))
-      continue;
-    
-    IPropertyStore* props = nullptr;
-    hr = device->OpenPropertyStore(STGM_READ, &props);
-    if(SUCCEEDED(hr))
-    {
-      PROPVARIANT varName;
-      PropVariantInit(&varName);
-      
-      hr = props->GetValue(PKEY_Device_FriendlyName, &varName);
-      if(SUCCEEDED(hr))
-      {
-        // Convert wide string to narrow string
-        int size = WideCharToMultiByte(CP_UTF8, 0, varName.pwszVal, -1, nullptr, 0, nullptr, nullptr);
-        std::string name(size - 1, 0);
-        WideCharToMultiByte(CP_UTF8, 0, varName.pwszVal, -1, &name[0], size, nullptr, nullptr);
-        
-        PropVariantClear(&varName);
-        props->Release();
-        
-        if(name.find(deviceName) != std::string::npos)
-        {
-          collection->Release();
-          return device;
-        }
-      }
-      props->Release();
-    }
-    device->Release();
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+      std::string("Failed to convert device ID to wide string"));
+    return nullptr;
   }
   
-  collection->Release();
-  return nullptr;
+  std::vector<wchar_t> wideDeviceId(wideSize);
+  MultiByteToWideChar(CP_UTF8, 0, deviceId.c_str(), -1, wideDeviceId.data(), wideSize);
+  
+  // Get device by ID
+  IMMDevice* device = nullptr;
+  HRESULT hr = enumerator->GetDevice(wideDeviceId.data(), &device);
+  
+  if(FAILED(hr))
+  {
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+      std::string("Failed to get device by ID: ") + deviceId + 
+      " (HRESULT: 0x") + std::to_string(static_cast<unsigned long>(hr)) + ")");
+    return nullptr;
+  }
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Successfully got device: ") + deviceId);
+  
+  return device;
 }
 
 static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioData, 
@@ -537,7 +522,7 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     auto stream = std::make_unique<AudioStream>();
     
     // Get the audio device
-    stream->device = getDeviceByName(m_impl->deviceEnumerator, config.deviceId);
+    stream->device = getDeviceById(m_impl->deviceEnumerator, config.deviceId);
     if(!stream->device)
     {
       Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,

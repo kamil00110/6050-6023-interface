@@ -13,6 +13,7 @@
 
 #include "3dAudioPlayer.hpp"
 #include "3dSound.hpp"
+#include "wasapiAudioBackend.hpp"
 #include "../3dZone/3dZone.hpp"
 #include "../../world/world.hpp"
 #include "../../log/log.hpp"
@@ -102,6 +103,55 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
       stopSound(soundId);
     }
     
+    // Get audio file path
+    auto audioFilePath = soundObj->getAudioFilePath();
+    
+    // Initialize WASAPI backend if needed
+    auto& backend = WASAPIAudioBackend::instance();
+    static bool backendInitialized = false;
+    if(!backendInitialized)
+    {
+      backendInitialized = backend.initialize();
+      if(!backendInitialized)
+      {
+        Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+          std::string("Failed to initialize audio backend"));
+        return false;
+      }
+    }
+    
+    // Load audio file
+    if(!backend.loadAudioFile(audioFilePath.string(), soundId))
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("Failed to load audio file: ") + audioFilePath.string());
+      return false;
+    }
+    
+    // Convert speaker outputs to audio stream configs
+    std::vector<AudioStreamConfig> streamConfigs;
+    for(const auto& output : outputs)
+    {
+      AudioStreamConfig config;
+      config.deviceId = output.deviceId;
+      config.channel = output.channel;
+      config.volume = output.volume;
+      config.delay = output.delay;
+      streamConfigs.push_back(config);
+    }
+    
+    // Start playback through WASAPI
+    bool looping = soundObj->looping.value();
+    double speed = soundObj->speed.value();
+    
+    if(!backend.playSound(soundId, streamConfigs, looping, speed))
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("Failed to start playback"));
+      backend.unloadAudioFile(soundId);
+      return false;
+    }
+    
     // Create active sound entry
     ActiveSound activeSound;
     activeSound.soundId = soundId;
@@ -109,8 +159,8 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     activeSound.x = x;
     activeSound.y = y;
     activeSound.volume = volume;
-    activeSound.looping = soundObj->looping.value();
-    activeSound.speed = soundObj->speed.value();
+    activeSound.looping = looping;
+    activeSound.speed = speed;
     activeSound.speakerOutputs = outputs;
     activeSound.startTime = 0; // TODO: Set to current time in milliseconds
     
@@ -119,13 +169,6 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
       std::string("Sound '") + soundId + "' started " + 
       (activeSound.looping ? "(looping)" : "(one-shot)"));
-    
-    // TODO: Actually start audio playback here
-    // This would involve:
-    // 1. Loading the audio file
-    // 2. Opening audio streams to each device/channel
-    // 3. Setting up volume and delay for each stream
-    // 4. Starting synchronized playback
     
     return true;
   }

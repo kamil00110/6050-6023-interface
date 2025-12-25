@@ -27,6 +27,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <sstream>
 
 // Minimal WAV header structure
 struct WAVHeader
@@ -320,9 +321,11 @@ static IMMDevice* getDeviceById(IMMDeviceEnumerator* enumerator, const std::stri
   
   if(FAILED(hr))
   {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Failed to get device by ID: ") + deviceId + 
-      " (HRESULT: 0x") + std::to_string(static_cast<unsigned long>(hr)) + ")");
+    // Convert HRESULT to hex string properly
+    std::ostringstream oss;
+    oss << "Failed to get device by ID: " << deviceId 
+        << " (HRESULT: 0x" << std::hex << static_cast<unsigned long>(hr) << ")";
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X, oss.str());
     return nullptr;
   }
   

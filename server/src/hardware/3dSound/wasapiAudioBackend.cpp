@@ -136,11 +136,6 @@ WASAPIAudioBackend& WASAPIAudioBackend::instance()
 
 #ifdef _WIN32
 
-WASAPIAudioBackend::WASAPIAudioBackend()
-{
-  m_impl = std::make_unique<Impl>();
-}
-
 WASAPIAudioBackend::~WASAPIAudioBackend()
 {
   shutdown();
@@ -717,11 +712,6 @@ bool WASAPIAudioBackend::isSoundPlaying(const std::string& soundId) const
 }
 
 #else // Not Windows - Stub implementation
-
-WASAPIAudioBackend::WASAPIAudioBackend()
-{
-  // Stub implementation for non-Windows platforms
-}
 
 WASAPIAudioBackend::~WASAPIAudioBackend()
 {

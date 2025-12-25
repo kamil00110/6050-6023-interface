@@ -104,7 +104,16 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     }
     
     // Get audio file path
-    auto audioFilePath = soundObj->getAudioFilePath();
+    const auto audioDir = world.audioFilesDir();
+    const auto audioFilePath = audioDir / soundObj->soundFile.value();
+    
+    // Check if audio file exists
+    if(soundObj->soundFile.value().empty() || !std::filesystem::exists(audioFilePath))
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("Audio file not found or not set for sound: ") + soundId);
+      return false;
+    }
     
     // Initialize WASAPI backend if needed
     auto& backend = WASAPIAudioBackend::instance();

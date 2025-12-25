@@ -335,22 +335,30 @@ static IMMDevice* getDeviceById(IMMDeviceEnumerator* enumerator, const std::stri
   return device;
 }
 
+// Replace the playbackThreadFunc function with this debug version:
+
 static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioData, 
                                bool looping, double speed)
 {
   HRESULT hr;
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Playback thread starting..."));
   
   // Start the audio client
   hr = stream->audioClient->Start();
   if(FAILED(hr))
   {
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Failed to start audio client"));
+      std::string("Failed to start audio client, HRESULT: 0x") + std::to_string(hr));
     stream->isPlaying = false;
     return;
   }
   
   stream->isPlaying = true;
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Audio client started, applying delay: ") + std::to_string(stream->delaySeconds) + "s");
   
   // Apply initial delay if specified
   if(stream->delaySeconds > 0.0)
@@ -362,31 +370,72 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
   const uint32_t sourceSamplesPerFrame = audioData.channels;
   const uint32_t totalSourceFrames = static_cast<uint32_t>(audioData.samples.size()) / sourceSamplesPerFrame;
   
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Audio info: ") + std::to_string(audioData.samples.size()) + " samples, " +
+    std::to_string(sourceSamplesPerFrame) + " channels, " +
+    std::to_string(totalSourceFrames) + " frames");
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Output format: ") + std::to_string(stream->format->nChannels) + " channels, " +
+    std::to_string(stream->format->nSamplesPerSec) + " Hz");
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Buffer size: ") + std::to_string(stream->bufferFrameCount) + " frames");
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Playback settings: looping=") + (looping ? "true" : "false") +
+    ", speed=" + std::to_string(speed) +
+    ", volume=" + std::to_string(stream->volume) +
+    ", targetChannel=" + std::to_string(stream->targetChannel));
+  
   // Playback position
   double sourcePosition = 0.0;
+  int iterationCount = 0;
   
   do
   {
     // Check if we should stop
     if(stream->shouldStop)
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Playback thread received stop signal"));
       break;
+    }
     
     // Get buffer padding (how much is already in the buffer)
     UINT32 numFramesPadding = 0;
     hr = stream->audioClient->GetCurrentPadding(&numFramesPadding);
     if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("GetCurrentPadding failed, HRESULT: 0x") + std::to_string(hr));
       break;
+    }
     
     // Calculate available frames
     UINT32 numFramesAvailable = stream->bufferFrameCount - numFramesPadding;
     
     if(numFramesAvailable > 0)
     {
+      // Log first few iterations
+      if(iterationCount < 5)
+      {
+        Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+          std::string("Iteration ") + std::to_string(iterationCount) +
+          ": padding=" + std::to_string(numFramesPadding) +
+          ", available=" + std::to_string(numFramesAvailable) +
+          ", sourcePos=" + std::to_string(static_cast<int>(sourcePosition)));
+      }
+      
       // Get the buffer
       BYTE* pData = nullptr;
       hr = stream->renderClient->GetBuffer(numFramesAvailable, &pData);
       if(FAILED(hr))
+      {
+        Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+          std::string("GetBuffer failed, HRESULT: 0x") + std::to_string(hr));
         break;
+      }
       
       // Fill the buffer
       float* floatBuffer = reinterpret_cast<float*>(pData);
@@ -402,17 +451,26 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
         {
           if(looping)
           {
+            Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+              std::string("Reached end, looping back to start"));
             sourcePosition = 0.0;
             sourceFrame = 0;
           }
           else
           {
-            // Fill remaining with silence
-            for(uint32_t ch = 0; ch < outputChannels; ch++)
+            // Fill remaining with silence and exit
+            Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+              std::string("Reached end of non-looping sound, filling silence"));
+            for(UINT32 remainingFrame = frame; remainingFrame < numFramesAvailable; remainingFrame++)
             {
-              floatBuffer[frame * outputChannels + ch] = 0.0f;
+              for(uint32_t ch = 0; ch < outputChannels; ch++)
+              {
+                floatBuffer[remainingFrame * outputChannels + ch] = 0.0f;
+              }
             }
-            continue;
+            // Release the buffer
+            hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
+            goto exit_playback;
           }
         }
         
@@ -464,19 +522,24 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
       // Release the buffer
       hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
       if(FAILED(hr))
-        break;
-      
-      // Check if playback is complete
-      if(!looping && sourcePosition >= totalSourceFrames)
       {
+        Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+          std::string("ReleaseBuffer failed, HRESULT: 0x") + std::to_string(hr));
         break;
       }
+      
+      iterationCount++;
     }
     
     // Sleep a bit to avoid busy waiting
     Sleep(1);
     
   } while(!stream->shouldStop);
+  
+exit_playback:
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Playback thread exiting, iterations: ") + std::to_string(iterationCount) +
+    ", final position: " + std::to_string(static_cast<int>(sourcePosition)));
   
   // Stop the audio client
   stream->audioClient->Stop();

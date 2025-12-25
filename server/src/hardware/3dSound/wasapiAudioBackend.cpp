@@ -718,8 +718,15 @@ bool WASAPIAudioBackend::isSoundPlaying(const std::string& soundId) const
 
 #else // Not Windows - Stub implementation
 
-WASAPIAudioBackend::WASAPIAudioBackend() = default;
-WASAPIAudioBackend::~WASAPIAudioBackend() = default;
+WASAPIAudioBackend::WASAPIAudioBackend()
+{
+  // Stub implementation for non-Windows platforms
+}
+
+WASAPIAudioBackend::~WASAPIAudioBackend()
+{
+  // Stub implementation for non-Windows platforms
+}
 
 bool WASAPIAudioBackend::initialize()
 {

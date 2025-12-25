@@ -18,6 +18,7 @@
 #include "../../network/property.hpp"
 #include "../../network/method.hpp"
 #include "../../network/error.hpp"
+#include "../../network/callmethod.hpp"
 
 constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
@@ -117,9 +118,16 @@ void SpeakerConfigDialog::testThisSpeaker()
   double xMeters = m_speakerPosition.x() / 100.0;
   double yMeters = m_speakerPosition.y() / 100.0;
   
-  // Call the server method
-  QString args = QString("%1,%2").arg(xMeters).arg(yMeters);
-  method->call(args);
+  // Call the server method with proper argument serialization
+  callMethod(*method, nullptr,
+    [](const QVariant& /*result*/, std::optional<const Error> error)
+    {
+      if(error)
+      {
+        qDebug() << "Error calling test_sound_at_position:" << error->toString();
+      }
+    },
+    xMeters, yMeters);  // Pass arguments as separate parameters
   
   // Visual feedback
   m_testButton->setEnabled(false);
@@ -131,6 +139,7 @@ void SpeakerConfigDialog::testThisSpeaker()
     m_testButton->setText("Test Speaker");
   });
 }
+
 void SpeakerConfigDialog::onDeviceChanged(int index)
 {
   m_channelCombo->clear();
@@ -339,9 +348,16 @@ void ThreeDZoneEditorWidget::testSoundAtPosition(const QPointF& worldPos)
   double xMeters = worldPos.x() / 100.0;
   double yMeters = worldPos.y() / 100.0;
   
-  // Call the server method with position
-  QString args = QString("%1,%2").arg(xMeters).arg(yMeters);
-  method->call(args);
+  // Call the server method with proper argument serialization
+  callMethod(*method, nullptr,
+    [](const QVariant& /*result*/, std::optional<const Error> error)
+    {
+      if(error)
+      {
+        qDebug() << "Error calling test_sound_at_position:" << error->toString();
+      }
+    },
+    xMeters, yMeters);  // Pass arguments as separate parameters
   
   // Show visual feedback
   m_testDotPosition = worldToScreen(worldPos.x(), worldPos.y());

@@ -25,6 +25,114 @@ using nlohmann::json;
 
 constexpr double SPEED_OF_SOUND = 343.0; // meters per second
 constexpr double MIN_DISTANCE = 0.01; // minimum distance to avoid division by zero
+struct SpeakerQuad
+{
+  size_t topLeft;
+  size_t topRight;
+  size_t bottomLeft;
+  size_t bottomRight;
+  
+  // Bounding box for this quad
+  double minX, maxX;
+  double minY, maxY;
+  
+  bool containsPoint(double x, double y) const
+  {
+    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+  }
+};
+
+std::vector<SpeakerQuad> ThreeDimensionalAudioPlayer::generateQuads(
+  const std::vector<SpeakerPosition>& speakers) const
+{
+  std::vector<SpeakerQuad> quads;
+  
+  // Separate speakers into rows by Y position
+  std::vector<std::vector<size_t>> rows;
+  std::map<double, std::vector<size_t>> rowMap;
+  
+  for(size_t i = 0; i < speakers.size(); i++)
+  {
+    if(speakers[i].deviceId.empty())
+      continue;
+      
+    // Group speakers by Y coordinate (with small tolerance)
+    double yKey = std::round(speakers[i].y * 100.0) / 100.0;
+    rowMap[yKey].push_back(i);
+  }
+  
+  // Convert map to vector and sort each row by X
+  for(auto& [yPos, indices] : rowMap)
+  {
+    std::sort(indices.begin(), indices.end(), 
+      [&speakers](size_t a, size_t b) {
+        return speakers[a].x < speakers[b].x;
+      });
+    rows.push_back(indices);
+  }
+  
+  // Sort rows by Y position (front to back)
+  std::sort(rows.begin(), rows.end(),
+    [&speakers](const std::vector<size_t>& a, const std::vector<size_t>& b) {
+      return speakers[a[0]].y < speakers[b[0]].y;
+    });
+  
+  if(rows.size() < 2)
+    return quads; // Need at least 2 rows
+  
+  // Generate quads between adjacent rows
+  for(size_t rowIdx = 0; rowIdx < rows.size() - 1; rowIdx++)
+  {
+    const auto& frontRow = rows[rowIdx];
+    const auto& backRow = rows[rowIdx + 1];
+    
+    // Create overlapping quads along X axis
+    // For each pair of adjacent speakers in front row, find corresponding back speakers
+    for(size_t frontIdx = 0; frontIdx < frontRow.size() - 1; frontIdx++)
+    {
+      size_t fl = frontRow[frontIdx];      // front-left
+      size_t fr = frontRow[frontIdx + 1];  // front-right
+      
+      double frontLeftX = speakers[fl].x;
+      double frontRightX = speakers[fr].x;
+      double frontY = speakers[fl].y;
+      
+      // Find back speakers that overlap this front pair
+      for(size_t backIdx = 0; backIdx < backRow.size() - 1; backIdx++)
+      {
+        size_t bl = backRow[backIdx];      // back-left
+        size_t br = backRow[backIdx + 1];  // back-right
+        
+        double backLeftX = speakers[bl].x;
+        double backRightX = speakers[br].x;
+        double backY = speakers[bl].y;
+        
+        // Check if there's overlap between front and back pairs
+        double overlapLeft = std::max(frontLeftX, backLeftX);
+        double overlapRight = std::min(frontRightX, backRightX);
+        
+        if(overlapRight > overlapLeft)
+        {
+          // Create a quad
+          SpeakerQuad quad;
+          quad.bottomLeft = fl;   // front-left
+          quad.bottomRight = fr;  // front-right
+          quad.topLeft = bl;      // back-left
+          quad.topRight = br;     // back-right
+          
+          quad.minX = std::max(frontLeftX, backLeftX);
+          quad.maxX = std::min(frontRightX, backRightX);
+          quad.minY = frontY;
+          quad.maxY = backY;
+          
+          quads.push_back(quad);
+        }
+      }
+    }
+  }
+  
+  return quads;
+}
 
 ThreeDimensionalAudioPlayer& ThreeDimensionalAudioPlayer::instance()
 {
@@ -303,16 +411,8 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
     double relativeDistance = soundToArrayCenterDist - speakerDistance;
     double delay = (relativeDistance > 0) ? calculateDelay(relativeDistance) : 0.0;
     
-    // For a small zone with nearby speakers, DON'T apply distance attenuation
-    // The panning already handles the spatial positioning
-    // Only apply attenuation if you have a large zone where distance matters
-    
-    // Option 1: No attenuation (best for small zones with 2 speakers)
+    // Combine: master volume * speaker volume * panning weight
     double finalVolume = masterVolume * speaker.volume * panningWeights[i];
-    
-    // Option 2: Mild attenuation (if you want some distance effect)
-    // double attenuation = calculateAttenuation(speakerDistance, maxDistance);
-    // double finalVolume = masterVolume * speaker.volume * panningWeights[i] * attenuation;
     
     // Clamp volume to [0, 1]
     finalVolume = std::clamp(finalVolume, 0.0, 1.0);
@@ -331,7 +431,6 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
   
   return outputs;
 }
-
 
 std::vector<SpeakerPosition> ThreeDimensionalAudioPlayer::parseZoneSpeakers(
   const std::string& speakersJson)
@@ -409,8 +508,124 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
   if(speakers.empty())
     return weights;
   
-  // For a 2-speaker stereo setup, we want VBAP-style panning
-  // where the total power is constant (sum of squares = 1)
+  // Count active speakers per row
+  int frontSpeakerCount = 0;
+  int backSpeakerCount = 0;
+  
+  for(const auto& speaker : speakers)
+  {
+    if(speaker.deviceId.empty())
+      continue;
+      
+    if(speaker.y < zoneHeight / 2.0)
+      frontSpeakerCount++;
+    else
+      backSpeakerCount++;
+  }
+  
+  // If we have a simple 2x2 or 1x2 setup, use the original simple method
+  if((frontSpeakerCount <= 2 && backSpeakerCount <= 2) || 
+     (frontSpeakerCount == 0 || backSpeakerCount == 0))
+  {
+    // Fall back to simple stereo panning
+    return calculateSimplePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
+  }
+  
+  // Generate all possible quads
+  auto quads = generateQuads(speakers);
+  
+  if(quads.empty())
+  {
+    // Fall back to simple panning if quad generation fails
+    return calculateSimplePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
+  }
+  
+  // Find the quad that contains the sound position
+  const SpeakerQuad* selectedQuad = nullptr;
+  
+  for(const auto& quad : quads)
+  {
+    if(quad.containsPoint(soundX, soundY))
+    {
+      selectedQuad = &quad;
+      break;
+    }
+  }
+  
+  // If no quad contains the point, find the nearest one
+  if(!selectedQuad)
+  {
+    double minDist = std::numeric_limits<double>::max();
+    
+    for(const auto& quad : quads)
+    {
+      // Distance to quad center
+      double centerX = (quad.minX + quad.maxX) / 2.0;
+      double centerY = (quad.minY + quad.maxY) / 2.0;
+      double dist = std::sqrt(std::pow(soundX - centerX, 2) + std::pow(soundY - centerY, 2));
+      
+      if(dist < minDist)
+      {
+        minDist = dist;
+        selectedQuad = &quad;
+      }
+    }
+  }
+  
+  if(selectedQuad)
+  {
+    weights = calculateQuadPanning(speakers, *selectedQuad, soundX, soundY);
+  }
+  
+  return weights;
+}
+
+std::vector<double> ThreeDimensionalAudioPlayer::calculateQuadPanning(
+  const std::vector<SpeakerPosition>& speakers,
+  const SpeakerQuad& quad,
+  double soundX, double soundY) const
+{
+  std::vector<double> weights(speakers.size(), 0.0);
+  
+  // Normalize position within quad (0,0) = bottom-left, (1,1) = top-right
+  double normX = (soundX - quad.minX) / (quad.maxX - quad.minX);
+  double normY = (soundY - quad.minY) / (quad.maxY - quad.minY);
+  normX = std::clamp(normX, 0.0, 1.0);
+  normY = std::clamp(normY, 0.0, 1.0);
+  
+  // Bilinear interpolation with constant-power law
+  // Bottom row (front speakers)
+  constexpr double PI = 3.14159265358979323846;
+  
+  // X-axis panning for bottom (front) row
+  double bottomAngle = normX * PI / 2.0;
+  double bottomLeft = std::cos(bottomAngle);
+  double bottomRight = std::sin(bottomAngle);
+  
+  // X-axis panning for top (back) row
+  double topAngle = normX * PI / 2.0;
+  double topLeft = std::cos(topAngle);
+  double topRight = std::sin(topAngle);
+  
+  // Y-axis panning (front/back)
+  double yAngle = normY * PI / 2.0;
+  double frontWeight = std::cos(yAngle);
+  double backWeight = std::sin(yAngle);
+  
+  // Combine X and Y panning
+  weights[quad.bottomLeft] = bottomLeft * frontWeight;
+  weights[quad.bottomRight] = bottomRight * frontWeight;
+  weights[quad.topLeft] = topLeft * backWeight;
+  weights[quad.topRight] = topRight * backWeight;
+  
+  return weights;
+}
+std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
+  const std::vector<SpeakerPosition>& speakers,
+  double soundX, double soundY,
+  double zoneWidth, double zoneHeight) const
+{
+  std::vector<double> weights(speakers.size(), 0.0);
   
   // Separate speakers into front and rear rows
   std::vector<size_t> frontSpeakers;
@@ -418,6 +633,9 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
   
   for(size_t i = 0; i < speakers.size(); i++)
   {
+    if(speakers[i].deviceId.empty())
+      continue;
+      
     if(speakers[i].y < zoneHeight / 2.0)
       frontSpeakers.push_back(i);
     else
@@ -426,18 +644,19 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
   
   // Calculate front/rear balance (Y-axis)
   double yBalance = soundY / zoneHeight; // 0 = front, 1 = rear
-  double frontWeight = 1.0 - yBalance;
-  double rearWeight = yBalance;
+  constexpr double PI = 3.14159265358979323846;
+  double yAngle = yBalance * PI / 2.0;
+  double frontWeight = std::cos(yAngle);
+  double rearWeight = std::sin(yAngle);
   
   // Apply Y-axis panning to front speakers
   if(!frontSpeakers.empty())
   {
-    // For front row, calculate X-axis panning with constant-power law
     if(frontSpeakers.size() == 2)
     {
       // Stereo pair - use constant-power panning
-      double leftIdx = frontSpeakers[0];
-      double rightIdx = frontSpeakers[1];
+      size_t leftIdx = frontSpeakers[0];
+      size_t rightIdx = frontSpeakers[1];
       
       // Ensure left is actually left
       if(speakers[leftIdx].x > speakers[rightIdx].x)
@@ -447,64 +666,35 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
       double rightX = speakers[rightIdx].x;
       double speakerSpan = rightX - leftX;
       
-      if(speakerSpan > 0.001) // Avoid division by zero
+      if(speakerSpan > 0.001)
       {
-        // Normalize sound position between speakers (0 = left, 1 = right)
         double pan = (soundX - leftX) / speakerSpan;
         pan = std::clamp(pan, 0.0, 1.0);
         
-        // Constant-power panning using sine/cosine
-        // This ensures sqrt(left² + right²) = 1
-        constexpr double PI = 3.14159265358979323846;
-        double angle = pan * PI / 2.0; // 0 to π/2
+        double angle = pan * PI / 2.0;
         weights[leftIdx] = std::cos(angle) * frontWeight;
         weights[rightIdx] = std::sin(angle) * frontWeight;
       }
       else
       {
-        // Speakers at same position - split equally
         weights[leftIdx] = frontWeight / std::sqrt(2.0);
         weights[rightIdx] = frontWeight / std::sqrt(2.0);
       }
     }
-    else
+    else if(frontSpeakers.size() == 1)
     {
-      // Multiple speakers - use distance-based weighting
-      double totalWeight = 0.0;
-      std::vector<double> rawWeights(frontSpeakers.size());
-      
-      for(size_t i = 0; i < frontSpeakers.size(); i++)
-      {
-        size_t idx = frontSpeakers[i];
-        double speakerX = speakers[idx].x;
-        double xDistance = std::abs(soundX - speakerX);
-        
-        // Inverse distance weighting (closer = louder)
-        double weight = 1.0 / (1.0 + xDistance / zoneWidth);
-        rawWeights[i] = weight;
-        totalWeight += weight;
-      }
-      
-      // Normalize to preserve total power
-      if(totalWeight > 0.0)
-      {
-        for(size_t i = 0; i < frontSpeakers.size(); i++)
-        {
-          size_t idx = frontSpeakers[i];
-          weights[idx] = (rawWeights[i] / totalWeight) * frontWeight;
-        }
-      }
+      // Mono - just use front weight
+      weights[frontSpeakers[0]] = frontWeight;
     }
   }
   
-  // Apply Y-axis panning to rear speakers (same logic)
+  // Apply Y-axis panning to rear speakers
   if(!rearSpeakers.empty())
   {
     if(rearSpeakers.size() == 2)
     {
-      // Stereo pair - use constant-power panning
-      double leftIdx = rearSpeakers[0];
-      double rightIdx = rearSpeakers[1];
+      size_t leftIdx = rearSpeakers[0];
+      size_t rightIdx = rearSpeakers[1];
       
       if(speakers[leftIdx].x > speakers[rightIdx].x)
         std::swap(leftIdx, rightIdx);
@@ -518,7 +708,6 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
         double pan = (soundX - leftX) / speakerSpan;
         pan = std::clamp(pan, 0.0, 1.0);
         
-        constexpr double PI = 3.14159265358979323846;
         double angle = pan * PI / 2.0;
         weights[leftIdx] = std::cos(angle) * rearWeight;
         weights[rightIdx] = std::sin(angle) * rearWeight;
@@ -529,31 +718,9 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
         weights[rightIdx] = rearWeight / std::sqrt(2.0);
       }
     }
-    else
+    else if(rearSpeakers.size() == 1)
     {
-      // Multiple speakers - use distance-based weighting
-      double totalWeight = 0.0;
-      std::vector<double> rawWeights(rearSpeakers.size());
-      
-      for(size_t i = 0; i < rearSpeakers.size(); i++)
-      {
-        size_t idx = rearSpeakers[i];
-        double speakerX = speakers[idx].x;
-        double xDistance = std::abs(soundX - speakerX);
-        
-        double weight = 1.0 / (1.0 + xDistance / zoneWidth);
-        rawWeights[i] = weight;
-        totalWeight += weight;
-      }
-      
-      if(totalWeight > 0.0)
-      {
-        for(size_t i = 0; i < rearSpeakers.size(); i++)
-        {
-          size_t idx = rearSpeakers[i];
-          weights[idx] = (rawWeights[i] / totalWeight) * rearWeight;
-        }
-      }
+      weights[rearSpeakers[0]] = rearWeight;
     }
   }
   

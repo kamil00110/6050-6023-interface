@@ -1,0 +1,15 @@
+#ifndef MP3_FORMAT_HPP
+#define MP3_FORMAT_HPP
+
+#include "audioFormat.hpp"
+
+class MP3FormatLoader : public IAudioFormatLoader
+{
+public:
+  bool canLoad(const std::string& filePath) const override;
+  bool load(const std::string& filePath, AudioFileData& outData, 
+            std::string& outError) const override;
+  std::string getFormatName() const override { return "MP3"; }
+};
+
+#endif // MP3_FORMAT_HPP

@@ -384,7 +384,7 @@ double ThreeDimensionalAudioPlayer::calculateDistance(double x1, double y1,
 double ThreeDimensionalAudioPlayer::calculateDelay(double distance) const
 {
   // Delay in milliseconds = (distance in meters / speed of sound) * 1000
-  return (distance / SPEED_OF_SOUND);
+  return (distance / SPEED_OF_SOUND * 1000);
 }
 
 double ThreeDimensionalAudioPlayer::calculateAttenuation(double distance, 

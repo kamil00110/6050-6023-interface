@@ -27,14 +27,6 @@ struct AudioStreamConfig
   double delay; // milliseconds
 };
 
-struct AudioFileData
-{
-  std::vector<float> samples; // Interleaved samples
-  uint32_t sampleRate;
-  uint16_t channels;
-  uint16_t bitsPerSample;
-};
-
 class WASAPIAudioBackend
 {
 public:

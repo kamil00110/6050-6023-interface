@@ -34,6 +34,23 @@ struct SpeakerPosition
   double volume;
 };
 
+struct SpeakerQuad
+{
+  size_t topLeft;
+  size_t topRight;
+  size_t bottomLeft;
+  size_t bottomRight;
+  
+  // Bounding box for this quad
+  double minX, maxX;
+  double minY, maxY;
+  
+  bool containsPoint(double x, double y) const
+  {
+    return x >= minX && x <= maxX && y >= minY && y <= maxY;
+  }
+};
+
 struct SpeakerOutput
 {
   std::string deviceId;

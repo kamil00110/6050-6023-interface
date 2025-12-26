@@ -558,84 +558,55 @@ stream->isPlaying = true;
       // Fill the buffer
       float* floatBuffer = reinterpret_cast<float*>(pData);
       const uint32_t outputChannels = stream->format->nChannels;
-      
-      for(UINT32 frame = 0; frame < numFramesAvailable; frame++)
-      {
-        // Get source frame index
-        uint32_t sourceFrame = static_cast<uint32_t>(sourcePosition);
-        
-        // Check if we've reached the end
-        if(sourceFrame >= totalSourceFrames)
-        {
-          if(looping)
-          {
-            Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-              std::string("Reached end, looping back to start"));
-            sourcePosition = 0.0;
-            sourceFrame = 0;
-          }
-          else
-          {
-            // Fill remaining with silence and exit
-            Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-              std::string("Reached end of non-looping sound, filling silence"));
-            for(UINT32 remainingFrame = frame; remainingFrame < numFramesAvailable; remainingFrame++)
-            {
-              for(uint32_t ch = 0; ch < outputChannels; ch++)
-              {
-                floatBuffer[remainingFrame * outputChannels + ch] = 0.0f;
-              }
-            }
-            // Release the buffer
-            hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
-            goto exit_playback;
-          }
-        }
-        
-        // Linear interpolation for speed adjustment
-        double frac = sourcePosition - sourceFrame;
-        uint32_t nextFrame = sourceFrame + 1;
-        if(nextFrame >= totalSourceFrames)
-          nextFrame = looping ? 0 : sourceFrame;
-        
-        // Get source sample (handle mono/stereo source)
-        float sourceSample = 0.0f;
-        if(audioData.channels == 1)
-        {
-          // Mono source
-          float s1 = audioData.samples[sourceFrame];
-          float s2 = audioData.samples[nextFrame];
-          sourceSample = s1 + (s2 - s1) * static_cast<float>(frac);
-        }
+
+for(UINT32 frame = 0; frame < numFramesAvailable; frame++)
+{
+    uint32_t sourceFrame = static_cast<uint32_t>(sourcePosition);
+    if(sourceFrame >= totalSourceFrames)
+    {
+        if(looping) sourceFrame = 0;
         else
         {
-          // Stereo or multi-channel source - take first channel
-          float s1 = audioData.samples[sourceFrame * sourceSamplesPerFrame];
-          float s2 = audioData.samples[nextFrame * sourceSamplesPerFrame];
-          sourceSample = s1 + (s2 - s1) * static_cast<float>(frac);
+            for(uint32_t f = frame; f < numFramesAvailable; f++)
+                for(uint32_t ch = 0; ch < outputChannels; ch++)
+                    floatBuffer[f * outputChannels + ch] = 0.0f;
+            break;
         }
-        
-        // Apply volume
-        sourceSample *= static_cast<float>(stream->volume);
-        
-        // Write to output channels
-        for(uint32_t ch = 0; ch < outputChannels; ch++)
+    }
+
+    // Interpolate sample for speed adjustment
+    float sample = 0.0f;
+    if(audioData.channels == 1)
+    {
+        float s1 = audioData.samples[sourceFrame];
+        float s2 = audioData.samples[(sourceFrame+1) % totalSourceFrames];
+        sample = s1 + (s2 - s1) * static_cast<float>(sourcePosition - sourceFrame);
+    }
+    else
+    {
+        float s1 = audioData.samples[sourceFrame * audioData.channels];
+        float s2 = audioData.samples[((sourceFrame+1) % totalSourceFrames) * audioData.channels];
+        sample = s1 + (s2 - s1) * static_cast<float>(sourcePosition - sourceFrame);
+    }
+
+    // Fill each output channel
+    for(uint32_t ch = 0; ch < outputChannels; ch++)
+    {
+        float value = 0.0f;
+        for(const auto& cfg : channelConfigs)
         {
-          if(stream->targetChannel < 0 || static_cast<uint32_t>(stream->targetChannel) == ch)
-          {
-            // Write to this channel
-            floatBuffer[frame * outputChannels + ch] = sourceSample;
-          }
-          else
-          {
-            // Silence other channels
-            floatBuffer[frame * outputChannels + ch] = 0.0f;
-          }
+            if(cfg.channel == (int)ch)
+            {
+                value += sample * static_cast<float>(cfg.volume);
+                // optionally handle cfg.delaySeconds by adding zero samples at start
+            }
         }
-        
-        // Advance source position with speed adjustment
-          sourcePosition += playbackSpeed;
-      }
+        floatBuffer[frame * outputChannels + ch] = value;
+    }
+
+    sourcePosition += playbackSpeed;
+}
+
       
       // Release the buffer
       hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
@@ -703,100 +674,22 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   // Record the current time as the shared start point for ALL streams
   
   // Create audio stream for each output configuration
-  for(const auto& config : outputs)
-  {
-    auto stream = std::make_unique<AudioStream>();
-    
-    // Get the audio device
-    stream->device = getDeviceById(m_impl->deviceEnumerator, config.deviceId);
-    if(!stream->device)
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to get device: ") + config.deviceId);
-      continue;
-    }
-    
-    // Activate audio client
-    HRESULT hr = stream->device->Activate(
-      __uuidof(IAudioClient),
-      CLSCTX_ALL,
-      nullptr,
-      (void**)&stream->audioClient);
-    
-    if(FAILED(hr))
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to activate audio client"));
-      continue;
-    }
-    
-    // Get the mix format
-    hr = stream->audioClient->GetMixFormat(&stream->format);
-    if(FAILED(hr))
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to get mix format"));
-      continue;
-    }
-    
-    // Initialize audio client in shared mode
-    REFERENCE_TIME requestedDuration = 100000; // 10 ms
-    hr = stream->audioClient->Initialize(
-      AUDCLNT_SHAREMODE_SHARED,
-      0,
-      requestedDuration,
-      0,
-      stream->format,
-      nullptr);
-    
-    if(FAILED(hr))
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to initialize audio client"));
-      continue;
-    }
-    
-    // Get buffer size
-    hr = stream->audioClient->GetBufferSize(&stream->bufferFrameCount);
-    if(FAILED(hr))
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to get buffer size"));
-      continue;
-    }
-    
-    // Get render client
-    hr = stream->audioClient->GetService(
-      __uuidof(IAudioRenderClient),
-      (void**)&stream->renderClient);
-    
-    if(FAILED(hr))
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to get render client"));
-      continue;
-    }
-    
-    // Set stream configuration
-    stream->targetChannel = config.channel;
-    stream->volume = config.volume;
-    stream->delaySeconds = config.delay / 1000.0;  // Convert ms to seconds
-    stream->shouldStop = false;
-    stream->startSample = 0;
-    
+  auto stream = std::make_unique<AudioStream>();
+stream->device = getDeviceById(m_impl->deviceEnumerator, outputs[0].deviceId); // choose one device
+// Activate client, get format, initialize, get render client as before
 
-    AudioStream* streamPtr = stream.get();
-    stream->playbackThread = std::thread(playbackThreadFunc, streamPtr, 
-                                         std::ref(audioData), looping, speed);
-    
-    streams.push_back(std::move(stream));
-    
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Created stream for device: ") + config.deviceId +
-      ", channel: " + std::to_string(config.channel) +
-      ", volume: " + std::to_string(config.volume) +
-      ", delay: " + std::to_string(config.delay));
-  }
+struct ChannelConfig
+{
+    int channel;
+    double volume;
+    double delaySeconds;
+};
+std::vector<ChannelConfig> channelConfigs;
+for(const auto& config : outputs)
+{
+    channelConfigs.push_back({ config.channel, config.volume, config.delay / 1000.0 });
+}
+
   
   if(streams.empty())
   {

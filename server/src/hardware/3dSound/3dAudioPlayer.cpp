@@ -305,9 +305,6 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
     // Calculate attenuation based on inverse square law
     double attenuation = calculateAttenuation(speakerDistance, maxDistance);
     
-    // Calculate how far this speaker is from the speaker array center
-    double speakerToArrayCenterDist = calculateDistance(speaker.x, speaker.y, speakerCenterX, speakerCenterY);
-    
     // Calculate delay based on the difference between:
     // - Distance from sound to speaker
     // - Distance from sound to array center

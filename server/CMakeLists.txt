@@ -95,6 +95,8 @@ file(GLOB SOURCES
   "src/hardware/3dSound/*.cpp"
   "src/hardware/3dSound/list/*.hpp"
   "src/hardware/3dSound/list/*.cpp"
+  "src/hardware/3dSound/formats/*.hpp"
+  "src/hardware/3dSound/formats/*.cpp"
   "src/hardware/3dZone/*.hpp"
   "src/hardware/3dZone/*.cpp"
   "src/hardware/3dZone/list/*.hpp"

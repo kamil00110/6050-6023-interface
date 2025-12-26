@@ -252,9 +252,6 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
 {
   std::vector<SpeakerOutput> outputs;
   
-  // Calculate maximum possible distance (diagonal of zone)
-  double maxDistance = std::sqrt(zoneWidth * zoneWidth + zoneHeight * zoneHeight);
-  
   // Calculate panning weights for all speakers
   auto panningWeights = calculatePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
   

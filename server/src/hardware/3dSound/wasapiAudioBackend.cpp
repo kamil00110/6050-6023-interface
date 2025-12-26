@@ -442,13 +442,15 @@ UINT32 delayFrames = static_cast<UINT32>(
 
 while(delayFrames > 0)
 {
-  UINT32 framesToWrite = std::min(delayFrames, stream->bufferFrameCount);
+  UINT32 framesToWrite = (delayFrames < stream->bufferFrameCount ? delayFrames : stream->bufferFrameCount);
 
   BYTE* pData = nullptr;
   HRESULT hr = stream->renderClient->GetBuffer(framesToWrite, &pData);
   if(FAILED(hr))
   {
-    Log::log("WASAPIBackend", LogMessage::I1006_X, "GetBuffer failed during delay fill");
+    Log::log("WASAPIBackend", LogMessage::I1006_X,
+         std::string("GetBuffer failed during delay fill"));
+
     return;
   }
 
@@ -463,7 +465,9 @@ while(delayFrames > 0)
 hr = stream->audioClient->Start();
 if(FAILED(hr))
 {
-  Log::log("WASAPIBackend", LogMessage::I1006_X, "Failed to start audio client");
+  Log::log("WASAPIBackend", LogMessage::I1006_X,
+         std::string("Failed to start audio client"));
+
   stream->isPlaying = false;
   return;
 }

@@ -7,7 +7,7 @@
 // Include minimp3 header (single-file library from thirdparty folder)
 #define MINIMP3_IMPLEMENTATION
 #define MINIMP3_FLOAT_OUTPUT
-#include "../../../thirdparty/minimp3/minimp3_ex.h"
+#include "../../../thirdparty/minimp3/minimp3_ex.hpp"
 
 bool MP3FormatLoader::canLoad(const std::string& filePath) const
 {

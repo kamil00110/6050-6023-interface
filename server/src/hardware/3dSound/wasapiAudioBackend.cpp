@@ -61,6 +61,10 @@ struct AudioStream
   std::thread playbackThread;
   UINT32 bufferFrameCount;
   UINT64 startSample;
+  std::shared_ptr<std::condition_variable> startSignal;
+  std::shared_ptr<std::mutex> startMutex;
+  std::shared_ptr<std::atomic<int>> readyCount;
+  std::shared_ptr<std::atomic<int>> totalStreams;
   
   AudioStream() 
     : device(nullptr)
@@ -436,83 +440,75 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
 {
   HRESULT hr;
   
-UINT32 delayFrames = static_cast<UINT32>(
-  stream->delaySeconds * stream->format->nSamplesPerSec
-);
+  // Pre-fill delay buffer
+  UINT32 delayFrames = static_cast<UINT32>(
+    stream->delaySeconds * stream->format->nSamplesPerSec
+  );
 
-while(delayFrames > 0)
-{
-  UINT32 framesToWrite = (delayFrames < stream->bufferFrameCount ? delayFrames : stream->bufferFrameCount);
+  while(delayFrames > 0)
+  {
+    UINT32 framesToWrite = (delayFrames < stream->bufferFrameCount ? delayFrames : stream->bufferFrameCount);
 
-  BYTE* pData = nullptr;
-  HRESULT hr = stream->renderClient->GetBuffer(framesToWrite, &pData);
+    BYTE* pData = nullptr;
+    hr = stream->renderClient->GetBuffer(framesToWrite, &pData);
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+           std::string("GetBuffer failed during delay fill"));
+      return;
+    }
+
+    memset(pData, 0, framesToWrite * stream->format->nBlockAlign);
+    stream->renderClient->ReleaseBuffer(framesToWrite, 0);
+
+    delayFrames -= framesToWrite;
+  }
+
+  // ==================== SYNCHRONIZATION BARRIER ====================
+  // Signal that this thread is ready
+  int ready = stream->readyCount->fetch_add(1) + 1;
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Thread ready: ") + std::to_string(ready) + 
+    "/" + std::to_string(stream->totalStreams->load()));
+  
+  // Wait for all threads to be ready
+  {
+    std::unique_lock<std::mutex> lock(*stream->startMutex);
+    stream->startSignal->wait(lock, [&]() {
+      return stream->readyCount->load() >= stream->totalStreams->load();
+    });
+  }
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("All threads synchronized, starting playback"));
+  // =================================================================
+
+  // NOW start audio client (all threads do this simultaneously)
+  hr = stream->audioClient->Start();
   if(FAILED(hr))
   {
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-         std::string("GetBuffer failed during delay fill"));
-
+         std::string("Failed to start audio client"));
+    stream->isPlaying = false;
     return;
   }
 
-  memset(pData, 0, framesToWrite * stream->format->nBlockAlign);
-  stream->renderClient->ReleaseBuffer(framesToWrite, 0);
-
-  delayFrames -= framesToWrite;
-}
-
-
-// Start audio client AFTER delay is queued
-hr = stream->audioClient->Start();
-if(FAILED(hr))
-{
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-         std::string("Failed to start audio client"));
-
-  stream->isPlaying = false;
-  return;
-}
-
-stream->isPlaying = true;
+  stream->isPlaying = true;
   
   // Calculate samples per frame for source audio
   const uint32_t sourceSamplesPerFrame = audioData.channels;
   const uint32_t totalSourceFrames = static_cast<uint32_t>(audioData.samples.size()) / sourceSamplesPerFrame;
   
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Audio info: ") + std::to_string(audioData.samples.size()) + " samples, " +
-    std::to_string(sourceSamplesPerFrame) + " channels, " +
-    std::to_string(totalSourceFrames) + " frames");
-
-  // Calculate sample rate ratio for resampling
   const double sampleRateRatio = static_cast<double>(audioData.sampleRate) / 
                                   static_cast<double>(stream->format->nSamplesPerSec);
   const double playbackSpeed = speed * sampleRateRatio;
-
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Sample rate ratio: ") + std::to_string(sampleRateRatio) +
-    ", effective playback speed: " + std::to_string(playbackSpeed) +
-    ", source rate: " + std::to_string(audioData.sampleRate) + " Hz");
   
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Output format: ") + std::to_string(stream->format->nChannels) + " channels, " +
-    std::to_string(stream->format->nSamplesPerSec) + " Hz");
-  
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Buffer size: ") + std::to_string(stream->bufferFrameCount) + " frames");
-  
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Playback settings: looping=") + (looping ? "true" : "false") +
-    ", speed=" + std::to_string(speed) +
-    ", volume=" + std::to_string(stream->volume) +
-    ", targetChannel=" + std::to_string(stream->targetChannel));
-  
-  // Playback position
   double sourcePosition = 0.0;
   int iterationCount = 0;
   
   do
   {
-    // Check if we should stop
     if(stream->shouldStop)
     {
       Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
@@ -520,117 +516,111 @@ stream->isPlaying = true;
       break;
     }
     
-    // Get buffer padding (how much is already in the buffer)
     UINT32 numFramesPadding = 0;
     hr = stream->audioClient->GetCurrentPadding(&numFramesPadding);
     if(FAILED(hr))
     {
       Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("GetCurrentPadding failed, HRESULT: 0x") + std::to_string(hr));
+        std::string("GetCurrentPadding failed"));
       break;
     }
     
-    // Calculate available frames
     UINT32 numFramesAvailable = stream->bufferFrameCount - numFramesPadding;
     
     if(numFramesAvailable > 0)
     {
-      // Log first few iterations
-      if(iterationCount < 5)
-      {
-        Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-          std::string("Iteration ") + std::to_string(iterationCount) +
-          ": padding=" + std::to_string(numFramesPadding) +
-          ", available=" + std::to_string(numFramesAvailable) +
-          ", sourcePos=" + std::to_string(static_cast<int>(sourcePosition)));
-      }
-      
-      // Get the buffer
       BYTE* pData = nullptr;
       hr = stream->renderClient->GetBuffer(numFramesAvailable, &pData);
       if(FAILED(hr))
       {
         Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-          std::string("GetBuffer failed, HRESULT: 0x") + std::to_string(hr));
+          std::string("GetBuffer failed"));
         break;
       }
       
-      // Fill the buffer
       float* floatBuffer = reinterpret_cast<float*>(pData);
       const uint32_t outputChannels = stream->format->nChannels;
-
-for(UINT32 frame = 0; frame < numFramesAvailable; frame++)
-{
-    uint32_t sourceFrame = static_cast<uint32_t>(sourcePosition);
-    if(sourceFrame >= totalSourceFrames)
-    {
-        if(looping) sourceFrame = 0;
+      
+      for(UINT32 frame = 0; frame < numFramesAvailable; frame++)
+      {
+        uint32_t sourceFrame = static_cast<uint32_t>(sourcePosition);
+        
+        if(sourceFrame >= totalSourceFrames)
+        {
+          if(looping)
+          {
+            sourcePosition = 0.0;
+            sourceFrame = 0;
+          }
+          else
+          {
+            for(UINT32 remainingFrame = frame; remainingFrame < numFramesAvailable; remainingFrame++)
+            {
+              for(uint32_t ch = 0; ch < outputChannels; ch++)
+              {
+                floatBuffer[remainingFrame * outputChannels + ch] = 0.0f;
+              }
+            }
+            hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
+            goto exit_playback;
+          }
+        }
+        
+        double frac = sourcePosition - sourceFrame;
+        uint32_t nextFrame = sourceFrame + 1;
+        if(nextFrame >= totalSourceFrames)
+          nextFrame = looping ? 0 : sourceFrame;
+        
+        float sourceSample = 0.0f;
+        if(audioData.channels == 1)
+        {
+          float s1 = audioData.samples[sourceFrame];
+          float s2 = audioData.samples[nextFrame];
+          sourceSample = s1 + (s2 - s1) * static_cast<float>(frac);
+        }
         else
         {
-            for(uint32_t f = frame; f < numFramesAvailable; f++)
-                for(uint32_t ch = 0; ch < outputChannels; ch++)
-                    floatBuffer[f * outputChannels + ch] = 0.0f;
-            break;
+          float s1 = audioData.samples[sourceFrame * sourceSamplesPerFrame];
+          float s2 = audioData.samples[nextFrame * sourceSamplesPerFrame];
+          sourceSample = s1 + (s2 - s1) * static_cast<float>(frac);
         }
-    }
-
-    // Interpolate sample for speed adjustment
-    float sample = 0.0f;
-    if(audioData.channels == 1)
-    {
-        float s1 = audioData.samples[sourceFrame];
-        float s2 = audioData.samples[(sourceFrame+1) % totalSourceFrames];
-        sample = s1 + (s2 - s1) * static_cast<float>(sourcePosition - sourceFrame);
-    }
-    else
-    {
-        float s1 = audioData.samples[sourceFrame * audioData.channels];
-        float s2 = audioData.samples[((sourceFrame+1) % totalSourceFrames) * audioData.channels];
-        sample = s1 + (s2 - s1) * static_cast<float>(sourcePosition - sourceFrame);
-    }
-
-    // Fill each output channel
-    for(uint32_t ch = 0; ch < outputChannels; ch++)
-    {
-        float value = 0.0f;
-        for(const auto& cfg : channelConfigs)
+        
+        sourceSample *= static_cast<float>(stream->volume);
+        
+        for(uint32_t ch = 0; ch < outputChannels; ch++)
         {
-            if(cfg.channel == (int)ch)
-            {
-                value += sample * static_cast<float>(cfg.volume);
-                // optionally handle cfg.delaySeconds by adding zero samples at start
-            }
+          if(stream->targetChannel < 0 || static_cast<uint32_t>(stream->targetChannel) == ch)
+          {
+            floatBuffer[frame * outputChannels + ch] = sourceSample;
+          }
+          else
+          {
+            floatBuffer[frame * outputChannels + ch] = 0.0f;
+          }
         }
-        floatBuffer[frame * outputChannels + ch] = value;
-    }
-
-    sourcePosition += playbackSpeed;
-}
-
+        
+        sourcePosition += playbackSpeed;
+      }
       
-      // Release the buffer
       hr = stream->renderClient->ReleaseBuffer(numFramesAvailable, 0);
       if(FAILED(hr))
       {
         Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-          std::string("ReleaseBuffer failed, HRESULT: 0x") + std::to_string(hr));
+          std::string("ReleaseBuffer failed"));
         break;
       }
       
       iterationCount++;
     }
     
-    // Sleep a bit to avoid busy waiting
     Sleep(0);
     
   } while(!stream->shouldStop);
   
 exit_playback:
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Playback thread exiting, iterations: ") + std::to_string(iterationCount) +
-    ", final position: " + std::to_string(static_cast<int>(sourcePosition)));
+    std::string("Playback thread exiting, iterations: ") + std::to_string(iterationCount));
   
-  // Stop the audio client
   stream->audioClient->Stop();
   stream->isPlaying = false;
 }
@@ -647,7 +637,6 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     return false;
   }
   
-  // Check if audio file is loaded
   auto audioIt = m_audioFiles.find(soundId);
   if(audioIt == m_audioFiles.end())
   {
@@ -658,7 +647,6 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   
   const AudioFileData& audioData = audioIt->second;
   
-  // Stop if already playing
   if(m_activeSounds.count(soundId))
   {
     stopSound(soundId);
@@ -671,25 +659,94 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
   auto& streams = m_impl->activeStreams[soundId];
   
-  // Record the current time as the shared start point for ALL streams
+  // Create shared synchronization objects for ALL streams
+  auto startSignal = std::make_shared<std::condition_variable>();
+  auto startMutex = std::make_shared<std::mutex>();
+  auto readyCount = std::make_shared<std::atomic<int>>(0);
+  auto totalStreams = std::make_shared<std::atomic<int>>(outputs.size());
   
-  // Create audio stream for each output configuration
-  auto stream = std::make_unique<AudioStream>();
-stream->device = getDeviceById(m_impl->deviceEnumerator, outputs[0].deviceId); // choose one device
-// Activate client, get format, initialize, get render client as before
-
-struct ChannelConfig
-{
-    int channel;
-    double volume;
-    double delaySeconds;
-};
-std::vector<ChannelConfig> channelConfigs;
-for(const auto& config : outputs)
-{
-    channelConfigs.push_back({ config.channel, config.volume, config.delay / 1000.0 });
-}
-
+  // Create all streams first
+  for(const auto& config : outputs)
+  {
+    auto stream = std::make_unique<AudioStream>();
+    
+    stream->device = getDeviceById(m_impl->deviceEnumerator, config.deviceId);
+    if(!stream->device)
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to get device: ") + config.deviceId);
+      continue;
+    }
+    
+    HRESULT hr = stream->device->Activate(
+      __uuidof(IAudioClient),
+      CLSCTX_ALL,
+      nullptr,
+      (void**)&stream->audioClient);
+    
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to activate audio client"));
+      continue;
+    }
+    
+    hr = stream->audioClient->GetMixFormat(&stream->format);
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to get mix format"));
+      continue;
+    }
+    
+    REFERENCE_TIME requestedDuration = 100000;
+    hr = stream->audioClient->Initialize(
+      AUDCLNT_SHAREMODE_SHARED,
+      0,
+      requestedDuration,
+      0,
+      stream->format,
+      nullptr);
+    
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to initialize audio client"));
+      continue;
+    }
+    
+    hr = stream->audioClient->GetBufferSize(&stream->bufferFrameCount);
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to get buffer size"));
+      continue;
+    }
+    
+    hr = stream->audioClient->GetService(
+      __uuidof(IAudioRenderClient),
+      (void**)&stream->renderClient);
+    
+    if(FAILED(hr))
+    {
+      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+        std::string("Failed to get render client"));
+      continue;
+    }
+    
+    stream->targetChannel = config.channel;
+    stream->volume = config.volume;
+    stream->delaySeconds = config.delay / 1000.0;
+    stream->shouldStop = false;
+    
+    // Share synchronization objects
+    stream->startSignal = startSignal;
+    stream->startMutex = startMutex;
+    stream->readyCount = readyCount;
+    stream->totalStreams = totalStreams;
+    
+    streams.push_back(std::move(stream));
+  }
   
   if(streams.empty())
   {
@@ -697,6 +754,20 @@ for(const auto& config : outputs)
       std::string("Failed to create any audio streams"));
     m_impl->activeStreams.erase(soundId);
     return false;
+  }
+  
+  // NOW start all threads (they will wait at the barrier)
+  for(auto& stream : streams)
+  {
+    AudioStream* streamPtr = stream.get();
+    stream->playbackThread = std::thread(playbackThreadFunc, streamPtr, 
+                                         std::ref(audioData), looping, speed);
+  }
+  
+  // Notify all waiting threads to start simultaneously
+  {
+    std::lock_guard<std::mutex> lock(*startMutex);
+    startSignal->notify_all();
   }
   
   m_activeSounds[soundId] = true;

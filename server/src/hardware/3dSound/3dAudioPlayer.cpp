@@ -455,7 +455,8 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
         
         // Constant-power panning using sine/cosine
         // This ensures sqrt(left² + right²) = 1
-        double angle = pan * M_PI / 2.0; // 0 to π/2
+        constexpr double PI = 3.14159265358979323846;
+        double angle = pan * PI / 2.0; // 0 to π/2
         weights[leftIdx] = std::cos(angle) * frontWeight;
         weights[rightIdx] = std::sin(angle) * frontWeight;
       }
@@ -517,7 +518,8 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
         double pan = (soundX - leftX) / speakerSpan;
         pan = std::clamp(pan, 0.0, 1.0);
         
-        double angle = pan * M_PI / 2.0;
+        constexpr double PI = 3.14159265358979323846;
+        double angle = pan * PI / 2.0;
         weights[leftIdx] = std::cos(angle) * rearWeight;
         weights[rightIdx] = std::sin(angle) * rearWeight;
       }

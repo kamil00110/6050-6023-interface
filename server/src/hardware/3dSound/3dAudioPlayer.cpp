@@ -258,27 +258,40 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
   // Calculate panning weights for all speakers
   auto panningWeights = calculatePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
   
-  // First pass: calculate all distances and find average distance
+  // Calculate the geometric center of all active speakers
+  double speakerCenterX = 0.0;
+  double speakerCenterY = 0.0;
+  int activeSpeakerCount = 0;
+  
+  for(const auto& speaker : speakers)
+  {
+    if(!speaker.deviceId.empty())
+    {
+      speakerCenterX += speaker.x;
+      speakerCenterY += speaker.y;
+      activeSpeakerCount++;
+    }
+  }
+  
+  if(activeSpeakerCount > 0)
+  {
+    speakerCenterX /= activeSpeakerCount;
+    speakerCenterY /= activeSpeakerCount;
+  }
+  
+  // Calculate distance from sound to the speaker array center
+  double soundToArrayCenterDist = calculateDistance(soundX, soundY, speakerCenterX, speakerCenterY);
+  
+  // First pass: calculate all distances
   std::vector<double> distances;
-  double totalDistance = 0.0;
-  int validSpeakerCount = 0;
   
   for(const auto& speaker : speakers)
   {
     double distance = calculateDistance(soundX, soundY, speaker.x, speaker.y);
     distances.push_back(distance);
-    
-    if(!speaker.deviceId.empty())
-    {
-      totalDistance += distance;
-      validSpeakerCount++;
-    }
   }
   
-  // Calculate average distance as reference point
-  double avgDistance = (validSpeakerCount > 0) ? (totalDistance / validSpeakerCount) : 0.0;
-  
-  // Second pass: process each speaker with delays relative to average distance
+  // Second pass: process each speaker
   for(size_t i = 0; i < speakers.size(); i++)
   {
     const auto& speaker = speakers[i];
@@ -292,10 +305,16 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
     // Calculate attenuation based on inverse square law
     double attenuation = calculateAttenuation(speakerDistance, maxDistance);
     
-    // Calculate delay relative to the AVERAGE distance
-    // Speakers closer than average: 0ms delay (play immediately)
-    // Speakers farther than average: delayed by (distance - avgDistance)
-    double relativeDistance = speakerDistance - avgDistance;
+    // Calculate how far this speaker is from the speaker array center
+    double speakerToArrayCenterDist = calculateDistance(speaker.x, speaker.y, speakerCenterX, speakerCenterY);
+    
+    // Calculate delay based on the difference between:
+    // - Distance from sound to speaker
+    // - Distance from sound to array center
+    // This makes the center position have 0 delay for all speakers
+    double relativeDistance = speakerDistance - soundToArrayCenterDist;
+    
+    // Only apply positive delays (speakers farther than the array center point)
     double delay = (relativeDistance > 0) ? calculateDelay(relativeDistance) : 0.0;
     
     // Combine: master volume * speaker volume * attenuation * panning weight

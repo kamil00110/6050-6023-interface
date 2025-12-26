@@ -14,6 +14,7 @@
 #include "wasapiAudioBackend.hpp"
 #include "formats/audioFormat.hpp"
 #include "formats/wavFormat.hpp"
+#include "formats/mp3Format.hpp"
 #include "../../log/log.hpp"
 #include <fstream>
 #include <cstring>
@@ -169,9 +170,10 @@ static bool formatsRegistered = false;
   {
     AudioFormatFactory::instance().registerLoader(
       std::make_unique<WAVFormatLoader>());
-    // Future formats:
-    // AudioFormatFactory::instance().registerLoader(
-    //   std::make_unique<MP3FormatLoader>());
+    
+    AudioFormatFactory::instance().registerLoader(
+      std::make_unique<MP3FormatLoader>());
+    
     // AudioFormatFactory::instance().registerLoader(
     //   std::make_unique<OGGFormatLoader>());
     

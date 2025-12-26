@@ -440,16 +440,24 @@ UINT32 delayFrames = static_cast<UINT32>(
   stream->delaySeconds * stream->format->nSamplesPerSec
 );
 
-if(delayFrames > 0)
+while(delayFrames > 0)
 {
+  UINT32 framesToWrite = std::min(delayFrames, stream->bufferFrameCount);
+
   BYTE* pData = nullptr;
-  HRESULT hr = stream->renderClient->GetBuffer(delayFrames, &pData);
-  if(SUCCEEDED(hr))
+  HRESULT hr = stream->renderClient->GetBuffer(framesToWrite, &pData);
+  if(FAILED(hr))
   {
-    memset(pData, 0, delayFrames * stream->format->nBlockAlign);
-    stream->renderClient->ReleaseBuffer(delayFrames, 0);
+    Log::log("WASAPIBackend", LogMessage::I1006_X, "GetBuffer failed during delay fill");
+    return;
   }
+
+  memset(pData, 0, framesToWrite * stream->format->nBlockAlign);
+  stream->renderClient->ReleaseBuffer(framesToWrite, 0);
+
+  delayFrames -= framesToWrite;
 }
+
 
 // Start audio client AFTER delay is queued
 hr = stream->audioClient->Start();
@@ -461,18 +469,6 @@ if(FAILED(hr))
 }
 
 stream->isPlaying = true;
-  
-  // Calculate when this stream should actually start playing based on shared start time
-  auto now = std::chrono::steady_clock::now();
-  auto targetStartTime = stream->startTimePoint + 
-                         std::chrono::milliseconds(static_cast<long long>(stream->delaySeconds * 1000.0));
-  
-  // Wait until our scheduled start time
-  if(targetStartTime > now)
-  {
-    auto waitDuration = std::chrono::duration_cast<std::chrono::milliseconds>(targetStartTime - now);
-  }
-  
   
   // Calculate samples per frame for source audio
   const uint32_t sourceSamplesPerFrame = audioData.channels;

@@ -12,6 +12,8 @@
  */
 
 #include "wasapiAudioBackend.hpp"
+#include "formats/audioFormat.hpp"
+#include "formats/wavFormat.hpp"
 #include "../../log/log.hpp"
 #include <fstream>
 #include <cstring>
@@ -180,6 +182,20 @@ bool WASAPIAudioBackend::initialize()
     return false;
   }
   
+static bool formatsRegistered = false;
+  if(!formatsRegistered)
+  {
+    AudioFormatFactory::instance().registerLoader(
+      std::make_unique<WAVFormatLoader>());
+    // Future formats:
+    // AudioFormatFactory::instance().registerLoader(
+    //   std::make_unique<MP3FormatLoader>());
+    // AudioFormatFactory::instance().registerLoader(
+    //   std::make_unique<OGGFormatLoader>());
+    
+    formatsRegistered = true;
+  }
+  
   m_impl->initialized = true;
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
     std::string("WASAPI backend initialized"));
@@ -206,173 +222,35 @@ void WASAPIAudioBackend::shutdown()
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
     std::string("WASAPI backend shut down"));
 }
-
-bool WASAPIAudioBackend::loadAudioFile(const std::string& filePath, const std::string& soundId)
+bool WASAPIAudioBackend::loadAudioFile(const std::string& filePath, 
+                                       const std::string& soundId)
 {
-  try
-  {
-    std::ifstream file(filePath, std::ios::binary);
-    if(!file.is_open())
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Failed to open audio file: ") + filePath);
-      return false;
-    }
-    
-    // Read RIFF header
-    char riff[4];
-    file.read(riff, 4);
-    if(std::memcmp(riff, "RIFF", 4) != 0)
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Not a RIFF file: ") + filePath);
-      return false;
-    }
-    
-    uint32_t fileSize;
-    file.read(reinterpret_cast<char*>(&fileSize), 4);
-    
-    char wave[4];
-    file.read(wave, 4);
-    if(std::memcmp(wave, "WAVE", 4) != 0)
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Not a WAVE file: ") + filePath);
-      return false;
-    }
-    
-    // Find fmt chunk
-    uint16_t audioFormat = 0;
-    uint16_t numChannels = 0;
-    uint32_t sampleRate = 0;
-    uint16_t bitsPerSample = 0;
-    
-    while(file.good())
-    {
-      char chunkId[4];
-      file.read(chunkId, 4);
-      if(!file.good()) break;
-      
-      uint32_t chunkSize;
-      file.read(reinterpret_cast<char*>(&chunkSize), 4);
-      
-      if(std::memcmp(chunkId, "fmt ", 4) == 0)
-      {
-        file.read(reinterpret_cast<char*>(&audioFormat), 2);
-        file.read(reinterpret_cast<char*>(&numChannels), 2);
-        file.read(reinterpret_cast<char*>(&sampleRate), 4);
-        
-        uint32_t byteRate;
-        file.read(reinterpret_cast<char*>(&byteRate), 4);
-        
-        uint16_t blockAlign;
-        file.read(reinterpret_cast<char*>(&blockAlign), 2);
-        file.read(reinterpret_cast<char*>(&bitsPerSample), 2);
-        
-        // Skip any extra format bytes
-        if(chunkSize > 16)
-        {
-          file.seekg(chunkSize - 16, std::ios::cur);
-        }
-        break;
-      }
-      else
-      {
-        // Skip this chunk
-        file.seekg(chunkSize, std::ios::cur);
-      }
-    }
-    
-    if(audioFormat != 1)
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Unsupported audio format (must be PCM): ") + std::to_string(audioFormat));
-      return false;
-    }
-    
-    // Find data chunk
-    uint32_t dataSize = 0;
-    while(file.good())
-    {
-      char chunkId[4];
-      file.read(chunkId, 4);
-      if(!file.good()) break;
-      
-      uint32_t chunkSize;
-      file.read(reinterpret_cast<char*>(&chunkSize), 4);
-      
-      if(std::memcmp(chunkId, "data", 4) == 0)
-      {
-        dataSize = chunkSize;
-        break;
-      }
-      else
-      {
-        // Skip this chunk
-        file.seekg(chunkSize, std::ios::cur);
-      }
-    }
-    
-    if(dataSize == 0)
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("No data chunk found in WAV file: ") + filePath);
-      return false;
-    }
-    
-    // Read audio data
-    AudioFileData audioData;
-    audioData.sampleRate = sampleRate;
-    audioData.channels = numChannels;
-    audioData.bitsPerSample = bitsPerSample;
-    
-    // Calculate number of samples
-    uint32_t numSamples = dataSize / (bitsPerSample / 8);
-    audioData.samples.resize(numSamples);
-    
-    // Read and convert to float
-    if(bitsPerSample == 16)
-    {
-      std::vector<int16_t> int16Data(numSamples);
-      file.read(reinterpret_cast<char*>(int16Data.data()), dataSize);
-      
-      for(size_t i = 0; i < numSamples; i++)
-      {
-        audioData.samples[i] = int16Data[i] / 32768.0f;
-      }
-    }
-    else if(bitsPerSample == 32)
-    {
-      file.read(reinterpret_cast<char*>(audioData.samples.data()), dataSize);
-    }
-    else
-    {
-      Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-        std::string("Unsupported bit depth: ") + std::to_string(bitsPerSample));
-      return false;
-    }
-    
-    m_audioFiles[soundId] = audioData;
-    
-    uint32_t totalFrames = numSamples / numChannels;
-    double durationSeconds = static_cast<double>(totalFrames) / static_cast<double>(sampleRate);
-    
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Loaded audio file: ") + soundId + 
-      " (" + std::to_string(numSamples) + " samples, " +
-      std::to_string(totalFrames) + " frames, " +
-      std::to_string(sampleRate) + " Hz, " +
-      std::to_string(numChannels) + " channels, " +
-      std::to_string(durationSeconds) + " seconds)");
-    
-    return true;
-  }
-  catch(const std::exception& e)
+  AudioFileData audioData;
+  std::string error;
+  
+  // Use format factory to load the file
+  if(!AudioFormatFactory::instance().loadAudioFile(filePath, audioData, error))
   {
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Error loading audio file: ") + e.what());
+      std::string("Failed to load audio file: ") + error);
     return false;
   }
+  
+  // Store the loaded audio data
+  m_audioFiles[soundId] = audioData;
+  
+  uint32_t totalFrames = static_cast<uint32_t>(audioData.samples.size()) / audioData.channels;
+  double durationSeconds = static_cast<double>(totalFrames) / static_cast<double>(audioData.sampleRate);
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Loaded audio file: ") + soundId + 
+    " (" + std::to_string(audioData.samples.size()) + " samples, " +
+    std::to_string(totalFrames) + " frames, " +
+    std::to_string(audioData.sampleRate) + " Hz, " +
+    std::to_string(audioData.channels) + " channels, " +
+    std::to_string(durationSeconds) + " seconds)");
+  
+  return true;
 }
 void WASAPIAudioBackend::unloadAudioFile(const std::string& soundId)
 {

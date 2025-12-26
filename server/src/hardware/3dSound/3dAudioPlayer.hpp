@@ -103,4 +103,16 @@ private:
   
   // Active sounds map
   std::map<std::string, ActiveSound> m_activeSounds;
+  std::vector<SpeakerQuad> generateQuads(
+    const std::vector<SpeakerPosition>& speakers) const;
+    
+  std::vector<double> calculateQuadPanning(
+    const std::vector<SpeakerPosition>& speakers,
+    const SpeakerQuad& quad,
+    double soundX, double soundY) const;
+    
+  std::vector<double> calculateSimplePanning(
+    const std::vector<SpeakerPosition>& speakers,
+    double soundX, double soundY,
+    double zoneWidth, double zoneHeight) const;
 };

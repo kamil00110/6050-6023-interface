@@ -19,6 +19,8 @@
 #include <map>
 #include <cstdint>
 
+struct AudioFileData;
+
 struct AudioStreamConfig
 {
   std::string deviceId;

@@ -607,7 +607,7 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateQuadPanning(
 std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
   const std::vector<SpeakerPosition>& speakers,
   double soundX, double soundY,
-  double zoneWidth, double zoneHeight) const
+  double /*zoneWidth*/, double zoneHeight) const
 {
   std::vector<double> weights(speakers.size(), 0.0);
   

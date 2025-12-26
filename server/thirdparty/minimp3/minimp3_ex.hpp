@@ -7,7 +7,7 @@
     See <http://creativecommons.org/publicdomain/zero/1.0/>.
 */
 #include <stddef.h>
-#include "minimp3.h"
+#include "minimp3.hpp"
 
 /* flags for mp3dec_ex_open_* functions */
 #define MP3D_SEEK_TO_BYTE   0      /* mp3dec_ex_seek seeks to byte in stream */

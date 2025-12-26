@@ -110,7 +110,7 @@ bool WAVFormatLoader::load(const std::string& filePath, AudioFileData& outData,
     // Read RIFF/RIFX header
     char riffHeader[4];
     file.read(riffHeader, 4);
-    bool isBigEndian = false;
+    bool isBigEndian __attribute__((unused)) = false;
     
     if(std::memcmp(riffHeader, "RIFF", 4) == 0)
     {
@@ -145,7 +145,6 @@ bool WAVFormatLoader::load(const std::string& filePath, AudioFileData& outData,
     uint16_t validBitsPerSample = 0;
     uint32_t dataSize = 0;
     std::streampos dataPosition = 0;
-    bool isFloatFormat = false;
     
     while(file.good())
     {
@@ -201,9 +200,6 @@ bool WAVFormatLoader::load(const std::string& filePath, AudioFileData& outData,
             return false;
           }
         }
-        
-        // Check if float format
-        isFloatFormat = (audioFormat == WAVE_FORMAT_IEEE_FLOAT);
         
         // Skip any remaining format bytes
         std::streampos currentPos = file.tellg();

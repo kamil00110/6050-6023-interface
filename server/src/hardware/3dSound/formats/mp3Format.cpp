@@ -4,10 +4,14 @@
 #include <vector>
 #include <cstring>
 
-// Include minimp3 header (single-file library from thirdparty folder)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+
 #define MINIMP3_IMPLEMENTATION
 #define MINIMP3_FLOAT_OUTPUT
 #include "../../../thirdparty/minimp3/minimp3_ex.hpp"
+
+#pragma GCC diagnostic pop
 
 bool MP3FormatLoader::canLoad(const std::string& filePath) const
 {

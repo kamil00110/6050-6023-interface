@@ -448,7 +448,7 @@ while(delayFrames > 0)
   HRESULT hr = stream->renderClient->GetBuffer(framesToWrite, &pData);
   if(FAILED(hr))
   {
-    Log::log("WASAPIBackend", LogMessage::I1006_X,
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
          std::string("GetBuffer failed during delay fill"));
 
     return;
@@ -465,7 +465,7 @@ while(delayFrames > 0)
 hr = stream->audioClient->Start();
 if(FAILED(hr))
 {
-  Log::log("WASAPIBackend", LogMessage::I1006_X,
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
          std::string("Failed to start audio client"));
 
   stream->isPlaying = false;

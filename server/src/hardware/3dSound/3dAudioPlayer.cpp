@@ -25,22 +25,6 @@ using nlohmann::json;
 
 constexpr double SPEED_OF_SOUND = 343.0; // meters per second
 constexpr double MIN_DISTANCE = 0.01; // minimum distance to avoid division by zero
-struct SpeakerQuad
-{
-  size_t topLeft;
-  size_t topRight;
-  size_t bottomLeft;
-  size_t bottomRight;
-  
-  // Bounding box for this quad
-  double minX, maxX;
-  double minY, maxY;
-  
-  bool containsPoint(double x, double y) const
-  {
-    return x >= minX && x <= maxX && y >= minY && y <= maxY;
-  }
-};
 
 std::vector<SpeakerQuad> ThreeDimensionalAudioPlayer::generateQuads(
   const std::vector<SpeakerPosition>& speakers) const

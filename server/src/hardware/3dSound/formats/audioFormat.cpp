@@ -40,3 +40,4 @@ bool AudioFormatFactory::loadAudioFile(const std::string& filePath,
   
   return loader->load(filePath, outData, outError);
 }
+

@@ -305,14 +305,14 @@ std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
     // Calculate attenuation based on inverse square law
     double attenuation = calculateAttenuation(speakerDistance, maxDistance);
     
-    // Calculate delay based on the difference between:
-    // - Distance from sound to speaker
-    // - Distance from sound to array center
-    // This makes the center position have 0 delay for all speakers
-    double relativeDistance = speakerDistance - soundToArrayCenterDist;
-    
-    // Only apply positive delays (speakers farther than the array center point)
-    double delay = (relativeDistance > 0) ? calculateDelay(relativeDistance) : 0.0;
+
+    // Calculate delay - speakers CLOSER to sound should have LESS delay
+// Use the inverse: array center distance - speaker distance
+// This way speakers closer than center get 0 delay, speakers farther get positive delay
+double relativeDistance = soundToArrayCenterDist - speakerDistance;
+
+// Only apply positive delays (speakers farther from sound than the array center)
+double delay = (relativeDistance > 0) ? calculateDelay(relativeDistance) : 0.0;
     
     // Combine: master volume * speaker volume * attenuation * panning weight
     double finalVolume = masterVolume * speaker.volume * attenuation * panningWeights[i];
@@ -384,7 +384,7 @@ double ThreeDimensionalAudioPlayer::calculateDistance(double x1, double y1,
 double ThreeDimensionalAudioPlayer::calculateDelay(double distance) const
 {
   // Delay in milliseconds = (distance in meters / speed of sound) * 1000
-  return (distance / SPEED_OF_SOUND) * 1000.0;
+  return (distance / SPEED_OF_SOUND);
 }
 
 double ThreeDimensionalAudioPlayer::calculateAttenuation(double distance, 

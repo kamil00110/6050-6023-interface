@@ -60,7 +60,6 @@ struct AudioStream
   std::atomic<bool> shouldStop;
   std::thread playbackThread;
   UINT32 bufferFrameCount;
-  std::chrono::steady_clock::time_point startTimePoint;  // ADD THIS
   UINT64 startSample;
   
   AudioStream() 
@@ -74,6 +73,7 @@ struct AudioStream
     , isPlaying(false)
     , shouldStop(false)
     , bufferFrameCount(0)
+    , startSample(0)
   {}
 
   ~AudioStream()
@@ -436,17 +436,31 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
 {
   HRESULT hr;
   
-  // Start the audio client immediately
-  hr = stream->audioClient->Start();
-  if(FAILED(hr))
+UINT32 delayFrames = static_cast<UINT32>(
+  stream->delaySeconds * stream->format->nSamplesPerSec
+);
+
+if(delayFrames > 0)
+{
+  BYTE* pData = nullptr;
+  HRESULT hr = stream->renderClient->GetBuffer(delayFrames, &pData);
+  if(SUCCEEDED(hr))
   {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Failed to start audio client"));
-    stream->isPlaying = false;
-    return;
+    memset(pData, 0, delayFrames * stream->format->nBlockAlign);
+    stream->renderClient->ReleaseBuffer(delayFrames, 0);
   }
-  
-  stream->isPlaying = true;
+}
+
+// Start audio client AFTER delay is queued
+hr = stream->audioClient->Start();
+if(FAILED(hr))
+{
+  Log::log("WASAPIBackend", LogMessage::I1006_X, "Failed to start audio client");
+  stream->isPlaying = false;
+  return;
+}
+
+stream->isPlaying = true;
   
   // Calculate when this stream should actually start playing based on shared start time
   auto now = std::chrono::steady_clock::now();
@@ -457,7 +471,6 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
   if(targetStartTime > now)
   {
     auto waitDuration = std::chrono::duration_cast<std::chrono::milliseconds>(targetStartTime - now);
-    Sleep(static_cast<DWORD>(waitDuration.count()));
   }
   
   
@@ -637,7 +650,7 @@ static void playbackThreadFunc(AudioStream* stream, const AudioFileData& audioDa
     }
     
     // Sleep a bit to avoid busy waiting
-    Sleep(1);
+    Sleep(0);
     
   } while(!stream->shouldStop);
   
@@ -688,7 +701,6 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   auto& streams = m_impl->activeStreams[soundId];
   
   // Record the current time as the shared start point for ALL streams
-  auto sharedStartTime = std::chrono::steady_clock::now();
   
   // Create audio stream for each output configuration
   for(const auto& config : outputs)
@@ -728,7 +740,7 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     }
     
     // Initialize audio client in shared mode
-    REFERENCE_TIME requestedDuration = 10000000; // 1 second
+    REFERENCE_TIME requestedDuration = 100000; // 10 ms
     hr = stream->audioClient->Initialize(
       AUDCLNT_SHAREMODE_SHARED,
       0,
@@ -770,7 +782,7 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     stream->volume = config.volume;
     stream->delaySeconds = config.delay / 1000.0;  // Convert ms to seconds
     stream->shouldStop = false;
-    stream->startTimePoint = sharedStartTime;
+    stream->startSample = 0;
     
 
     AudioStream* streamPtr = stream.get();

@@ -9,7 +9,8 @@
 
 #define MINIMP3_IMPLEMENTATION
 #define MINIMP3_FLOAT_OUTPUT
-#include "../../../thirdparty/minimp3/minimp3_ex.hpp"
+#include <minimp3_ex.hpp>
+
 
 #pragma GCC diagnostic pop
 

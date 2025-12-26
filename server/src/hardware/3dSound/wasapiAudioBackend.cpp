@@ -61,6 +61,7 @@ struct AudioStream
   std::thread playbackThread;
   UINT32 bufferFrameCount;
   std::chrono::steady_clock::time_point startTimePoint;  // ADD THIS
+  UINT64 startSample;
   
   AudioStream() 
     : device(nullptr)

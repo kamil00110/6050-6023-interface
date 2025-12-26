@@ -132,7 +132,7 @@ int mp3dec_ex_open_w(mp3dec_ex_t *dec, const wchar_t *file_name, int flags);
 #if defined(MINIMP3_IMPLEMENTATION) && !defined(_MINIMP3_EX_IMPLEMENTATION_GUARD)
 #define _MINIMP3_EX_IMPLEMENTATION_GUARD
 #include <limits.h>
-#include "minimp3.h"
+#include "minimp3.hpp"
 
 static void mp3dec_skip_id3v1(const uint8_t *buf, size_t *pbuf_size)
 {

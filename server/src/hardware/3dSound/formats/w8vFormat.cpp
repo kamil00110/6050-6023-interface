@@ -56,42 +56,74 @@ bool W8VFormatLoader::load(const std::string& filePath, AudioFileData& outData,
       return false;
     }
     
-    // Search for RIFF header within the next 1024 bytes
+    // Search for RIFF or IFF header within the next 1024 bytes
     // (The W8V wrapper appears to have variable-length metadata)
+    // Note: Some W8V files use "IFF" instead of "RIFF"
     std::vector<char> searchBuffer(1024);
     std::streampos startPos = file.tellg();
     file.read(searchBuffer.data(), searchBuffer.size());
     std::streamsize bytesRead = file.gcount();
     
-    // Look for "RIFF" signature
-    std::streampos riffOffset = -1;
-    for(std::streamsize i = 0; i < bytesRead - 4; i++)
+    // Look for "RIFF" or "IFF" signature followed by "WAVE"
+    std::streampos wavOffset = -1;
+    bool needsRiffPrefix = false;
+    
+    for(std::streamsize i = 0; i < bytesRead - 8; i++)
     {
+      // Check for standard RIFF header
       if(std::memcmp(&searchBuffer[i], "RIFF", 4) == 0)
       {
-        riffOffset = startPos + i;
+        wavOffset = startPos + i;
+        needsRiffPrefix = false;
         break;
+      }
+      // Check for IFF header (W8V variant) - needs 'R' prefix to make it RIFF
+      else if(std::memcmp(&searchBuffer[i], "IFF", 3) == 0)
+      {
+        // Verify it's followed by size + "WAVE"
+        if(i + 11 < bytesRead && std::memcmp(&searchBuffer[i + 7], "WAVE", 4) == 0)
+        {
+          wavOffset = startPos + i;
+          needsRiffPrefix = true;
+          break;
+        }
       }
     }
     
-    if(riffOffset == -1)
+    if(wavOffset == -1)
     {
-      outError = "Could not find RIFF header in W8V file (corrupt or unsupported variant)";
+      outError = "Could not find RIFF/IFF header in W8V file (corrupt or unsupported variant)";
       return false;
     }
     
-    // Seek to RIFF header
-    file.seekg(riffOffset);
+    // Seek to RIFF/IFF header
+    file.seekg(wavOffset);
     
-    // Now we're at a standard WAV file - delegate to WAV loader
-    // We'll read the rest into memory and use the WAV loader
+    // Calculate WAV data size
     file.seekg(0, std::ios::end);
     std::streampos fileEnd = file.tellg();
-    std::streamsize wavSize = fileEnd - riffOffset;
+    std::streamsize wavSize = fileEnd - wavOffset;
     
-    file.seekg(riffOffset);
+    // If we found IFF instead of RIFF, we need to add 'R' prefix
+    if(needsRiffPrefix)
+    {
+      wavSize += 1; // Account for the 'R' we'll add
+    }
+    
+    file.seekg(wavOffset);
     std::vector<char> wavData(wavSize);
-    file.read(wavData.data(), wavSize);
+    
+    if(needsRiffPrefix)
+    {
+      // Add 'R' prefix to make "IFF" into "RIFF"
+      wavData[0] = 'R';
+      file.read(wavData.data() + 1, wavSize - 1);
+    }
+    else
+    {
+      // Standard RIFF - just read it
+      file.read(wavData.data(), wavSize);
+    }
     
     if(!file.good())
     {

@@ -295,6 +295,19 @@ endif()
 
 if(APPLE)
   add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION) # remove once boost is updated
+  target_link_libraries(traintastic-server PRIVATE
+    "-framework CoreAudio"
+    "-framework CoreFoundation"
+    "-framework AudioToolbox"
+  )
+
+  if(BUILD_TESTING)
+    target_link_libraries(traintastic-server-test PRIVATE
+      "-framework CoreAudio"
+      "-framework CoreFoundation"
+      "-framework AudioToolbox"
+    )
+  endif()
 endif()
 
 if(WIN32)

@@ -144,7 +144,7 @@ ThreeDSound::ThreeDSound(World& world, std::string_view _id)
   m_interfaceItems.add(looping);
   
   Attributes::addDisplayName(volume, "Volume");
-  Attributes::addMinMax(volume, 0.0, 1.0);
+  Attributes::addMinMax(volume, 0.0, 2.0);
   Attributes::addStep(volume, 0.1);
   Attributes::addEnabled(volume, true);
   m_interfaceItems.add(volume);

@@ -15,6 +15,7 @@
 #include "formats/audioFormat.hpp"
 #include "formats/wavFormat.hpp"
 #include "formats/mp3Format.hpp"
+#include "formats/oggFormat.hpp"
 #include "../../log/log.hpp"
 #include <fstream>
 #include <cstring>
@@ -174,8 +175,8 @@ static bool formatsRegistered = false;
     AudioFormatFactory::instance().registerLoader(
       std::make_unique<MP3FormatLoader>());
     
-    // AudioFormatFactory::instance().registerLoader(
-    //   std::make_unique<OGGFormatLoader>());
+    AudioFormatFactory::instance().registerLoader(
+      std::make_unique<OGGFormatLoader>());
     
     formatsRegistered = true;
   }

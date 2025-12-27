@@ -39,13 +39,28 @@ struct WaveFormatExtensible
 
 bool WAVFormatLoader::canLoad(const std::string& filePath) const
 {
-  if(filePath.length() < 4)
+  // Check file extension first (fast path)
+  if(filePath.length() >= 4)
+  {
+    std::string ext = filePath.substr(filePath.length() - 4);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if(ext == ".wav")
+      return true;
+  }
+  
+  // If no extension, check file header (magic bytes)
+  std::ifstream file(filePath, std::ios::binary);
+  if(!file.is_open())
     return false;
   
-  std::string ext = filePath.substr(filePath.length() - 4);
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  char header[12];
+  file.read(header, 12);
+  if(file.gcount() < 12)
+    return false;
   
-  return ext == ".wav";
+  // Check for "RIFF....WAVE" or "RIFX....WAVE"
+  return (std::memcmp(header, "RIFF", 4) == 0 || std::memcmp(header, "RIFX", 4) == 0) &&
+         std::memcmp(header + 8, "WAVE", 4) == 0;
 }
 
 // Helper: Convert 8-bit unsigned to float

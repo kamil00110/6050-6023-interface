@@ -6,7 +6,8 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow"
-#define STB_VORBIS_HEADER_ONLY
+#pragma GCC diagnostic ignored "-Wunused-function"
+#define STB_VORBIS_NO_PUSHDATA_API
 #include <stb/stb_vorbis.cpp>
 #pragma GCC diagnostic pop
 

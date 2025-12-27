@@ -20,11 +20,21 @@
 #include <nlohmann/json.hpp>
 #include <cmath>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 
 using nlohmann::json;
 
 constexpr double SPEED_OF_SOUND = 343.0; // meters per second
 constexpr double MIN_DISTANCE = 0.01; // minimum distance to avoid division by zero
+
+std::string ThreeDimensionalAudioPlayer::generateInstanceId()
+{
+  uint64_t id = m_nextInstanceId.fetch_add(1);
+  std::ostringstream oss;
+  oss << "sound_instance_" << std::setw(8) << std::setfill('0') << id;
+  return oss.str();
+}
 
 std::vector<SpeakerQuad> ThreeDimensionalAudioPlayer::generateQuads(
   const std::vector<SpeakerPosition>& speakers) const
@@ -71,38 +81,34 @@ std::vector<SpeakerQuad> ThreeDimensionalAudioPlayer::generateQuads(
     const auto& backRow = rows[rowIdx + 1];
     
     // Create overlapping quads along X axis
-    // For each pair of adjacent speakers in front row, find corresponding back speakers
     for(size_t frontIdx = 0; frontIdx < frontRow.size() - 1; frontIdx++)
     {
-      size_t fl = frontRow[frontIdx];      // front-left
-      size_t fr = frontRow[frontIdx + 1];  // front-right
+      size_t fl = frontRow[frontIdx];
+      size_t fr = frontRow[frontIdx + 1];
       
       double frontLeftX = speakers[fl].x;
       double frontRightX = speakers[fr].x;
       double frontY = speakers[fl].y;
       
-      // Find back speakers that overlap this front pair
       for(size_t backIdx = 0; backIdx < backRow.size() - 1; backIdx++)
       {
-        size_t bl = backRow[backIdx];      // back-left
-        size_t br = backRow[backIdx + 1];  // back-right
+        size_t bl = backRow[backIdx];
+        size_t br = backRow[backIdx + 1];
         
         double backLeftX = speakers[bl].x;
         double backRightX = speakers[br].x;
         double backY = speakers[bl].y;
         
-        // Check if there's overlap between front and back pairs
         double overlapLeft = std::max(frontLeftX, backLeftX);
         double overlapRight = std::min(frontRightX, backRightX);
         
         if(overlapRight > overlapLeft)
         {
-          // Create a quad
           SpeakerQuad quad;
-          quad.bottomLeft = fl;   // front-left
-          quad.bottomRight = fr;  // front-right
-          quad.topLeft = bl;      // back-left
-          quad.topRight = br;     // back-right
+          quad.bottomLeft = fl;
+          quad.bottomRight = fr;
+          quad.topLeft = bl;
+          quad.topRight = br;
           
           quad.minX = std::max(frontLeftX, backLeftX);
           quad.maxX = std::min(frontRightX, backRightX);
@@ -125,15 +131,26 @@ ThreeDimensionalAudioPlayer& ThreeDimensionalAudioPlayer::instance()
 }
 
 bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zoneId, 
-                                             double x, double y, 
-                                             const std::string& soundId, 
-                                             double volume)
+                                            double x, double y, 
+                                            const std::string& instanceId,
+                                            const std::string& soundId, 
+                                            double volume)
 {
   try
   {
+    // Check if instance ID is already in use
+    if(m_activeSounds.count(instanceId) > 0)
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("ERROR: Instance ID '") + instanceId + "' is already playing. " +
+        "Use stopSound() first or choose a different instance ID.");
+      return false;
+    }
+    
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Attempting to play sound '") + soundId + "' in zone '" + zoneId + 
-      "' at position (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+      std::string("Attempting to play sound '") + soundId + "' with instance ID '" + 
+      instanceId + "' in zone '" + zoneId + "' at position (" + 
+      std::to_string(x) + ", " + std::to_string(y) + ")");
     
     // Get zone object
     auto zoneObj = std::dynamic_pointer_cast<ThreeDZone>(world.getObjectById(zoneId));
@@ -177,24 +194,6 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     // Calculate speaker outputs
     auto outputs = calculateSpeakerOutputs(speakers, x, y, zoneWidth, zoneHeight, volume);
     
-    // Log calculated outputs
-    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Calculated outputs for ") + std::to_string(outputs.size()) + " speakers:");
-    for(const auto& output : outputs)
-    {
-      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-        std::string("  Device: ") + output.deviceId + ", Channel: " + 
-        std::to_string(output.channel) + ", Volume: " + 
-        std::to_string(output.volume) + ", Delay: " + 
-        std::to_string(output.delay) + "ms");
-    }
-    
-    // Stop existing sound if already playing
-    if(m_activeSounds.count(soundId))
-    {
-      stopSound(soundId);
-    }
-    
     // Get audio file path
     const auto audioDir = world.audioFilesDir();
     const auto audioFilePath = audioDir / soundObj->soundFile.value();
@@ -221,8 +220,8 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
       }
     }
     
-    // Load audio file
-    if(!backend.loadAudioFile(audioFilePath.string(), soundId))
+    // Load audio file with instance ID
+    if(!backend.loadAudioFile(audioFilePath.string(), instanceId))
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Failed to load audio file: ") + audioFilePath.string());
@@ -245,16 +244,17 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     bool looping = soundObj->looping.value();
     double speed = soundObj->speed.value();
     
-    if(!backend.playSound(soundId, streamConfigs, looping, speed))
+    if(!backend.playSound(instanceId, streamConfigs, looping, speed))
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Failed to start playback"));
-      backend.unloadAudioFile(soundId);
+      backend.unloadAudioFile(instanceId);
       return false;
     }
     
     // Create active sound entry
     ActiveSound activeSound;
+    activeSound.instanceId = instanceId;
     activeSound.soundId = soundId;
     activeSound.zoneId = zoneId;
     activeSound.x = x;
@@ -262,14 +262,17 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     activeSound.volume = volume;
     activeSound.looping = looping;
     activeSound.speed = speed;
+    activeSound.speakers = speakers;
     activeSound.speakerOutputs = outputs;
     activeSound.startTime = 0; // TODO: Set to current time in milliseconds
+    activeSound.zoneWidth = zoneWidth;
+    activeSound.zoneHeight = zoneHeight;
     
-    m_activeSounds[soundId] = activeSound;
+    m_activeSounds[instanceId] = activeSound;
     
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Sound '") + soundId + "' started " + 
-      (activeSound.looping ? "(looping)" : "(one-shot)"));
+      std::string("Sound instance '") + instanceId + "' started " + 
+      "(sound: " + soundId + ", " + (activeSound.looping ? "looping)" : "one-shot)"));
     
     return true;
   }
@@ -281,59 +284,240 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
   }
 }
 
-bool ThreeDimensionalAudioPlayer::stopSound(const std::string& soundId)
+bool ThreeDimensionalAudioPlayer::stopSound(const std::string& instanceId)
 {
-  auto it = m_activeSounds.find(soundId);
+  auto it = m_activeSounds.find(instanceId);
   if(it == m_activeSounds.end())
   {
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Sound not playing: ") + soundId);
+      std::string("Sound instance not playing: ") + instanceId);
     return false;
   }
   
   Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-    std::string("Stopping sound: ") + soundId);
+    std::string("Stopping sound instance: ") + instanceId + " (sound: " + it->second.soundId + ")");
   
   // Stop playback through WASAPI backend
-  WASAPIAudioBackend::instance().stopSound(soundId);
+  WASAPIAudioBackend::instance().stopSound(instanceId);
   
   // Unload audio file
-  WASAPIAudioBackend::instance().unloadAudioFile(soundId);
+  WASAPIAudioBackend::instance().unloadAudioFile(instanceId);
   
   m_activeSounds.erase(it);
   return true;
 }
 
+bool ThreeDimensionalAudioPlayer::moveSound(const std::string& instanceId, double newX, double newY)
+{
+  auto it = m_activeSounds.find(instanceId);
+  if(it == m_activeSounds.end())
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Cannot move sound: instance not playing: ") + instanceId);
+    return false;
+  }
+  
+  ActiveSound& activeSound = it->second;
+  
+  // Validate new position is within zone
+  if(newX < 0 || newX > activeSound.zoneWidth || newY < 0 || newY > activeSound.zoneHeight)
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Cannot move sound: new position out of zone bounds"));
+    return false;
+  }
+  
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Moving sound instance '") + instanceId + "' from (" + 
+    std::to_string(activeSound.x) + ", " + std::to_string(activeSound.y) + ") to (" +
+    std::to_string(newX) + ", " + std::to_string(newY) + ")");
+  
+  // Update position
+  activeSound.x = newX;
+  activeSound.y = newY;
+  
+  // Recalculate speaker outputs
+  return recalculateSpeakerOutputs(activeSound);
+}
+
+bool ThreeDimensionalAudioPlayer::updateSoundVolume(const std::string& instanceId, double newVolume)
+{
+  auto it = m_activeSounds.find(instanceId);
+  if(it == m_activeSounds.end())
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Cannot update volume: instance not playing: ") + instanceId);
+    return false;
+  }
+  
+  ActiveSound& activeSound = it->second;
+  
+  // Clamp volume
+  newVolume = std::clamp(newVolume, 0.0, 1.0);
+  
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Updating volume for instance '") + instanceId + "' from " + 
+    std::to_string(activeSound.volume) + " to " + std::to_string(newVolume));
+  
+  // Update volume
+  activeSound.volume = newVolume;
+  
+  // Recalculate speaker outputs
+  return recalculateSpeakerOutputs(activeSound);
+}
+
+bool ThreeDimensionalAudioPlayer::recalculateSpeakerOutputs(ActiveSound& activeSound)
+{
+  // Recalculate speaker outputs with new position/volume
+  auto newOutputs = calculateSpeakerOutputs(
+    activeSound.speakers, 
+    activeSound.x, 
+    activeSound.y, 
+    activeSound.zoneWidth, 
+    activeSound.zoneHeight, 
+    activeSound.volume
+  );
+  
+  // Convert to stream configs
+  std::vector<AudioStreamConfig> streamConfigs;
+  for(const auto& output : newOutputs)
+  {
+    AudioStreamConfig config;
+    config.deviceId = output.deviceId;
+    config.channel = output.channel;
+    config.volume = output.volume;
+    config.delay = output.delay;
+    streamConfigs.push_back(config);
+  }
+  
+  // Update the playback through WASAPI
+  auto& backend = WASAPIAudioBackend::instance();
+  
+  // Update audio streams with new parameters
+  if(!backend.updateSound(activeSound.instanceId, streamConfigs))
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Failed to update sound playback parameters"));
+    return false;
+  }
+  
+  // Update stored outputs
+  activeSound.speakerOutputs = newOutputs;
+  
+  return true;
+}
+
+void ThreeDimensionalAudioPlayer::stopAllInstancesOfSound(const std::string& soundId)
+{
+  std::vector<std::string> instancesToStop;
+  
+  // Find all instances of this sound
+  for(const auto& [instanceId, activeSound] : m_activeSounds)
+  {
+    if(activeSound.soundId == soundId)
+    {
+      instancesToStop.push_back(instanceId);
+    }
+  }
+  
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Stopping ") + std::to_string(instancesToStop.size()) + 
+    " instance(s) of sound: " + soundId);
+  
+  // Stop each instance
+  for(const auto& instanceId : instancesToStop)
+  {
+    stopSound(instanceId);
+  }
+}
+
 void ThreeDimensionalAudioPlayer::stopAllSounds()
 {
   Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-    std::string("Stopping all sounds (") + std::to_string(m_activeSounds.size()) + " active)");
+    std::string("Stopping all sounds (") + std::to_string(m_activeSounds.size()) + " active instances)");
   
   // Stop all sounds through WASAPI backend
   WASAPIAudioBackend::instance().stopAllSounds();
   
   // Unload all audio files
-  for(const auto& [soundId, _] : m_activeSounds)
+  for(const auto& [instanceId, _] : m_activeSounds)
   {
-    WASAPIAudioBackend::instance().unloadAudioFile(soundId);
+    WASAPIAudioBackend::instance().unloadAudioFile(instanceId);
   }
   
   m_activeSounds.clear();
 }
 
-std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSounds() const
+std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSoundInstances() const
 {
-  std::vector<std::string> sounds;
-  for(const auto& [soundId, _] : m_activeSounds)
+  std::vector<std::string> instances;
+  for(const auto& [instanceId, _] : m_activeSounds)
   {
-    sounds.push_back(soundId);
+    instances.push_back(instanceId);
   }
-  return sounds;
+  return instances;
 }
 
-bool ThreeDimensionalAudioPlayer::isSoundPlaying(const std::string& soundId) const
+std::vector<PlayingSoundInfo> ThreeDimensionalAudioPlayer::getAllPlayingSounds() const
 {
-  return m_activeSounds.count(soundId) > 0;
+  std::vector<PlayingSoundInfo> playingSounds;
+  
+  for(const auto& [instanceId, activeSound] : m_activeSounds)
+  {
+    PlayingSoundInfo info;
+    info.instanceId = activeSound.instanceId;
+    info.soundId = activeSound.soundId;
+    info.zoneId = activeSound.zoneId;
+    info.x = activeSound.x;
+    info.y = activeSound.y;
+    info.volume = activeSound.volume;
+    info.looping = activeSound.looping;
+    info.speed = activeSound.speed;
+    info.startTime = activeSound.startTime;
+    
+    playingSounds.push_back(info);
+  }
+  
+  return playingSounds;
+}
+
+bool ThreeDimensionalAudioPlayer::isSoundInstancePlaying(const std::string& instanceId) const
+{
+  return m_activeSounds.count(instanceId) > 0;
+}
+
+int ThreeDimensionalAudioPlayer::countPlayingInstancesOfSound(const std::string& soundId) const
+{
+  int count = 0;
+  for(const auto& [instanceId, activeSound] : m_activeSounds)
+  {
+    if(activeSound.soundId == soundId)
+    {
+      count++;
+    }
+  }
+  return count;
+}
+
+bool ThreeDimensionalAudioPlayer::getSoundInfo(const std::string& instanceId, 
+                                                PlayingSoundInfo& info) const
+{
+  auto it = m_activeSounds.find(instanceId);
+  if(it == m_activeSounds.end())
+    return false;
+  
+  const ActiveSound& activeSound = it->second;
+  info.instanceId = activeSound.instanceId;
+  info.soundId = activeSound.soundId;
+  info.zoneId = activeSound.zoneId;
+  info.x = activeSound.x;
+  info.y = activeSound.y;
+  info.volume = activeSound.volume;
+  info.looping = activeSound.looping;
+  info.speed = activeSound.speed;
+  info.startTime = activeSound.startTime;
+  
+  return true;
 }
 
 std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(
@@ -463,19 +647,15 @@ double ThreeDimensionalAudioPlayer::calculateDistance(double x1, double y1,
 
 double ThreeDimensionalAudioPlayer::calculateDelay(double distance) const
 {
-  // Delay in milliseconds = (distance in meters / speed of sound) * 1000
   return (distance / SPEED_OF_SOUND * 1000);
 }
 
 double ThreeDimensionalAudioPlayer::calculateAttenuation(double distance, 
                                                           double maxDistance) const
 {
-  // Prevent division by zero
   if(distance < MIN_DISTANCE)
     distance = MIN_DISTANCE;
   
-  // Inverse square law: intensity ∝ 1/d²
-  // Normalize by maxDistance to keep values reasonable
   double normalizedDistance = distance / maxDistance;
   double attenuation = 1.0 / (1.0 + normalizedDistance * normalizedDistance * 4.0);
   
@@ -492,7 +672,6 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
   if(speakers.empty())
     return weights;
   
-  // Count active speakers per row
   int frontSpeakerCount = 0;
   int backSpeakerCount = 0;
   
@@ -507,24 +686,19 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
       backSpeakerCount++;
   }
   
-  // If we have a simple 2x2 or 1x2 setup, use the original simple method
   if((frontSpeakerCount <= 2 && backSpeakerCount <= 2) || 
      (frontSpeakerCount == 0 || backSpeakerCount == 0))
   {
-    // Fall back to simple stereo panning
     return calculateSimplePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
   }
   
-  // Generate all possible quads
   auto quads = generateQuads(speakers);
   
   if(quads.empty())
   {
-    // Fall back to simple panning if quad generation fails
     return calculateSimplePanning(speakers, soundX, soundY, zoneWidth, zoneHeight);
   }
   
-  // Find the quad that contains the sound position
   const SpeakerQuad* selectedQuad = nullptr;
   
   for(const auto& quad : quads)
@@ -536,14 +710,12 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculatePanning(
     }
   }
   
-  // If no quad contains the point, find the nearest one
   if(!selectedQuad)
   {
     double minDist = std::numeric_limits<double>::max();
     
     for(const auto& quad : quads)
     {
-      // Distance to quad center
       double centerX = (quad.minX + quad.maxX) / 2.0;
       double centerY = (quad.minY + quad.maxY) / 2.0;
       double dist = std::sqrt(std::pow(soundX - centerX, 2) + std::pow(soundY - centerY, 2));
@@ -571,32 +743,25 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateQuadPanning(
 {
   std::vector<double> weights(speakers.size(), 0.0);
   
-  // Normalize position within quad (0,0) = bottom-left, (1,1) = top-right
   double normX = (soundX - quad.minX) / (quad.maxX - quad.minX);
   double normY = (soundY - quad.minY) / (quad.maxY - quad.minY);
   normX = std::clamp(normX, 0.0, 1.0);
   normY = std::clamp(normY, 0.0, 1.0);
   
-  // Bilinear interpolation with constant-power law
-  // Bottom row (front speakers)
   constexpr double PI = 3.14159265358979323846;
   
-  // X-axis panning for bottom (front) row
   double bottomAngle = normX * PI / 2.0;
   double bottomLeft = std::cos(bottomAngle);
   double bottomRight = std::sin(bottomAngle);
   
-  // X-axis panning for top (back) row
   double topAngle = normX * PI / 2.0;
   double topLeft = std::cos(topAngle);
   double topRight = std::sin(topAngle);
   
-  // Y-axis panning (front/back)
   double yAngle = normY * PI / 2.0;
   double frontWeight = std::cos(yAngle);
   double backWeight = std::sin(yAngle);
   
-  // Combine X and Y panning
   weights[quad.bottomLeft] = bottomLeft * frontWeight;
   weights[quad.bottomRight] = bottomRight * frontWeight;
   weights[quad.topLeft] = topLeft * backWeight;
@@ -604,6 +769,7 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateQuadPanning(
   
   return weights;
 }
+
 std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
   const std::vector<SpeakerPosition>& speakers,
   double soundX, double soundY,
@@ -611,7 +777,6 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
 {
   std::vector<double> weights(speakers.size(), 0.0);
   
-  // Separate speakers into front and rear rows
   std::vector<size_t> frontSpeakers;
   std::vector<size_t> rearSpeakers;
   
@@ -626,23 +791,19 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
       rearSpeakers.push_back(i);
   }
   
-  // Calculate front/rear balance (Y-axis)
-  double yBalance = soundY / zoneHeight; // 0 = front, 1 = rear
+  double yBalance = soundY / zoneHeight;
   constexpr double PI = 3.14159265358979323846;
   double yAngle = yBalance * PI / 2.0;
   double frontWeight = std::cos(yAngle);
   double rearWeight = std::sin(yAngle);
   
-  // Apply Y-axis panning to front speakers
   if(!frontSpeakers.empty())
   {
     if(frontSpeakers.size() == 2)
     {
-      // Stereo pair - use constant-power panning
       size_t leftIdx = frontSpeakers[0];
       size_t rightIdx = frontSpeakers[1];
       
-      // Ensure left is actually left
       if(speakers[leftIdx].x > speakers[rightIdx].x)
         std::swap(leftIdx, rightIdx);
       
@@ -667,12 +828,10 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
     }
     else if(frontSpeakers.size() == 1)
     {
-      // Mono - just use front weight
       weights[frontSpeakers[0]] = frontWeight;
     }
   }
   
-  // Apply Y-axis panning to rear speakers
   if(!rearSpeakers.empty())
   {
     if(rearSpeakers.size() == 2)

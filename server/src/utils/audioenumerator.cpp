@@ -15,8 +15,370 @@
 #include "../log/log.hpp"
 
 #ifdef _WIN32
-  // Keep your existing Windows WASAPI implementation unchanged
-  // [... all your Windows code here ...]
+#include <Windows.h>
+#include <mmdeviceapi.h>
+#include <Audioclient.h>
+#include <functiondiscoverykeys_devpkey.h>
+#include <comdef.h>
+
+// Link required libraries
+#pragma comment(lib, "ole32.lib")
+
+// Helper to convert wide string to UTF-8
+static std::string wideToUtf8(const WCHAR* wstr)
+{
+  if(!wstr)
+    return "";
+  
+  int size = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, nullptr, 0, nullptr, nullptr);
+  if(size <= 0)
+    return "";
+  
+  std::string result(size - 1, '\0');
+  WideCharToMultiByte(CP_UTF8, 0, wstr, -1, &result[0], size, nullptr, nullptr);
+  return result;
+}
+
+// Helper to get channel name from channel mask
+static std::string getChannelName(DWORD channelMask, int channelIndex)
+{
+  // Standard speaker positions
+  static const struct {
+    DWORD mask;
+    const char* name;
+  } channelNames[] = {
+    { SPEAKER_FRONT_LEFT, "Front Left" },
+    { SPEAKER_FRONT_RIGHT, "Front Right" },
+    { SPEAKER_FRONT_CENTER, "Front Center" },
+    { SPEAKER_LOW_FREQUENCY, "LFE/Subwoofer" },
+    { SPEAKER_BACK_LEFT, "Back Left" },
+    { SPEAKER_BACK_RIGHT, "Back Right" },
+    { SPEAKER_FRONT_LEFT_OF_CENTER, "Front Left of Center" },
+    { SPEAKER_FRONT_RIGHT_OF_CENTER, "Front Right of Center" },
+    { SPEAKER_BACK_CENTER, "Back Center" },
+    { SPEAKER_SIDE_LEFT, "Side Left" },
+    { SPEAKER_SIDE_RIGHT, "Side Right" },
+    { SPEAKER_TOP_CENTER, "Top Center" },
+    { SPEAKER_TOP_FRONT_LEFT, "Top Front Left" },
+    { SPEAKER_TOP_FRONT_CENTER, "Top Front Center" },
+    { SPEAKER_TOP_FRONT_RIGHT, "Top Front Right" },
+    { SPEAKER_TOP_BACK_LEFT, "Top Back Left" },
+    { SPEAKER_TOP_BACK_CENTER, "Top Back Center" },
+    { SPEAKER_TOP_BACK_RIGHT, "Top Back Right" }
+  };
+  
+  // Find which channel this is based on the mask
+  int currentChannel = 0;
+  for(const auto& ch : channelNames)
+  {
+    if(channelMask & ch.mask)
+    {
+      if(currentChannel == channelIndex)
+        return ch.name;
+      currentChannel++;
+    }
+  }
+  
+  // Fallback if not found
+  return "Channel " + std::to_string(channelIndex + 1);
+}
+
+// RAII wrapper for COM objects
+template<typename T>
+class ComPtr
+{
+public:
+  ComPtr() : ptr(nullptr) {}
+  ~ComPtr() { if(ptr) ptr->Release(); }
+  
+  T** operator&() { return &ptr; }
+  T* operator->() { return ptr; }
+  T* get() { return ptr; }
+  
+  ComPtr(const ComPtr&) = delete;
+  ComPtr& operator=(const ComPtr&) = delete;
+  
+private:
+  T* ptr;
+};
+
+// Helper to initialize COM (returns true if this call initialized it)
+static bool initializeCOM()
+{
+  HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if(SUCCEEDED(hr))
+    return true;
+  if(hr == RPC_E_CHANGED_MODE)
+    return false; // Already initialized
+  return false;
+}
+
+std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
+{
+  std::vector<AudioDeviceInfo> devices;
+  
+  bool comInitialized = initializeCOM();
+  
+  try
+  {
+    // Create device enumerator
+    ComPtr<IMMDeviceEnumerator> deviceEnumerator;
+    HRESULT hr = CoCreateInstance(
+      __uuidof(MMDeviceEnumerator),
+      nullptr,
+      CLSCTX_ALL,
+      __uuidof(IMMDeviceEnumerator),
+      (void**)&deviceEnumerator);
+    
+    if(FAILED(hr))
+      throw std::runtime_error("Failed to create device enumerator");
+    
+    // Get default device
+    ComPtr<IMMDevice> defaultDevice;
+    std::string defaultDeviceId;
+    hr = deviceEnumerator->GetDefaultAudioEndpoint(eRender, eConsole, &defaultDevice);
+    if(SUCCEEDED(hr))
+    {
+      LPWSTR pwszID = nullptr;
+      defaultDevice->GetId(&pwszID);
+      if(pwszID)
+      {
+        defaultDeviceId = wideToUtf8(pwszID);
+        CoTaskMemFree(pwszID);
+      }
+    }
+    
+    // Enumerate all output devices
+    ComPtr<IMMDeviceCollection> deviceCollection;
+    hr = deviceEnumerator->EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE, &deviceCollection);
+    if(FAILED(hr))
+      throw std::runtime_error("Failed to enumerate audio endpoints");
+    
+    UINT deviceCount = 0;
+    hr = deviceCollection->GetCount(&deviceCount);
+    if(FAILED(hr))
+      throw std::runtime_error("Failed to get device count");
+    
+    // Iterate through each device
+    for(UINT i = 0; i < deviceCount; i++)
+    {
+      ComPtr<IMMDevice> device;
+      hr = deviceCollection->Item(i, &device);
+      if(FAILED(hr))
+        continue;
+      
+      AudioDeviceInfo info;
+      
+      // Get device ID
+      LPWSTR pwszID = nullptr;
+      device->GetId(&pwszID);
+      if(pwszID)
+      {
+        info.deviceId = wideToUtf8(pwszID);
+        info.isDefault = (info.deviceId == defaultDeviceId);
+        CoTaskMemFree(pwszID);
+      }
+      
+      // Get device friendly name
+      ComPtr<IPropertyStore> propertyStore;
+      hr = device->OpenPropertyStore(STGM_READ, &propertyStore);
+      if(SUCCEEDED(hr))
+      {
+        PROPVARIANT varName;
+        PropVariantInit(&varName);
+        
+        hr = propertyStore->GetValue(PKEY_Device_FriendlyName, &varName);
+        if(SUCCEEDED(hr) && varName.vt == VT_LPWSTR)
+        {
+          info.deviceName = wideToUtf8(varName.pwszVal);
+        }
+        PropVariantClear(&varName);
+      }
+      
+      // Get audio client to query format
+      ComPtr<IAudioClient> audioClient;
+      hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, (void**)&audioClient);
+      if(SUCCEEDED(hr))
+      {
+        // Get mix format (this is what the device is currently configured for)
+        WAVEFORMATEX* mixFormat = nullptr;
+        hr = audioClient->GetMixFormat(&mixFormat);
+        if(SUCCEEDED(hr) && mixFormat)
+        {
+          info.channelCount = mixFormat->nChannels;
+          
+          // Check if it's WAVEFORMATEXTENSIBLE (has channel mask)
+          DWORD channelMask = 0;
+          if(mixFormat->wFormatTag == WAVE_FORMAT_EXTENSIBLE)
+          {
+            WAVEFORMATEXTENSIBLE* extFormat = (WAVEFORMATEXTENSIBLE*)mixFormat;
+            channelMask = extFormat->dwChannelMask;
+          }
+          else
+          {
+            // Default channel masks for common configurations
+            if(mixFormat->nChannels == 1)
+              channelMask = SPEAKER_FRONT_CENTER;
+            else if(mixFormat->nChannels == 2)
+              channelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+            else if(mixFormat->nChannels == 6)
+              channelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | 
+                           SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY |
+                           SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT;
+            else if(mixFormat->nChannels == 8)
+              channelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT |
+                           SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY |
+                           SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT |
+                           SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT;
+          }
+          
+          // Generate channel info
+          for(WORD ch = 0; ch < mixFormat->nChannels; ch++)
+          {
+            AudioChannelInfo channelInfo;
+            channelInfo.channelIndex = ch;
+            channelInfo.channelName = getChannelName(channelMask, ch);
+            info.channels.push_back(channelInfo);
+          }
+          
+          CoTaskMemFree(mixFormat);
+        }
+      }
+      
+      devices.push_back(info);
+    }
+  }
+  catch(const std::exception& e)
+  {
+    // Log error but return whatever we collected
+    Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+      std::string("Audio enumeration error: ") + e.what());
+  }
+  
+  if(comInitialized)
+    CoUninitialize();
+  
+  return devices;
+}
+
+void AudioEnumerator::logDevices()
+{
+  auto devices = enumerateDevices();
+  
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("=== Windows Audio Devices (WASAPI) ==="));
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("Found ") + std::to_string(devices.size()) + " audio output device(s)");
+  
+  for(size_t i = 0; i < devices.size(); i++)
+  {
+    const auto& device = devices[i];
+    
+    std::string deviceHeader = "\n--- Device " + std::to_string(i + 1) + " ---";
+    if(device.isDefault)
+      deviceHeader += " [DEFAULT]";
+    deviceHeader += "\nName: " + device.deviceName;
+    deviceHeader += "\nID: " + device.deviceId;
+    deviceHeader += "\nChannels: " + std::to_string(device.channelCount);
+    
+    Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, deviceHeader);
+    
+    // Log each channel
+    for(const auto& channel : device.channels)
+    {
+      Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+        std::string("  Channel ") + std::to_string(channel.channelIndex) + ": " + channel.channelName);
+    }
+  }
+  
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("=== End Audio Device List ==="));
+}
+
+std::string AudioEnumerator::getSpeakerName(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.deviceName;
+  }
+  
+  return "Sound controller missing";
+}
+
+std::vector<std::string> AudioEnumerator::listSpeakerIds()
+{
+  std::vector<std::string> ids;
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    ids.push_back(device.deviceId);
+  }
+  
+  return ids;
+}
+
+uint32_t AudioEnumerator::getSpeakerChannels(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.channelCount;
+  }
+  
+  return 0;
+}
+
+std::vector<AudioChannelInfo> AudioEnumerator::getSpeakerChannelInfo(const std::string& deviceId)
+{
+  auto devices = enumerateDevices();
+  
+  for(const auto& device : devices)
+  {
+    if(device.deviceId == deviceId)
+      return device.channels;
+  }
+  
+  return {};
+}
+
+#else // Not Windows
+
+std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
+{
+  return {}; // Empty list on non-Windows platforms
+}
+
+void AudioEnumerator::logDevices()
+{
+  Log::log(std::string("AudioEnumerator"), LogMessage::I1006_X, 
+    std::string("Audio enumeration not implemented for this platform"));
+}
+
+std::string AudioEnumerator::getSpeakerName(const std::string& /*deviceId*/)
+{
+  return "Sound controller missing";
+}
+
+std::vector<std::string> AudioEnumerator::listSpeakerIds()
+{
+  return {};
+}
+
+uint32_t AudioEnumerator::getSpeakerChannels(const std::string& /*deviceId*/)
+{
+  return 0;
+}
+
+std::vector<AudioChannelInfo> AudioEnumerator::getSpeakerChannelInfo(const std::string& /*deviceId*/)
+{
+  return {};
+}
   
 #elif defined(__APPLE__)
   // macOS CoreAudio enumeration

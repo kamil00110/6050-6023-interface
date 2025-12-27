@@ -11,12 +11,6 @@
  * of the License, or (at your option) any later version.
  */
 
-/**
- * server/src/utils/audioenumerator.cpp
- *
- * Native enumeration for stable IDs, RtAudio for playback
- */
-
 #include "audioenumerator.hpp"
 #include "../log/log.hpp"
 

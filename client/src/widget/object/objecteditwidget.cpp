@@ -92,7 +92,7 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
         lineEdit,
         QObject::tr("Select Audio File"),
         startPath,
-        QObject::tr("Audio Files (*.wav *.mp3 *.ogg *.flac *.aac *.m4a);;All Files (*)"));
+        QObject::tr("Audio Files (*.wav *.mp3 *.ogg *.flac *.w8v);;All Files (*)"));
       
       if(!filename.isEmpty())
       {

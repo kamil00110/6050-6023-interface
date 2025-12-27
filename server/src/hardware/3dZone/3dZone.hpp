@@ -34,8 +34,7 @@ class ThreeDZone : public IdObject
     
     Method<void()> refreshAudioDevicesList;
     Method<void(std::string)> testSoundAtPosition;
-    Method<void(double, double, std::string, std::string)> playSoundAtPosition; // x, y, instanceId, soundId
-    Method<void(std::string, double, double)> moveSoundToPosition; // instanceId, newX, newY
+    Method<void(double, double, std::string, std::string)> playSoundAtPosition; // x, y, instanceId, soundId (plays or moves)
     Method<void(std::string, double)> updateSoundVolume; // instanceId, newVolume
     Method<void(std::string)> stopSoundInstance; // instanceId
     Method<std::string()> getPlayingSounds; // Returns JSON list of playing sounds

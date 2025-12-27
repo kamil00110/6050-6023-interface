@@ -17,7 +17,7 @@ class ThreeDZone : public IdObject
   
   private:
     void updateEnabled();
-    void refreshAudioDevices();  // Helper function
+    void refreshAudioDevices();
     
   protected:
     void addToWorld() override;
@@ -30,14 +30,17 @@ class ThreeDZone : public IdObject
     Property<double> height;
     Property<SpeakerSetup> speakerSetup;
     Property<std::string> speakersData;
-    Property<std::string> audioDevicesJson;  // Cached audio devices as JSON
+    Property<std::string> audioDevicesJson;
     
-    Method<void()> refreshAudioDevicesList;  // Method to refresh the list
-    Method<void(std::string)> testSoundAtPosition;  // Change to accept single string
-    Method<void(double, double, std::string)> playSoundAtPosition;  // x, y, soundId
+    Method<void()> refreshAudioDevicesList;
+    Method<void(std::string)> testSoundAtPosition;
+    Method<void(double, double, std::string, std::string)> playSoundAtPosition; // x, y, instanceId, soundId
+    Method<void(std::string, double, double)> moveSoundToPosition; // instanceId, newX, newY
+    Method<void(std::string, double)> updateSoundVolume; // instanceId, newVolume
+    Method<void(std::string)> stopSoundInstance; // instanceId
+    Method<std::string()> getPlayingSounds; // Returns JSON list of playing sounds
    
-
     ThreeDZone(World& world, std::string_view _id);
-};  // ADD SEMICOLON HERE
+};
 
 #endif

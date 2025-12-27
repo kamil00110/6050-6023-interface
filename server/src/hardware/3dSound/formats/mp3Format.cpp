@@ -16,13 +16,35 @@
 
 bool MP3FormatLoader::canLoad(const std::string& filePath) const
 {
-  if(filePath.length() < 4)
+  // Check file extension first (fast path)
+  if(filePath.length() >= 4)
+  {
+    std::string ext = filePath.substr(filePath.length() - 4);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if(ext == ".mp3")
+      return true;
+  }
+  
+  // If no extension, check file header (magic bytes)
+  std::ifstream file(filePath, std::ios::binary);
+  if(!file.is_open())
     return false;
   
-  std::string ext = filePath.substr(filePath.length() - 4);
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  char header[3];
+  file.read(header, 3);
+  if(file.gcount() < 3)
+    return false;
   
-  return ext == ".mp3";
+  // Check for ID3v2 tag ("ID3") or MP3 frame sync (0xFF 0xFB or 0xFF 0xFA)
+  if(std::memcmp(header, "ID3", 3) == 0)
+    return true;
+  
+  // Check for MP3 frame sync bytes
+  if(static_cast<uint8_t>(header[0]) == 0xFF && 
+     (static_cast<uint8_t>(header[1]) & 0xE0) == 0xE0)
+    return true;
+  
+  return false;
 }
 
 bool MP3FormatLoader::load(const std::string& filePath, AudioFileData& outData,

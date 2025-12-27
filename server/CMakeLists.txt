@@ -264,6 +264,15 @@ endif()
 
 if(LINUX)
   find_package(PkgConfig REQUIRED)
+  
+  pkg_check_modules(ALSA REQUIRED IMPORTED_TARGET alsa)
+
+  target_link_libraries(traintastic-server PRIVATE PkgConfig::ALSA)
+
+  if(BUILD_TESTING)
+    target_link_libraries(traintastic-server-test PRIVATE PkgConfig::ALSA)
+  endif()
+
 
   # libsystemd:
   pkg_check_modules(LIBSYSTEMD IMPORTED_TARGET libsystemd)

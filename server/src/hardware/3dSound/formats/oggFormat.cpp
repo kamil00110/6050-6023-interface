@@ -7,7 +7,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wshadow"
 #define STB_VORBIS_HEADER_ONLY
-#include <stb_vorbis.cpp>
+#include <stb/stb_vorbis.cpp>
 #pragma GCC diagnostic pop
 
 bool OGGFormatLoader::canLoad(const std::string& filePath) const

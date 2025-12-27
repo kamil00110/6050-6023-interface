@@ -13,13 +13,27 @@
 
 bool OGGFormatLoader::canLoad(const std::string& filePath) const
 {
-  if(filePath.length() < 4)
+  // Check file extension first (fast path)
+  if(filePath.length() >= 4)
+  {
+    std::string ext = filePath.substr(filePath.length() - 4);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if(ext == ".ogg")
+      return true;
+  }
+  
+  // If no extension, check file header (magic bytes)
+  std::ifstream file(filePath, std::ios::binary);
+  if(!file.is_open())
     return false;
   
-  std::string ext = filePath.substr(filePath.length() - 4);
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  char header[4];
+  file.read(header, 4);
+  if(file.gcount() < 4)
+    return false;
   
-  return ext == ".ogg";
+  // Check for "OggS" signature
+  return std::memcmp(header, "OggS", 4) == 0;
 }
 
 bool OGGFormatLoader::load(const std::string& filePath, AudioFileData& outData,

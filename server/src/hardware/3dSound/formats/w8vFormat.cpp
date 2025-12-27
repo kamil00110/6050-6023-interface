@@ -11,13 +11,27 @@ static const size_t W8V_SIGNATURE_LENGTH = 23; // Without null terminator
 
 bool W8VFormatLoader::canLoad(const std::string& filePath) const
 {
-  if(filePath.length() < 4)
+  // Check file extension first (fast path)
+  if(filePath.length() >= 4)
+  {
+    std::string ext = filePath.substr(filePath.length() - 4);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if(ext == ".w8v")
+      return true;
+  }
+  
+  // If no extension, check file header (magic bytes)
+  std::ifstream file(filePath, std::ios::binary);
+  if(!file.is_open())
     return false;
   
-  std::string ext = filePath.substr(filePath.length() - 4);
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  char signature[W8V_SIGNATURE_LENGTH];
+  file.read(signature, W8V_SIGNATURE_LENGTH);
+  if(file.gcount() < static_cast<std::streamsize>(W8V_SIGNATURE_LENGTH))
+    return false;
   
-  return ext == ".w8v";
+  // Check for "WinDigital 8 Sound File" signature
+  return std::memcmp(signature, W8V_SIGNATURE, W8V_SIGNATURE_LENGTH) == 0;
 }
 
 bool W8VFormatLoader::load(const std::string& filePath, AudioFileData& outData,

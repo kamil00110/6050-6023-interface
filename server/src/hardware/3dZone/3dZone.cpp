@@ -229,50 +229,51 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       [this](double x, double y, const std::string& instanceId, const std::string& soundId)
       {
         World& w = getWorld(*this);
+        auto& player = ThreeDimensionalAudioPlayer::instance();
         
-        bool success = ThreeDimensionalAudioPlayer::instance().playSound(
-          w,
-          id.value(),
-          x,
-          y,
-          instanceId,
-          soundId,
-          1.0
-        );
-        
-        if(success)
+        // Check if this instance is already playing
+        if(player.isSoundInstancePlaying(instanceId))
         {
-          Log::log(*this, LogMessage::I1006_X,
-            std::string("Started sound '") + soundId + "' with instance ID '" + 
-            instanceId + "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+          // Sound is already playing - just move it to new position
+          bool success = player.moveSound(instanceId, x, y);
+          
+          if(success)
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Moved existing sound instance '") + instanceId + 
+              "' to position (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+          }
+          else
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Failed to move sound '") + instanceId + 
+              "' - position may be out of bounds");
+          }
         }
         else
         {
-          Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to play sound '") + soundId + 
-            "' - instance ID may already be in use or sound not found");
-        }
-      }}
-  , moveSoundToPosition{*this, "move_sound_to_position", MethodFlags::NoScript,
-      [this](const std::string& instanceId, double newX, double newY)
-      {
-        bool success = ThreeDimensionalAudioPlayer::instance().moveSound(
-          instanceId,
-          newX,
-          newY
-        );
-        
-        if(success)
-        {
-          Log::log(*this, LogMessage::I1006_X,
-            std::string("Moved sound instance '") + instanceId + 
-            "' to position (" + std::to_string(newX) + ", " + std::to_string(newY) + ")");
-        }
-        else
-        {
-          Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to move sound '") + instanceId + 
-            "' - instance not playing or position out of bounds");
+          // Sound not playing - start it at this position
+          bool success = player.playSound(
+            w,
+            id.value(),
+            x,
+            y,
+            instanceId,
+            soundId,
+            1.0
+          );
+          
+          if(success)
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Started new sound '") + soundId + "' with instance ID '" + 
+              instanceId + "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+          }
+          else
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Failed to start sound '") + soundId + "' - sound not found"));
+          }
         }
       }}
   , updateSoundVolume{*this, "update_sound_volume", MethodFlags::NoScript,
@@ -382,10 +383,6 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addDisplayName(playSoundAtPosition, "Play Sound At Position");
   Attributes::addVisible(playSoundAtPosition, false);
   m_interfaceItems.add(playSoundAtPosition);
-  
-  Attributes::addDisplayName(moveSoundToPosition, "Move Sound To Position");
-  Attributes::addVisible(moveSoundToPosition, false);
-  m_interfaceItems.add(moveSoundToPosition);
   
   Attributes::addDisplayName(updateSoundVolume, "Update Sound Volume");
   Attributes::addVisible(updateSoundVolume, false);

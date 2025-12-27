@@ -19,7 +19,7 @@
 #include "../../network/method.hpp"
 #include "../../network/error.hpp"
 
-constexpr double MIN_DISPLAY_SIZE = 400.0;
+//constexpr double MIN_DISPLAY_SIZE = 400.0;
 constexpr double MARGIN = 40.0;
 constexpr double SPEAKER_RADIUS = 10.0;
 

@@ -156,8 +156,9 @@ Traintastic::Traintastic(const std::filesystem::path& dataDir) :
   m_signalSet.async_wait(
     [this](const boost::system::error_code& ec, int sig)
     {
-      signalHandler(ec, sig);
+      this->signalHandler(ec, sig);
     }
+
   );
 
   m_interfaceItems.add(about);

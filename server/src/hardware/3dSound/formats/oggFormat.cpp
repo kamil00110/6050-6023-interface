@@ -8,7 +8,7 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #define STB_VORBIS_NO_PUSHDATA_API
-#include <stb/stb_vorbis.cpp>
+#include "../../../thirdparty/stb/stb_vorbis.c"
 #pragma GCC diagnostic pop
 
 bool OGGFormatLoader::canLoad(const std::string& filePath) const

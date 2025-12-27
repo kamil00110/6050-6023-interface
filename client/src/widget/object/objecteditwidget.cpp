@@ -74,14 +74,6 @@ static QWidget* createFilePickerWidget(Property& property, QWidget* parent)
   browseButton->setMaximumWidth(30);
   browseButton->setToolTip(QObject::tr("Browse and upload audio file"));
   
-  // Update button state when property changes
-  QObject::connect(&property, &Property::valueChanged, browseButton,
-    [browseButton, &property]()
-    {
-      // Optionally disable browse if file is already set
-      // browseButton->setEnabled(property.toString().isEmpty());
-    });
-  
   // Browse and upload functionality
   QObject::connect(browseButton, &QPushButton::clicked, container,
     [&property, lineEdit, parent]()

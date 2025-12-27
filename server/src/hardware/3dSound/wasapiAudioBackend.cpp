@@ -769,11 +769,6 @@ void WASAPIAudioBackend::stopAllSounds()
 
 #ifdef _WIN32
 
-bool WASAPIAudioBackend::isSoundPlaying(const std::string& /*soundId*/) const
-{
-  return false;
-}
-
 bool WASAPIAudioBackend::updateSound(const std::string& instanceId,
                                       const std::vector<AudioStreamConfig>& newOutputs)
 {

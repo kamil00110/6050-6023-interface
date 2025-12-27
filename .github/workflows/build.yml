@@ -118,14 +118,14 @@ jobs:
         cache: true
         version: 5.15
 
-  #   # macOS only:
-  #   - name: Install Qt 6.5
-  #     if: startswith(matrix.config.os, 'macos')
-  #     uses: jurplel/install-qt-action@v4
-  #     with:
-   #      cache: true
-   #      modules: qtwebsockets
-   #      version: 6.5.*
+    # macOS only:
+    - name: Install Qt 6.5
+      if: startswith(matrix.config.os, 'macos')
+      uses: jurplel/install-qt-action@v4
+      with:
+        cache: true
+        modules: qtwebsockets
+        version: 6.5.*
 
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')

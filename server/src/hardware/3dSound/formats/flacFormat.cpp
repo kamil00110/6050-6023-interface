@@ -13,13 +13,27 @@
 
 bool FLACFormatLoader::canLoad(const std::string& filePath) const
 {
-  if(filePath.length() < 5)
+  // Check file extension first (fast path)
+  if(filePath.length() >= 5)
+  {
+    std::string ext = filePath.substr(filePath.length() - 5);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    if(ext == ".flac")
+      return true;
+  }
+  
+  // If no extension, check file header (magic bytes)
+  std::ifstream file(filePath, std::ios::binary);
+  if(!file.is_open())
     return false;
   
-  std::string ext = filePath.substr(filePath.length() - 5);
-  std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+  char header[4];
+  file.read(header, 4);
+  if(file.gcount() < 4)
+    return false;
   
-  return ext == ".flac";
+  // Check for "fLaC" signature
+  return std::memcmp(header, "fLaC", 4) == 0;
 }
 
 bool FLACFormatLoader::load(const std::string& filePath, AudioFileData& outData,

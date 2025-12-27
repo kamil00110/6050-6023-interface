@@ -73,7 +73,7 @@ bool W8VFormatLoader::load(const std::string& filePath, AudioFileData& outData,
       // Check for standard RIFF header
       if(std::memcmp(&searchBuffer[i], "RIFF", 4) == 0)
       {
-        wavOffset = startPos + i;
+        wavOffset = startPos + static_cast<std::streamoff>(i);
         needsRiffPrefix = false;
         break;
       }

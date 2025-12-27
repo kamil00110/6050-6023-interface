@@ -272,7 +272,8 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
           else
           {
             Log::log(*this, LogMessage::I1006_X,
-              std::string("Failed to start sound '") + soundId + "' - sound not found"));
+              std::string("Failed to start sound '") + soundId + "' - sound not found");
+
           }
         }
       }}

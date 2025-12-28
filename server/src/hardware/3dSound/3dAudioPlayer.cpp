@@ -124,16 +124,34 @@ ThreeDimensionalAudioPlayer& ThreeDimensionalAudioPlayer::instance()
   return instance;
 }
 
-bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zoneId, 
-                                             double x, double y, 
-                                             const std::string& soundId, 
-                                             double volume)
+std::string ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zoneId, 
+                                                    double x, double y, 
+                                                    const std::string& soundId,
+                                                    const std::string& playbackId,
+                                                    double volume)
 {
   try
   {
+    // Validate playbackId
+    if(playbackId.empty())
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("Error: playbackId cannot be empty"));
+      return "";
+    }
+    
+    // Check if playbackId is already in use
+    if(m_activeSounds.count(playbackId))
+    {
+      Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+        std::string("PlaybackId '") + playbackId + "' already in use, stopping existing");
+      stopSound(playbackId);
+    }
+    
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Attempting to play sound '") + soundId + "' in zone '" + zoneId + 
-      "' at position (" + std::to_string(x) + ", " + std::to_string(y) + ")");
+      std::string("Attempting to play sound '") + soundId + "' with playbackId '" + 
+      playbackId + "' in zone '" + zoneId + "' at position (" + 
+      std::to_string(x) + ", " + std::to_string(y) + ")");
     
     // Get zone object
     auto zoneObj = std::dynamic_pointer_cast<ThreeDZone>(world.getObjectById(zoneId));
@@ -141,7 +159,7 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Zone not found: ") + zoneId);
-      return false;
+      return "";
     }
     
     // Get sound object
@@ -150,7 +168,7 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Sound not found: ") + soundId);
-      return false;
+      return "";
     }
     
     // Get zone dimensions
@@ -162,7 +180,7 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Position out of zone bounds"));
-      return false;
+      return "";
     }
     
     // Parse speaker positions from zone
@@ -171,7 +189,7 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("No speakers configured in zone"));
-      return false;
+      return "";
     }
     
     // Calculate speaker outputs
@@ -189,12 +207,6 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
         std::to_string(output.delay) + "ms");
     }
     
-    // Stop existing sound if already playing
-    if(m_activeSounds.count(soundId))
-    {
-      stopSound(soundId);
-    }
-    
     // Get audio file path
     const auto audioDir = world.audioFilesDir();
     const auto audioFilePath = audioDir / soundObj->soundFile.value();
@@ -204,7 +216,7 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Audio file not found or not set for sound: ") + soundId);
-      return false;
+      return "";
     }
     
     // Initialize WASAPI backend if needed
@@ -217,16 +229,16 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
       {
         Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
           std::string("Failed to initialize audio backend"));
-        return false;
+        return "";
       }
     }
     
-    // Load audio file
+    // Load audio file (use soundId as resource identifier)
     if(!backend.loadAudioFile(audioFilePath.string(), soundId))
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Failed to load audio file: ") + audioFilePath.string());
-      return false;
+      return "";
     }
     
     // Convert speaker outputs to audio stream configs
@@ -241,20 +253,21 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
       streamConfigs.push_back(config);
     }
     
-    // Start playback through WASAPI
+    // Start playback through WASAPI using playbackId
     bool looping = soundObj->looping.value();
     double speed = soundObj->speed.value();
     
-    if(!backend.playSound(soundId, streamConfigs, looping, speed))
+    if(!backend.playSound(soundId, playbackId, streamConfigs, looping, speed))
     {
       Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
         std::string("Failed to start playback"));
       backend.unloadAudioFile(soundId);
-      return false;
+      return "";
     }
     
     // Create active sound entry
     ActiveSound activeSound;
+    activeSound.playbackId = playbackId;
     activeSound.soundId = soundId;
     activeSound.zoneId = zoneId;
     activeSound.x = x;
@@ -265,60 +278,66 @@ bool ThreeDimensionalAudioPlayer::playSound(World& world, const std::string& zon
     activeSound.speakerOutputs = outputs;
     activeSound.startTime = 0; // TODO: Set to current time in milliseconds
     
-    m_activeSounds[soundId] = activeSound;
+    m_activeSounds[playbackId] = activeSound;
     
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Sound '") + soundId + "' started " + 
+      std::string("Sound '") + soundId + "' started with playbackId '" + playbackId + "' " + 
       (activeSound.looping ? "(looping)" : "(one-shot)"));
     
-    return true;
+    return playbackId;
   }
   catch(const std::exception& e)
   {
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
       std::string("Error playing sound: ") + e.what());
-    return false;
+    return "";
   }
 }
 
-bool ThreeDimensionalAudioPlayer::stopSound(const std::string& soundId)
+bool ThreeDimensionalAudioPlayer::stopSound(const std::string& playbackId)
 {
-  auto it = m_activeSounds.find(soundId);
+  auto it = m_activeSounds.find(playbackId);
   if(it == m_activeSounds.end())
   {
     Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-      std::string("Sound not playing: ") + soundId);
+      std::string("Playback not active: ") + playbackId);
     return false;
   }
   
+  const std::string& soundId = it->second.soundId;
+  
   Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-    std::string("Stopping sound: ") + soundId);
+    std::string("Stopping playback: ") + playbackId + " (sound: " + soundId + ")");
   
   // Stop playback through WASAPI backend
-  WASAPIAudioBackend::instance().stopSound(soundId);
+  WASAPIAudioBackend::instance().stopSound(playbackId);
   
-  // Unload audio file
-  WASAPIAudioBackend::instance().unloadAudioFile(soundId);
+  // Note: Don't unload audio file here - other instances might be using it
   
   m_activeSounds.erase(it);
   return true;
 }
 
-void ThreeDimensionalAudioPlayer::stopAllSounds()
+void ThreeDimensionalAudioPlayer::stopAllInstancesOfSound(const std::string& soundId)
 {
-  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
-    std::string("Stopping all sounds (") + std::to_string(m_activeSounds.size()) + " active)");
+  std::vector<std::string> toStop;
   
-  // Stop all sounds through WASAPI backend
-  WASAPIAudioBackend::instance().stopAllSounds();
-  
-  // Unload all audio files
-  for(const auto& [soundId, _] : m_activeSounds)
+  for(const auto& [playbackId, activeSound] : m_activeSounds)
   {
-    WASAPIAudioBackend::instance().unloadAudioFile(soundId);
+    if(activeSound.soundId == soundId)
+    {
+      toStop.push_back(playbackId);
+    }
   }
   
-  m_activeSounds.clear();
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Stopping all instances of sound '") + soundId + "' (" + 
+    std::to_string(toStop.size()) + " instances)");
+  
+  for(const auto& playbackId : toStop)
+  {
+    stopSound(playbackId);
+  }
 }
 
 std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSounds() const

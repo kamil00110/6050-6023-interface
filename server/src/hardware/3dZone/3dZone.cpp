@@ -200,12 +200,12 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       // Generate a consistent playback ID for test sounds in this zone
       std::string playbackId = "zone_test_" + id.value();
       
-      // Check if test sound is already playing
+      // Check if test sound is ACTUALLY still playing
       auto& audioPlayer = ThreeDimensionalAudioPlayer::instance();
       
       if(audioPlayer.isSoundPlaying(playbackId))
       {
-        // Update position of existing test sound
+        // Sound is still active - update position of existing test sound
         bool updated = audioPlayer.updateSoundPosition(w, playbackId, x, y);
         
         if(updated)
@@ -216,13 +216,29 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         }
         else
         {
+          // Update failed, sound may have finished - restart it
           Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to update test sound position"));
+            std::string("Test sound finished, starting new playback"));
+          
+          std::string result = audioPlayer.playSound(
+            w,
+            id.value(),
+            x, y,
+            firstSound->id.value(),
+            playbackId,
+            1.0
+          );
+          
+          if(result.empty())
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Failed to restart test sound"));
+          }
         }
       }
       else
       {
-        // Start new test sound
+        // Sound is not playing - start new test sound
         std::string result = audioPlayer.playSound(
           w,
           id.value(),      // zone ID
@@ -259,10 +275,11 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
       
       auto& audioPlayer = ThreeDimensionalAudioPlayer::instance();
       
-      // Check if this sound is already playing
+      // Check if this sound is ACTUALLY still playing
+      // (not just started previously - it may have finished)
       if(audioPlayer.isSoundPlaying(playbackId))
       {
-        // Update the position instead of restarting
+        // Sound is still active - update its position
         bool updated = audioPlayer.updateSoundPosition(w, playbackId, x, y);
         
         if(updated)
@@ -273,13 +290,30 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         }
         else
         {
+          // Update failed, sound may have finished - try starting new playback
           Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to update sound '") + soundId + "' position");
+            std::string("Update failed, restarting sound '") + soundId + "'");
+          
+          std::string result = audioPlayer.playSound(
+            w,
+            id.value(),
+            x,
+            y,
+            soundId,
+            playbackId,      // Use consistent playback ID
+            1.0
+          );
+          
+          if(result.empty())
+          {
+            Log::log(*this, LogMessage::I1006_X,
+              std::string("Failed to restart sound '") + soundId + "'");
+          }
         }
       }
       else
       {
-        // Start new playback
+        // Sound is not playing (either never started or has finished) - start new playback
         std::string result = audioPlayer.playSound(
           w,
           id.value(),
@@ -303,6 +337,7 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         }
       }
     }}
+
 , stopSound{*this, "stop_sound", MethodFlags::NoScript,
     [this](const std::string& soundId)
     {

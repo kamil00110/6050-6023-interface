@@ -465,6 +465,7 @@ bool ThreeDimensionalAudioPlayer::isSoundPlaying(const std::string& playbackId) 
 {
   return m_activeSounds.count(playbackId) > 0;
 }
+
 const ActiveSound* ThreeDimensionalAudioPlayer::getActiveSoundInfo(
   const std::string& playbackId) const
 {
@@ -474,6 +475,12 @@ const ActiveSound* ThreeDimensionalAudioPlayer::getActiveSoundInfo(
     return &it->second;
   }
   return nullptr;
+}
+
+double ThreeDimensionalAudioPlayer::getSoundDuration(const std::string& soundId) const
+{
+  // Query the WASAPI backend for the sound duration
+  return WASAPIAudioBackend::instance().getSoundDuration(soundId);
 }
 
 std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(

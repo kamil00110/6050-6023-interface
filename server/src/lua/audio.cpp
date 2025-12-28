@@ -17,6 +17,7 @@
 #include "push.hpp"
 #include "to.hpp"
 #include "sandbox.hpp"
+#include "script.hpp"
 #include "../hardware/3dSound/3dAudioPlayer.hpp"
 #include "../hardware/3dSound/systemVolumeControl.hpp"
 #include "../hardware/3dZone/3dZone.hpp"

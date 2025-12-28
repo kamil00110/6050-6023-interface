@@ -105,6 +105,9 @@ public:
   // Get information about an active playback
   const ActiveSound* getActiveSoundInfo(const std::string& playbackId) const;
   
+  // Get sound duration (if available)
+  double getSoundDuration(const std::string& soundId) const;
+  
 private:
   ThreeDimensionalAudioPlayer() = default;
   

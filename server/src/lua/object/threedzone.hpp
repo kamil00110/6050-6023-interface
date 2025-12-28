@@ -15,7 +15,7 @@
 #define TRAINTASTIC_SERVER_LUA_OBJECT_THREEDZONE_HPP
 
 #include <lua.hpp>
-#include "interface.hpp"
+#include "object.hpp"
 
 class ThreeDZone;
 

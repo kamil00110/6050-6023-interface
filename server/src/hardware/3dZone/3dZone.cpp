@@ -61,7 +61,7 @@ static std::string updateSpeakerPositions(const std::string& existingSpeakersJso
       speaker = existingSpeakers[id];
       speaker["x"] = x;
       speaker["y"] = y;
-      speaker["label"] = label;
+      speaker["label"] = label; // Update label in case setup changed
     }
     else
     {
@@ -176,175 +176,68 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
         std::string("Test sound at position: x=") + std::to_string(x) + 
         ", y=" + std::to_string(y));
     
-      // Find a sound file to play for testing
-      World& w = getWorld(*this);
-      auto soundsList = w.threeDSounds.value();
-      
-      if(!soundsList || soundsList->empty())
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("No sound files available for testing"));
-        return;
-      }
-      
-      // Use the first available sound file
-      auto firstSound = soundsList->front();
-      if(!firstSound)
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Invalid sound object"));
-        return;
-      }
-      
-      // Generate a unique test instance ID
-      std::string instanceId = "test_sound_" + id.value() + "_" + 
-                               std::to_string(static_cast<int>(x)) + "_" + 
-                               std::to_string(static_cast<int>(y));
-      
-      // Play the sound at the specified position
-      bool success = ThreeDimensionalAudioPlayer::instance().playSound(
-        w,
-        id.value(),
-        x,
-        y,
-        instanceId,
-        firstSound->id.value(),
-        1.0
-      );
-      
-      if(success)
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Playing test sound '") + firstSound->id.value() + 
-          "' with instance ID '" + instanceId + "' at (" + 
-          std::to_string(x) + ", " + std::to_string(y) + ")");
-      }
-      else
-      {
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Failed to play test sound - instance may already be playing"));
-      }
-    }}
-  , playSoundAtPosition{*this, "play_sound_at_position", MethodFlags::NoScript,
-      [this](double x, double y, const std::string& instanceId, const std::string& soundId)
-      {
-        World& w = getWorld(*this);
-        auto& player = ThreeDimensionalAudioPlayer::instance();
         
-        // Check if this instance is already playing
-        if(player.isSoundInstancePlaying(instanceId))
+        // Find a sound file to play for testing
+        World& w = getWorld(*this);  // CHANGED: Renamed from 'world' to 'w' to avoid shadowing
+        auto soundsList = w.threeDSounds.value();
+        
+        if(!soundsList || soundsList->empty())  // NOW WORKS: ThreeDSoundList is fully defined
         {
-          // Sound is already playing - just move it to new position
-          bool success = player.moveSound(instanceId, x, y);
-          
-          if(success)
-          {
-            Log::log(*this, LogMessage::I1006_X,
-              std::string("Moved existing sound instance '") + instanceId + 
-              "' to position (" + std::to_string(x) + ", " + std::to_string(y) + ")");
-          }
-          else
-          {
-            Log::log(*this, LogMessage::I1006_X,
-              std::string("Failed to move sound '") + instanceId + 
-              "' - position may be out of bounds");
-          }
+          Log::log(*this, LogMessage::I1006_X,
+            std::string("No sound files available for testing"));
+          return;
         }
-        else
+        
+        // Use the first available sound file
+        auto firstSound = soundsList->front();  // NOW WORKS
+        if(!firstSound)
         {
-          // Sound not playing - start it at this position
-          bool success = player.playSound(
-            w,
-            id.value(),
-            x,
-            y,
-            instanceId,
-            soundId,
-            1.0
-          );
-          
-          if(success)
-          {
-            Log::log(*this, LogMessage::I1006_X,
-              std::string("Started new sound '") + soundId + "' with instance ID '" + 
-              instanceId + "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
-          }
-          else
-          {
-            Log::log(*this, LogMessage::I1006_X,
-              std::string("Failed to start sound '") + soundId + "' - sound not found");
-
-          }
+          Log::log(*this, LogMessage::I1006_X,
+            std::string("Invalid sound object"));
+          return;
         }
-      }}
-  , updateSoundVolume{*this, "update_sound_volume", MethodFlags::NoScript,
-      [this](const std::string& instanceId, double newVolume)
-      {
-        bool success = ThreeDimensionalAudioPlayer::instance().updateSoundVolume(
-          instanceId,
-          newVolume
+        
+        // Play the sound at the specified position
+        bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+          w,               // CHANGED: Use 'w' instead of 'world'
+          id.value(),      // zone ID
+          x,               // x position in meters
+          y,               // y position in meters
+          firstSound->id.value(),  // sound ID
+          1.0              // volume (100%)
         );
         
         if(success)
         {
           Log::log(*this, LogMessage::I1006_X,
-            std::string("Updated volume for sound instance '") + instanceId + 
-            "' to " + std::to_string(newVolume));
+            std::string("Playing test sound '") + firstSound->id.value() + 
+            "' at (" + std::to_string(x) + ", " + std::to_string(y) + ")");
         }
         else
         {
           Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to update volume for '") + instanceId + 
-            "' - instance not playing");
+            std::string("Failed to play test sound"));
         }
       }}
-  , stopSoundInstance{*this, "stop_sound_instance", MethodFlags::NoScript,
-      [this](const std::string& instanceId)
+  , playSoundAtPosition{*this, "play_sound_at_position", MethodFlags::NoScript,
+      [this](double x, double y, const std::string& soundId)
       {
-        bool success = ThreeDimensionalAudioPlayer::instance().stopSound(instanceId);
+        World& w = getWorld(*this);  // CHANGED: Renamed from 'world' to 'w'
         
-        if(success)
+        bool success = ThreeDimensionalAudioPlayer::instance().playSound(
+          w,
+          id.value(),
+          x,
+          y,
+          soundId,
+          1.0
+        );
+        
+        if(!success)
         {
           Log::log(*this, LogMessage::I1006_X,
-            std::string("Stopped sound instance: ") + instanceId);
+            std::string("Failed to play sound '") + soundId + "'");
         }
-        else
-        {
-          Log::log(*this, LogMessage::I1006_X,
-            std::string("Failed to stop sound '") + instanceId + 
-            "' - instance not playing");
-        }
-      }}
-  , getPlayingSounds{*this, "get_playing_sounds", MethodFlags::NoScript,
-      [this]() -> std::string
-      {
-        auto playingSounds = ThreeDimensionalAudioPlayer::instance().getAllPlayingSounds();
-        
-        json result = json::array();
-        
-        for(const auto& sound : playingSounds)
-        {
-          // Only include sounds from this zone
-          if(sound.zoneId == id.value())
-          {
-            json soundJson;
-            soundJson["instanceId"] = sound.instanceId;
-            soundJson["soundId"] = sound.soundId;
-            soundJson["x"] = sound.x;
-            soundJson["y"] = sound.y;
-            soundJson["volume"] = sound.volume;
-            soundJson["looping"] = sound.looping;
-            soundJson["speed"] = sound.speed;
-            
-            result.push_back(soundJson);
-          }
-        }
-        
-        Log::log(*this, LogMessage::I1006_X,
-          std::string("Found ") + std::to_string(result.size()) + 
-          " playing sounds in zone '" + id.value() + "'");
-        
-        return result.dump();
       }}
 {
   Attributes::addDisplayName(width, "Width (m)");
@@ -385,24 +278,11 @@ ThreeDZone::ThreeDZone(World& world, std::string_view _id)
   Attributes::addVisible(playSoundAtPosition, false);
   m_interfaceItems.add(playSoundAtPosition);
   
-  Attributes::addDisplayName(updateSoundVolume, "Update Sound Volume");
-  Attributes::addVisible(updateSoundVolume, false);
-  m_interfaceItems.add(updateSoundVolume);
-  
-  Attributes::addDisplayName(stopSoundInstance, "Stop Sound Instance");
-  Attributes::addVisible(stopSoundInstance, false);
-  m_interfaceItems.add(stopSoundInstance);
-  
-  Attributes::addDisplayName(getPlayingSounds, "Get Playing Sounds");
-  Attributes::addVisible(getPlayingSounds, false);
-  m_interfaceItems.add(getPlayingSounds);
-  
   speakersData.setValueInternal(updateSpeakerPositions("", speakerSetup.value(), width.value(), height.value()));
   refreshAudioDevices();
   
   updateEnabled();
 }
-
 void ThreeDZone::refreshAudioDevices()
 {
   auto devices = AudioEnumerator::enumerateDevices();

@@ -1,1 +1,150 @@
+{
+  "play_sound_at_position": {
+    "type": "function",
+    "parameters": [
+      { "name": "zone_id" },
+      { "name": "x" },
+      { "name": "y" },
+      { "name": "sound_file_id" },
+      { "name": "playback_id", "optional": true },
+      { "name": "volume", "optional": true }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "update_sound_position": {
+    "type": "function",
+    "parameters": [
+      { "name": "zone_id" },
+      { "name": "playback_id" },
+      { "name": "x" },
+      { "name": "y" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "update_sound_volume": {
+    "type": "function",
+    "parameters": [
+      { "name": "playback_id" },
+      { "name": "volume" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "stop_sound": {
+    "type": "function",
+    "parameters": [
+      { "name": "playback_id" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "stop_all_sounds": {
+    "type": "function",
+    "parameters": [],
+    "return_values": 0,
+    "since": "0.4"
+  },
+
+  "is_sound_playing": {
+    "type": "function",
+    "parameters": [
+      { "name": "playback_id" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "get_active_sounds": {
+    "type": "function",
+    "parameters": [],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "get_sound_info": {
+    "type": "function",
+    "parameters": [
+      { "name": "playback_id" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "get_sound_duration": {
+    "type": "function",
+    "parameters": [
+      { "name": "sound_file_id" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "test_sound_at_position": {
+    "type": "function",
+    "parameters": [
+      { "name": "zone_id" },
+      { "name": "x" },
+      { "name": "y" }
+    ],
+    "return_values": 0,
+    "since": "0.4"
+  },
+
+  "get_system_volume": {
+    "type": "function",
+    "parameters": [],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "set_system_volume": {
+    "type": "function",
+    "parameters": [
+      { "name": "volume" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "get_system_mute": {
+    "type": "function",
+    "parameters": [],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "set_system_mute": {
+    "type": "function",
+    "parameters": [
+      { "name": "muted" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "get_device_volume": {
+    "type": "function",
+    "parameters": [
+      { "name": "device_id", "optional": true }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  },
+
+  "set_device_volume": {
+    "type": "function",
+    "parameters": [
+      { "name": "device_id" },
+      { "name": "volume" }
+    ],
+    "return_values": 1,
+    "since": "0.4"
+  }
+}
 

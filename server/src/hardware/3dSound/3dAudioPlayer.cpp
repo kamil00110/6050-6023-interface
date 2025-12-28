@@ -27,6 +27,7 @@
 #include "../../log/log.hpp"
 #include "../../log/logmessageexception.hpp"
 #include <nlohmann/json.hpp>
+#include <chrono>
 
 using nlohmann::json;
 

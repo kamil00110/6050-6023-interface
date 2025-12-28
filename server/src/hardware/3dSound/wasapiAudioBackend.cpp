@@ -35,6 +35,14 @@
 #include <condition_variable>
 #include <sstream>
 
+// Undefine Windows min/max macros to avoid conflicts with std::min/std::max
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
 struct AudioStream
 {
   IMMDevice* device;
@@ -680,7 +688,8 @@ bool WASAPIAudioBackend::updateSoundStreams(const std::string& playbackId,
   // Note: This is a simplified version - a full implementation would handle
   // adding/removing streams if the output configuration changed significantly
   
-  size_t minSize = std::min(streams.size(), outputs.size());
+  
+  size_t minSize = (std::min)(streams.size(), outputs.size());
   for(size_t i = 0; i < minSize; i++)
   {
     streams[i]->volume = outputs[i].volume;

@@ -26,6 +26,7 @@
 #include "object/interface.hpp"
 #include "object/loconetinterface.hpp"
 #include "object/scriptthrottle.hpp"
+#include "object/threedzone.hpp"
 
 namespace Lua::Object {
 
@@ -38,6 +39,7 @@ void registerTypes(lua_State* L)
   Interface::registerType(L);
   LocoNetInterface::registerType(L);
   ScriptThrottle::registerType(L);
+  ThreeDZone::registerType(L);
 
   // weak table for object userdata:
   lua_newtable(L);

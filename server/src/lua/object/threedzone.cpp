@@ -26,14 +26,6 @@
 #define LUA_OBJECT_PROPERTY(name) \
   if(key == #name)
 
-#define LUA_OBJECT_METHOD(name) \
-  if(key == #name) \
-  { \
-    lua_pushvalue(L, 1); \
-    lua_pushcclosure(L, name, 1); \
-    return 1; \
-  }
-
 namespace Lua::Object {
 
 void ThreeDZone::registerType(lua_State* L)

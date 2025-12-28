@@ -41,7 +41,13 @@ private:
   static int is_sound_playing(lua_State* L);
   static int get_active_sounds(lua_State* L);
   static int get_sound_info(lua_State* L);
+  static int get_sound_duration(lua_State* L);
   static int test_sound_at_position(lua_State* L);
+  
+  // System/Hardware volume control
+  static int set_device_volume(lua_State* L);
+  static int get_device_volume(lua_State* L);
+  static int set_all_devices_volume(lua_State* L);
 };
 
 }

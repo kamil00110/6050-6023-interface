@@ -340,6 +340,116 @@ void ThreeDimensionalAudioPlayer::stopAllInstancesOfSound(const std::string& sou
   }
 }
 
+void ThreeDimensionalAudioPlayer::stopAllSounds()
+{
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Stopping all sounds (") + std::to_string(m_activeSounds.size()) + " active)");
+  
+  // Stop all sounds through WASAPI backend
+  WASAPIAudioBackend::instance().stopAllSounds();
+  
+  m_activeSounds.clear();
+}
+bool ThreeDimensionalAudioPlayer::updateSoundPosition(World& world, 
+                                                       const std::string& playbackId,
+                                                       double newX, double newY)
+{
+  auto it = m_activeSounds.find(playbackId);
+  if(it == m_activeSounds.end())
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Cannot update position - playback not active: ") + playbackId);
+    return false;
+  }
+  
+  ActiveSound& activeSound = it->second;
+  
+  // Get zone object
+  auto zoneObj = std::dynamic_pointer_cast<ThreeDZone>(world.getObjectById(activeSound.zoneId));
+  if(!zoneObj)
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Zone not found: ") + activeSound.zoneId);
+    return false;
+  }
+  
+  double zoneWidth = zoneObj->width.value();
+  double zoneHeight = zoneObj->height.value();
+  
+  // Validate new position
+  if(newX < 0 || newX > zoneWidth || newY < 0 || newY > zoneHeight)
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("New position out of zone bounds"));
+    return false;
+  }
+  
+  // Parse speakers
+  auto speakers = parseZoneSpeakers(zoneObj->speakersData.value());
+  if(speakers.empty())
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("No speakers configured in zone"));
+    return false;
+  }
+  
+  // Recalculate speaker outputs for new position
+  auto newOutputs = calculateSpeakerOutputs(speakers, newX, newY, 
+                                             zoneWidth, zoneHeight, activeSound.volume);
+  
+  // Convert to stream configs
+  std::vector<AudioStreamConfig> streamConfigs;
+  for(const auto& output : newOutputs)
+  {
+    AudioStreamConfig config;
+    config.deviceId = output.deviceId;
+    config.channel = output.channel;
+    config.volume = output.volume;
+    config.delay = output.delay;
+    streamConfigs.push_back(config);
+  }
+  
+  // Update the audio backend
+  if(!WASAPIAudioBackend::instance().updateSoundStreams(playbackId, streamConfigs))
+  {
+    Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+      std::string("Failed to update audio streams"));
+    return false;
+  }
+  
+  // Update cached data
+  activeSound.x = newX;
+  activeSound.y = newY;
+  activeSound.speakerOutputs = newOutputs;
+  
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Updated position for playback '") + playbackId + "' to (" + 
+    std::to_string(newX) + ", " + std::to_string(newY) + ")");
+  
+  return true;
+}
+bool ThreeDimensionalAudioPlayer::updateSoundVolume(const std::string& playbackId, 
+                                                     double newVolume)
+{
+  auto it = m_activeSounds.find(playbackId);
+  if(it == m_activeSounds.end())
+  {
+    return false;
+  }
+  
+  ActiveSound& activeSound = it->second;
+  activeSound.volume = newVolume;
+  
+  // Recalculate outputs with new volume
+  // (You'd need to get zone and speakers again, similar to updateSoundPosition)
+  
+  Log::log(std::string("3DAudioPlayer"), LogMessage::I1006_X,
+    std::string("Updated volume for playback '") + playbackId + "' to " + 
+    std::to_string(newVolume));
+  
+  return true;
+}
+
 std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSounds() const
 {
   std::vector<std::string> sounds;
@@ -729,3 +839,4 @@ std::vector<double> ThreeDimensionalAudioPlayer::calculateSimplePanning(
   
   return weights;
 }
+

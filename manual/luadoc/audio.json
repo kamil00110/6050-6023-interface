@@ -3,6 +3,7 @@
   "name": "Audio",
   "type": "library",
   "since": "0.4",
+  "filename": "audio.md",
 
   "items": {
     "play_sound_at_position": {

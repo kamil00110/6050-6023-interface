@@ -235,7 +235,7 @@ SandboxPtr Sandbox::create(Script& script)
   
   // add audio:
   Audio::push(L);
-  lua_setfield(L, -2, "audio")
+  lua_setfield(L, -2, "audio");
 
   // add persistent variables:
   if(script.m_persistentVariables.empty())

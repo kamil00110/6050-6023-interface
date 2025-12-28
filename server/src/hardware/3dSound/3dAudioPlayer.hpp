@@ -15,7 +15,6 @@
 #include <memory>
 #include <vector>
 #include <map>
-#include <atomic>
 
 // Forward declarations
 class World;
@@ -60,8 +59,8 @@ struct SpeakerOutput
 
 struct ActiveSound
 {
-  std::string playingInstanceId;  // NEW: Unique ID for this playing instance
-  std::string soundId;
+  std::string playbackId;    // NEW: Unique playback instance ID
+  std::string soundId;       // Sound resource ID
   std::string zoneId;
   double x;
   double y;
@@ -77,30 +76,37 @@ class ThreeDimensionalAudioPlayer
 public:
   static ThreeDimensionalAudioPlayer& instance();
   
-  // Main playback control - returns unique playing instance ID
+  // Main playback control
+  // Returns playback instance ID on success, empty string on failure
   std::string playSound(World& world, const std::string& zoneId, double x, double y, 
-                        const std::string& soundId, double volume = 1.0);
+                        const std::string& soundId, const std::string& playbackId,
+                        double volume = 1.0);
   
-  bool stopSound(const std::string& playingInstanceId);
+  // Stop a specific playback instance
+  bool stopSound(const std::string& playbackId);
+  
+  // Stop all instances of a sound resource
+  void stopAllInstancesOfSound(const std::string& soundId);
   
   void stopAllSounds();
   
-  // NEW: Move a playing sound to new coordinates
-  bool moveSound(World& world, const std::string& playingInstanceId, double newX, double newY);
+  // Update position of an active sound
+  bool updateSoundPosition(World& world, const std::string& playbackId, 
+                           double newX, double newY);
+  
+  // Update volume of an active sound
+  bool updateSoundVolume(const std::string& playbackId, double newVolume);
   
   // Query active sounds
-  std::vector<std::string> getActiveSounds() const;
+  std::vector<std::string> getActivePlaybackIds() const;
   
-  bool isSoundPlaying(const std::string& playingInstanceId) const;
+  bool isSoundPlaying(const std::string& playbackId) const;
   
-  // NEW: Get current position of a playing sound
-  bool getSoundPosition(const std::string& playingInstanceId, double& outX, double& outY) const;
+  // Get information about an active playback
+  const ActiveSound* getActiveSoundInfo(const std::string& playbackId) const;
   
 private:
   ThreeDimensionalAudioPlayer() = default;
-  
-  // Generate unique instance ID
-  std::string generateInstanceId();
   
   // Calculate speaker outputs for a sound at position
   std::vector<SpeakerOutput> calculateSpeakerOutputs(
@@ -140,9 +146,6 @@ private:
     double soundX, double soundY,
     double zoneWidth, double zoneHeight) const;
   
-  // Active sounds map - keyed by unique playing instance ID
+  // Active sounds map - keyed by playback instance ID
   std::map<std::string, ActiveSound> m_activeSounds;
-  
-  // Counter for generating unique instance IDs
-  std::atomic<uint64_t> m_instanceCounter{0};
 };

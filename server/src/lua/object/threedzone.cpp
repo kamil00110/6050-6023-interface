@@ -20,6 +20,7 @@
 #include "../metatable.hpp"
 #include "../../hardware/3dZone/3dZone.hpp"
 #include "../../hardware/3dSound/3dAudioPlayer.hpp"
+#include "../../hardware/3dSound/systemVolumeControl.hpp"
 #include "../../world/getworld.hpp"
 
 #define LUA_OBJECT_PROPERTY(name) \
@@ -56,7 +57,21 @@ int ThreeDZone::index(lua_State* L, ::ThreeDZone& zone)
   LUA_OBJECT_METHOD(is_sound_playing)
   LUA_OBJECT_METHOD(get_active_sounds)
   LUA_OBJECT_METHOD(get_sound_info)
+  LUA_OBJECT_METHOD(get_sound_duration)
   LUA_OBJECT_METHOD(test_sound_at_position)
+  
+  // System volume control methods
+  LUA_OBJECT_METHOD(get_system_volume)
+  LUA_OBJECT_METHOD(set_system_volume)
+  LUA_OBJECT_METHOD(get_system_mute)
+  LUA_OBJECT_METHOD(set_system_mute)
+  LUA_OBJECT_METHOD(get_device_volume)
+  LUA_OBJECT_METHOD(set_device_volume)
+  
+  // System volume control
+  LUA_OBJECT_METHOD(set_device_volume)
+  LUA_OBJECT_METHOD(get_device_volume)
+  LUA_OBJECT_METHOD(set_all_devices_volume)
   
   // Fall back to Interface methods
   return Interface::index(L, zone);
@@ -329,6 +344,79 @@ int ThreeDZone::test_sound_at_position(lua_State* L)
     zone->testSoundAtPosition(coords);
     
     return 0;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::get_sound_duration(lua_State* L)
+{
+  checkArguments(L, 1);
+  
+  const std::string soundId = check<std::string>(L, 1);
+  
+  try
+  {
+    double duration = ThreeDimensionalAudioPlayer::instance().getSoundDuration(soundId);
+    push(L, duration);
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::set_device_volume(lua_State* L)
+{
+  checkArguments(L, 2);
+  
+  const std::string deviceId = check<std::string>(L, 1);
+  const double volume = check<double>(L, 2);
+  
+  try
+  {
+    bool success = ThreeDimensionalAudioPlayer::instance().setDeviceVolume(deviceId, volume);
+    push(L, success);
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::get_device_volume(lua_State* L)
+{
+  checkArguments(L, 1);
+  
+  const std::string deviceId = check<std::string>(L, 1);
+  
+  try
+  {
+    double volume = ThreeDimensionalAudioPlayer::instance().getDeviceVolume(deviceId);
+    push(L, volume);
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::set_all_devices_volume(lua_State* L)
+{
+  checkArguments(L, 1);
+  
+  const double volume = check<double>(L, 1);
+  
+  try
+  {
+    bool success = ThreeDimensionalAudioPlayer::instance().setAllDevicesVolume(volume);
+    push(L, success);
+    return 1;
   }
   catch(const std::exception& e)
   {

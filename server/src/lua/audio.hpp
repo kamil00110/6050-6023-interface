@@ -24,24 +24,24 @@ namespace Lua::Audio {
 void push(lua_State* L);
 
 // Global audio functions
-static int play_sound_at_position(lua_State* L);
-static int update_sound_position(lua_State* L);
-static int update_sound_volume(lua_State* L);
-static int stop_sound(lua_State* L);
-static int stop_all_sounds(lua_State* L);
-static int is_sound_playing(lua_State* L);
-static int get_active_sounds(lua_State* L);
-static int get_sound_info(lua_State* L);
-static int get_sound_duration(lua_State* L);
-static int test_sound_at_position(lua_State* L);
+int play_sound_at_position(lua_State* L);
+int update_sound_position(lua_State* L);
+int update_sound_volume(lua_State* L);
+int stop_sound(lua_State* L);
+int stop_all_sounds(lua_State* L);
+int is_sound_playing(lua_State* L);
+int get_active_sounds(lua_State* L);
+int get_sound_info(lua_State* L);
+int get_sound_duration(lua_State* L);
+int test_sound_at_position(lua_State* L);
 
 // System volume functions
-static int get_system_volume(lua_State* L);
-static int set_system_volume(lua_State* L);
-static int get_system_mute(lua_State* L);
-static int set_system_mute(lua_State* L);
-static int get_device_volume(lua_State* L);
-static int set_device_volume(lua_State* L);
+int get_system_volume(lua_State* L);
+int set_system_volume(lua_State* L);
+int get_system_mute(lua_State* L);
+int set_system_mute(lua_State* L);
+int get_device_volume(lua_State* L);
+int set_device_volume(lua_State* L);
 
 }
 

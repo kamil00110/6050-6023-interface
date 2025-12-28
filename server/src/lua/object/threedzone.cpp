@@ -26,6 +26,14 @@
 #define LUA_OBJECT_PROPERTY(name) \
   if(key == #name)
 
+#define LUA_OBJECT_METHOD(name) \
+  if(key == #name) \
+  { \
+    lua_pushvalue(L, 1); \
+    lua_pushcclosure(L, name, 1); \
+    return 1; \
+  }
+
 namespace Lua::Object {
 
 void ThreeDZone::registerType(lua_State* L)
@@ -59,11 +67,6 @@ int ThreeDZone::index(lua_State* L, ::ThreeDZone& zone)
   LUA_OBJECT_METHOD(set_system_mute)
   LUA_OBJECT_METHOD(get_device_volume)
   LUA_OBJECT_METHOD(set_device_volume)
-  
-  // System volume control
-  LUA_OBJECT_METHOD(set_device_volume)
-  LUA_OBJECT_METHOD(get_device_volume)
-  LUA_OBJECT_METHOD(set_all_devices_volume)
   
   // Fall back to Interface methods
   return Interface::index(L, zone);
@@ -361,16 +364,74 @@ int ThreeDZone::get_sound_duration(lua_State* L)
   }
 }
 
-int ThreeDZone::set_device_volume(lua_State* L)
+// System volume control methods
+
+int ThreeDZone::get_system_volume(lua_State* L)
 {
-  checkArguments(L, 2);
-  
-  const std::string deviceId = check<std::string>(L, 1);
-  const double volume = check<double>(L, 2);
+  checkArguments(L, 0);
   
   try
   {
-    bool success = ThreeDimensionalAudioPlayer::instance().setDeviceVolume(deviceId, volume);
+    double volume = SystemVolumeControl::instance().getSystemVolume();
+    if(volume < 0.0)
+    {
+      lua_pushnil(L);
+    }
+    else
+    {
+      push(L, volume);
+    }
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::set_system_volume(lua_State* L)
+{
+  checkArguments(L, 1);
+  
+  const double volume = check<double>(L, 1);
+  
+  try
+  {
+    bool success = SystemVolumeControl::instance().setSystemVolume(volume);
+    push(L, success);
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::get_system_mute(lua_State* L)
+{
+  checkArguments(L, 0);
+  
+  try
+  {
+    bool muted = SystemVolumeControl::instance().getSystemMute();
+    push(L, muted);
+    return 1;
+  }
+  catch(const std::exception& e)
+  {
+    errorException(L, e);
+  }
+}
+
+int ThreeDZone::set_system_mute(lua_State* L)
+{
+  checkArguments(L, 1);
+  
+  const bool muted = check<bool>(L, 1);
+  
+  try
+  {
+    bool success = SystemVolumeControl::instance().setSystemMute(muted);
     push(L, success);
     return 1;
   }
@@ -382,14 +443,21 @@ int ThreeDZone::set_device_volume(lua_State* L)
 
 int ThreeDZone::get_device_volume(lua_State* L)
 {
-  checkArguments(L, 1);
+  const int argc = checkArguments(L, 0, 1);
   
-  const std::string deviceId = check<std::string>(L, 1);
+  const std::string deviceId = (argc >= 1) ? check<std::string>(L, 1) : "";
   
   try
   {
-    double volume = ThreeDimensionalAudioPlayer::instance().getDeviceVolume(deviceId);
-    push(L, volume);
+    double volume = SystemVolumeControl::instance().getDeviceVolume(deviceId);
+    if(volume < 0.0)
+    {
+      lua_pushnil(L);
+    }
+    else
+    {
+      push(L, volume);
+    }
     return 1;
   }
   catch(const std::exception& e)
@@ -398,15 +466,16 @@ int ThreeDZone::get_device_volume(lua_State* L)
   }
 }
 
-int ThreeDZone::set_all_devices_volume(lua_State* L)
+int ThreeDZone::set_device_volume(lua_State* L)
 {
-  checkArguments(L, 1);
+  checkArguments(L, 2);
   
-  const double volume = check<double>(L, 1);
+  const std::string deviceId = check<std::string>(L, 1);
+  const double volume = check<double>(L, 2);
   
   try
   {
-    bool success = ThreeDimensionalAudioPlayer::instance().setAllDevicesVolume(volume);
+    bool success = SystemVolumeControl::instance().setDeviceVolume(deviceId, volume);
     push(L, success);
     return 1;
   }

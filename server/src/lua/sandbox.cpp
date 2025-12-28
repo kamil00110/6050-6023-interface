@@ -36,6 +36,7 @@
 #include "getversion.hpp"
 #include "script.hpp"
 #include "vectorproperty.hpp"
+#include "audio.hpp"
 #include <version.hpp>
 #include <traintastic/utils/str.hpp>
 #include "../world/world.hpp"
@@ -231,6 +232,10 @@ SandboxPtr Sandbox::create(Script& script)
   // add logger:
   Log::push(L);
   lua_setfield(L, -2, "log");
+  
+  // add audio:
+  Audio::push(L);
+  lua_setfield(L, -2, "audio")
 
   // add persistent variables:
   if(script.m_persistentVariables.empty())

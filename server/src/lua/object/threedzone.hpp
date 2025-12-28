@@ -27,7 +27,7 @@ public:
   static constexpr char const* metaTableName = "three_d_zone";
 
   static void registerType(lua_State* L);
-  static int index(lua_State* L, ThreeDZone& object);
+  static int index(lua_State* L, ::ThreeDZone& zone);
 
 private:
   static int __index(lua_State* L);

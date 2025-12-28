@@ -10,9 +10,7 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  */
-
 #pragma once
-
 #include <string>
 #include <vector>
 #include <memory>
@@ -38,20 +36,27 @@ public:
   bool initialize();
   void shutdown();
   
-  // Load audio file into memory
+  // Load audio file into memory (uses soundId as resource identifier)
   bool loadAudioFile(const std::string& filePath, const std::string& soundId);
   void unloadAudioFile(const std::string& soundId);
   
   // Playback control
-  bool playSound(const std::string& soundId, 
+  // soundId: identifies the audio resource
+  // playbackId: unique identifier for this playback instance
+  bool playSound(const std::string& soundId,
+                 const std::string& playbackId,
                  const std::vector<AudioStreamConfig>& outputs,
                  bool looping,
                  double speed);
   
-  bool stopSound(const std::string& soundId);
+  // Update active playback streams (for moving sounds)
+  bool updateSoundStreams(const std::string& playbackId,
+                          const std::vector<AudioStreamConfig>& outputs);
+  
+  bool stopSound(const std::string& playbackId);
   void stopAllSounds();
   
-  bool isSoundPlaying(const std::string& soundId) const;
+  bool isSoundPlaying(const std::string& playbackId) const;
   
 private:
   WASAPIAudioBackend() = default;
@@ -65,9 +70,9 @@ private:
   std::unique_ptr<Impl> m_impl;
 #endif
   
-  // Loaded audio files
+  // Loaded audio files - keyed by soundId (resource)
   std::map<std::string, AudioFileData> m_audioFiles;
   
-  // Active playback sessions
+  // Active playback sessions - keyed by playbackId (instance)
   std::map<std::string, bool> m_activeSounds;
 };

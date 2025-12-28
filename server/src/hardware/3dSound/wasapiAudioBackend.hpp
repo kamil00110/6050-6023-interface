@@ -58,6 +58,9 @@ public:
   
   bool isSoundPlaying(const std::string& playbackId) const;
   
+  // Get duration of loaded audio file in seconds
+  double getSoundDuration(const std::string& soundId) const;
+  
 private:
   WASAPIAudioBackend() = default;
   ~WASAPIAudioBackend();

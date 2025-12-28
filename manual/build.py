@@ -99,6 +99,7 @@ class TraintasticHelp:
             lua_libs['class'],
             {self._luadoc._get_term('enum:title'): lua_enums},
             lua_libs['log'],
+            lua_libs['audio'],
             lua_libs['math'],
             {self._luadoc._get_term('set:title'): lua_sets},
             lua_libs['string'],

@@ -688,8 +688,7 @@ bool WASAPIAudioBackend::updateSoundStreams(const std::string& playbackId,
   // Note: This is a simplified version - a full implementation would handle
   // adding/removing streams if the output configuration changed significantly
   
-  
-  size_t minSize = (std::min)(streams.size(), outputs.size());
+  size_t minSize = std::min(streams.size(), outputs.size());
   for(size_t i = 0; i < minSize; i++)
   {
     streams[i]->volume = outputs[i].volume;
@@ -701,6 +700,7 @@ bool WASAPIAudioBackend::updateSoundStreams(const std::string& playbackId,
   
   return true;
 }
+
 
 bool WASAPIAudioBackend::stopSound(const std::string& playbackId)
 {
@@ -775,6 +775,19 @@ bool WASAPIAudioBackend::isSoundPlaying(const std::string& playbackId) const
   return m_activeSounds.count(playbackId) > 0;
 }
 
+double WASAPIAudioBackend::getSoundDuration(const std::string& soundId) const
+{
+  auto it = m_audioFiles.find(soundId);
+  if(it == m_audioFiles.end())
+  {
+    return 0.0;
+  }
+  
+  const AudioFileData& audioData = it->second;
+  uint32_t totalFrames = static_cast<uint32_t>(audioData.samples.size()) / audioData.channels;
+  return static_cast<double>(totalFrames) / static_cast<double>(audioData.sampleRate);
+}
+
 #else // Not Windows - Stub implementation
 
 WASAPIAudioBackend::~WASAPIAudioBackend()
@@ -836,6 +849,11 @@ void WASAPIAudioBackend::stopAllSounds()
 bool WASAPIAudioBackend::isSoundPlaying(const std::string& /*playbackId*/) const
 {
   return false;
+}
+
+double WASAPIAudioBackend::getSoundDuration(const std::string& /*soundId*/) const
+{
+  return 0.0;
 }
 
 #endif // _WIN32

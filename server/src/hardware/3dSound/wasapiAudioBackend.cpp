@@ -53,6 +53,7 @@ struct AudioStream
   std::shared_ptr<std::mutex> startMutex;
   std::shared_ptr<std::atomic<int>> readyCount;
   std::shared_ptr<std::atomic<int>> totalStreams;
+  std::atomic<bool> hasFinished;  // NEW: Track if playback completed
   
   AudioStream() 
     : device(nullptr)
@@ -66,6 +67,7 @@ struct AudioStream
     , shouldStop(false)
     , bufferFrameCount(0)
     , startSample(0)
+    , hasFinished(false)  // NEW: Initialize to false
   {}
 
   ~AudioStream()
@@ -494,6 +496,7 @@ exit_playback:
   
   stream->audioClient->Stop();
   stream->isPlaying = false;
+  stream->hasFinished = true;  // NEW: Mark as finished
 }
 
 bool WASAPIAudioBackend::playSound(const std::string& soundId, 

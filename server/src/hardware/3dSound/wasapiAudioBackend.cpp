@@ -53,7 +53,6 @@ struct AudioStream
   std::shared_ptr<std::mutex> startMutex;
   std::shared_ptr<std::atomic<int>> readyCount;
   std::shared_ptr<std::atomic<int>> totalStreams;
-  std::atomic<bool> hasFinished;  // NEW: Track if playback completed
   
   AudioStream() 
     : device(nullptr)
@@ -67,7 +66,6 @@ struct AudioStream
     , shouldStop(false)
     , bufferFrameCount(0)
     , startSample(0)
-    , hasFinished(false)  // NEW: Initialize to false
   {}
 
   ~AudioStream()
@@ -496,7 +494,6 @@ exit_playback:
   
   stream->audioClient->Stop();
   stream->isPlaying = false;
-  stream->hasFinished = true;  // NEW: Mark as finished
 }
 
 bool WASAPIAudioBackend::playSound(const std::string& soundId, 
@@ -843,70 +840,6 @@ bool WASAPIAudioBackend::updateSound(const std::string& /*instanceId*/,
                                       const std::vector<AudioStreamConfig>& /*newOutputs*/)
 {
   return false;
-}
-
-#endif // _WIN32
-#ifdef _WIN32
-
-void WASAPIAudioBackend::cleanupFinishedSounds()
-{
-  if(!m_impl || !m_impl->initialized)
-    return;
-  
-  std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
-  
-  std::vector<std::string> finishedSounds;
-  
-  // Find all sounds that have finished
-  for(const auto& [soundId, streams] : m_impl->activeStreams)
-  {
-    bool allFinished = true;
-    
-    for(const auto& stream : streams)
-    {
-      if(!stream->hasFinished)
-      {
-        allFinished = false;
-        break;
-      }
-    }
-    
-    if(allFinished && !streams.empty())
-    {
-      finishedSounds.push_back(soundId);
-    }
-  }
-  
-  // Clean up finished sounds
-  for(const auto& soundId : finishedSounds)
-  {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Auto-cleanup: Removing finished sound: ") + soundId);
-    
-    auto streamIt = m_impl->activeStreams.find(soundId);
-    if(streamIt != m_impl->activeStreams.end())
-    {
-      // Wait for threads to finish
-      for(auto& stream : streamIt->second)
-      {
-        if(stream->playbackThread.joinable())
-        {
-          stream->playbackThread.join();
-        }
-      }
-      
-      m_impl->activeStreams.erase(streamIt);
-    }
-    
-    m_activeSounds.erase(soundId);
-  }
-}
-
-#else // Not Windows - Stub implementation
-
-void WASAPIAudioBackend::cleanupFinishedSounds()
-{
-  // Nothing to do on non-Windows platforms
 }
 
 #endif // _WIN32

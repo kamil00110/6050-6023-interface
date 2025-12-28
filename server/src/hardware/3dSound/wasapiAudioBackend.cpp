@@ -655,6 +655,7 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   m_activeSounds[playbackId] = true;
   return true;
 }
+
 bool WASAPIAudioBackend::updateSoundStreams(const std::string& playbackId,
                                              const std::vector<AudioStreamConfig>& outputs)
 {
@@ -794,7 +795,9 @@ void WASAPIAudioBackend::unloadAudioFile(const std::string& /*soundId*/)
   // Nothing to do
 }
 
-bool WASAPIAudioBackend::playSound(const std::string& /*soundId*/, 
+// UPDATED: Added playbackId parameter
+bool WASAPIAudioBackend::playSound(const std::string& /*soundId*/,
+                                     const std::string& /*playbackId*/,
                                      const std::vector<AudioStreamConfig>& /*outputs*/,
                                      bool /*looping*/,
                                      double /*speed*/)
@@ -802,7 +805,15 @@ bool WASAPIAudioBackend::playSound(const std::string& /*soundId*/,
   return false;
 }
 
-bool WASAPIAudioBackend::stopSound(const std::string& /*soundId*/)
+// NEW: Added updateSoundStreams function
+bool WASAPIAudioBackend::updateSoundStreams(const std::string& /*playbackId*/,
+                                             const std::vector<AudioStreamConfig>& /*outputs*/)
+{
+  return false;
+}
+
+// UPDATED: Now uses playbackId instead of soundId
+bool WASAPIAudioBackend::stopSound(const std::string& /*playbackId*/)
 {
   return false;
 }
@@ -812,7 +823,8 @@ void WASAPIAudioBackend::stopAllSounds()
   // Nothing to do
 }
 
-bool WASAPIAudioBackend::isSoundPlaying(const std::string& /*soundId*/) const
+// UPDATED: Now uses playbackId instead of soundId
+bool WASAPIAudioBackend::isSoundPlaying(const std::string& /*playbackId*/) const
 {
   return false;
 }

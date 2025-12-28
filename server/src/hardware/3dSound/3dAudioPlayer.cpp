@@ -460,9 +460,29 @@ std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSounds() const
   return sounds;
 }
 
-bool ThreeDimensionalAudioPlayer::isSoundPlaying(const std::string& soundId) const
+std::vector<std::string> ThreeDimensionalAudioPlayer::getActivePlaybackIds() const
 {
-  return m_activeSounds.count(soundId) > 0;
+  std::vector<std::string> ids;
+  for(const auto& [playbackId, _] : m_activeSounds)
+  {
+    ids.push_back(playbackId);
+  }
+  return ids;
+}
+
+bool ThreeDimensionalAudioPlayer::isSoundPlaying(const std::string& playbackId) const
+{
+  return m_activeSounds.count(playbackId) > 0;
+}
+const ActiveSound* ThreeDimensionalAudioPlayer::getActiveSoundInfo(
+  const std::string& playbackId) const
+{
+  auto it = m_activeSounds.find(playbackId);
+  if(it != m_activeSounds.end())
+  {
+    return &it->second;
+  }
+  return nullptr;
 }
 
 std::vector<SpeakerOutput> ThreeDimensionalAudioPlayer::calculateSpeakerOutputs(

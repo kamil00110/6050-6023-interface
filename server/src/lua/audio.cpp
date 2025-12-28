@@ -20,6 +20,8 @@
 #include "script.hpp"
 #include "../hardware/3dSound/3dAudioPlayer.hpp"
 #include "../hardware/3dSound/systemVolumeControl.hpp"
+#include "../hardware/3dSound/3dSound.hpp"
+#include "../hardware/3dSound/list/3dSoundList.hpp"
 #include "../hardware/3dZone/3dZone.hpp"
 #include "../world/world.hpp"
 #include "../world/getworld.hpp"

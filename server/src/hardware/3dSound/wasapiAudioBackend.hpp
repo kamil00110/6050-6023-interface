@@ -35,6 +35,7 @@ public:
   // Initialize/cleanup
   bool initialize();
   void shutdown();
+  void cleanupFinishedSounds();
   
   // Load audio file into memory
   // Note: soundId is now used as instanceId for supporting multiple instances

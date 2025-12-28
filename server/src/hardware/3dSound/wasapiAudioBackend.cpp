@@ -102,6 +102,7 @@ struct AudioStream
 struct WASAPIAudioBackend::Impl
 {
   IMMDeviceEnumerator* deviceEnumerator;
+  // Changed: now keyed by playbackId instead of soundId
   std::map<std::string, std::vector<std::unique_ptr<AudioStream>>> activeStreams;
   std::mutex streamsMutex;
   bool initialized;
@@ -496,7 +497,8 @@ exit_playback:
   stream->isPlaying = false;
 }
 
-bool WASAPIAudioBackend::playSound(const std::string& soundId, 
+bool WASAPIAudioBackend::playSound(const std::string& soundId,
+                                     const std::string& playbackId,
                                      const std::vector<AudioStreamConfig>& outputs,
                                      bool looping,
                                      double speed)
@@ -505,6 +507,13 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   {
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
       std::string("Backend not initialized"));
+    return false;
+  }
+  
+  if(playbackId.empty())
+  {
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+      std::string("PlaybackId cannot be empty"));
     return false;
   }
   
@@ -518,17 +527,19 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   
   const AudioFileData& audioData = audioIt->second;
   
-  if(m_activeSounds.count(soundId))
+  // Stop existing playback with this ID if present
+  if(m_activeSounds.count(playbackId))
   {
-    stopSound(soundId);
+    stopSound(playbackId);
   }
   
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Starting playback: ") + soundId + 
-    " on " + std::to_string(outputs.size()) + " output(s)");
+    std::string("Starting playback: soundId='") + soundId + 
+    "', playbackId='" + playbackId + "' on " + 
+    std::to_string(outputs.size()) + " output(s)");
   
   std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
-  auto& streams = m_impl->activeStreams[soundId];
+  auto& streams = m_impl->activeStreams[playbackId];
   
   // Create shared synchronization objects for ALL streams
   auto startSignal = std::make_shared<std::condition_variable>();
@@ -623,11 +634,11 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
   {
     Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
       std::string("Failed to create any audio streams"));
-    m_impl->activeStreams.erase(soundId);
+    m_impl->activeStreams.erase(playbackId);
     return false;
   }
   
-  // NOW start all threads (they will wait at the barrier)
+  // Start all threads (they will wait at the barrier)
   for(auto& stream : streams)
   {
     AudioStream* streamPtr = stream.get();
@@ -641,22 +652,58 @@ bool WASAPIAudioBackend::playSound(const std::string& soundId,
     startSignal->notify_all();
   }
   
-  m_activeSounds[soundId] = true;
+  m_activeSounds[playbackId] = true;
+  return true;
+}
+bool WASAPIAudioBackend::updateSoundStreams(const std::string& playbackId,
+                                             const std::vector<AudioStreamConfig>& outputs)
+{
+  if(!m_impl || !m_impl->initialized)
+  {
+    return false;
+  }
+  
+  std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
+  
+  auto streamIt = m_impl->activeStreams.find(playbackId);
+  if(streamIt == m_impl->activeStreams.end())
+  {
+    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+      std::string("Cannot update - playback not active: ") + playbackId);
+    return false;
+  }
+  
+  auto& streams = streamIt->second;
+  
+  // Update volume and delay for existing streams
+  // Note: This is a simplified version - a full implementation would handle
+  // adding/removing streams if the output configuration changed significantly
+  
+  size_t minSize = std::min(streams.size(), outputs.size());
+  for(size_t i = 0; i < minSize; i++)
+  {
+    streams[i]->volume = outputs[i].volume;
+    streams[i]->delaySeconds = outputs[i].delay / 1000.0;
+  }
+  
+  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
+    std::string("Updated streams for playback: ") + playbackId);
+  
   return true;
 }
 
-bool WASAPIAudioBackend::stopSound(const std::string& soundId)
+bool WASAPIAudioBackend::stopSound(const std::string& playbackId)
 {
-  auto it = m_activeSounds.find(soundId);
+  auto it = m_activeSounds.find(playbackId);
   if(it == m_activeSounds.end())
     return false;
   
   Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Stopping sound: ") + soundId);
+    std::string("Stopping playback: ") + playbackId);
   
   std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
   
-  auto streamIt = m_impl->activeStreams.find(soundId);
+  auto streamIt = m_impl->activeStreams.find(playbackId);
   if(streamIt != m_impl->activeStreams.end())
   {
     // Signal all streams to stop
@@ -713,9 +760,9 @@ void WASAPIAudioBackend::stopAllSounds()
   m_activeSounds.clear();
 }
 
-bool WASAPIAudioBackend::isSoundPlaying(const std::string& soundId) const
+bool WASAPIAudioBackend::isSoundPlaying(const std::string& playbackId) const
 {
-  return m_activeSounds.count(soundId) > 0;
+  return m_activeSounds.count(playbackId) > 0;
 }
 
 #else // Not Windows - Stub implementation

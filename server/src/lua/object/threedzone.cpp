@@ -404,8 +404,46 @@ int ThreeDZone::test_sound_at_position(lua_State* L)
     // Build coordinate string for the existing method
     std::string coords = std::to_string(x) + "," + std::to_string(y);
     
-    // Call the existing C++ method
-    zone->testSoundAtPosition(coords);
+    // Call the Method<void(std::string)> - we need to get it and invoke it properly
+    // Instead of calling testSoundAtPosition directly, we'll replicate its logic here
+    
+    auto& world = getWorld(*zone);
+    auto soundsList = world.threeDSounds.value();
+    
+    if(!soundsList || soundsList->empty())
+    {
+      return 0;
+    }
+    
+    auto firstSound = soundsList->front();
+    if(!firstSound)
+    {
+      return 0;
+    }
+    
+    // Generate playback ID for test sounds
+    std::string playbackId = "zone_test_" + zone->id.value();
+    
+    auto& audioPlayer = ThreeDimensionalAudioPlayer::instance();
+    
+    // Check if test sound is already playing
+    if(audioPlayer.isSoundPlaying(playbackId))
+    {
+      // Update position
+      audioPlayer.updateSoundPosition(world, playbackId, x, y);
+    }
+    else
+    {
+      // Start new test sound
+      audioPlayer.playSound(
+        world,
+        zone->id.value(),
+        x, y,
+        firstSound->id.value(),
+        playbackId,
+        1.0
+      );
+    }
     
     return 0;
   }
@@ -555,5 +593,3 @@ int ThreeDZone::set_device_volume(lua_State* L)
 }
 
 }
-
-

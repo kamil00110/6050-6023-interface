@@ -450,15 +450,6 @@ bool ThreeDimensionalAudioPlayer::updateSoundVolume(const std::string& playbackI
   return true;
 }
 
-std::vector<std::string> ThreeDimensionalAudioPlayer::getActiveSounds() const
-{
-  std::vector<std::string> sounds;
-  for(const auto& [soundId, _] : m_activeSounds)
-  {
-    sounds.push_back(soundId);
-  }
-  return sounds;
-}
 
 std::vector<std::string> ThreeDimensionalAudioPlayer::getActivePlaybackIds() const
 {

@@ -10,13 +10,12 @@
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
  */
-
 #pragma once
-
 #include <string>
 #include <memory>
 #include <vector>
 #include <map>
+#include <atomic>
 
 // Forward declarations
 class World;
@@ -61,6 +60,7 @@ struct SpeakerOutput
 
 struct ActiveSound
 {
+  std::string playingInstanceId;  // NEW: Unique ID for this playing instance
   std::string soundId;
   std::string zoneId;
   double x;
@@ -77,21 +77,30 @@ class ThreeDimensionalAudioPlayer
 public:
   static ThreeDimensionalAudioPlayer& instance();
   
-  // Main playback control
-  bool playSound(World& world, const std::string& zoneId, double x, double y, 
-                 const std::string& soundId, double volume = 1.0);
+  // Main playback control - returns unique playing instance ID
+  std::string playSound(World& world, const std::string& zoneId, double x, double y, 
+                        const std::string& soundId, double volume = 1.0);
   
-  bool stopSound(const std::string& soundId);
+  bool stopSound(const std::string& playingInstanceId);
   
   void stopAllSounds();
+  
+  // NEW: Move a playing sound to new coordinates
+  bool moveSound(World& world, const std::string& playingInstanceId, double newX, double newY);
   
   // Query active sounds
   std::vector<std::string> getActiveSounds() const;
   
-  bool isSoundPlaying(const std::string& soundId) const;
+  bool isSoundPlaying(const std::string& playingInstanceId) const;
+  
+  // NEW: Get current position of a playing sound
+  bool getSoundPosition(const std::string& playingInstanceId, double& outX, double& outY) const;
   
 private:
   ThreeDimensionalAudioPlayer() = default;
+  
+  // Generate unique instance ID
+  std::string generateInstanceId();
   
   // Calculate speaker outputs for a sound at position
   std::vector<SpeakerOutput> calculateSpeakerOutputs(
@@ -118,8 +127,6 @@ private:
     double soundX, double soundY,
     double zoneWidth, double zoneHeight) const;
   
-  // Active sounds map
-  std::map<std::string, ActiveSound> m_activeSounds;
   std::vector<SpeakerQuad> generateQuads(
     const std::vector<SpeakerPosition>& speakers) const;
     
@@ -132,4 +139,10 @@ private:
     const std::vector<SpeakerPosition>& speakers,
     double soundX, double soundY,
     double zoneWidth, double zoneHeight) const;
+  
+  // Active sounds map - keyed by unique playing instance ID
+  std::map<std::string, ActiveSound> m_activeSounds;
+  
+  // Counter for generating unique instance IDs
+  std::atomic<uint64_t> m_instanceCounter{0};
 };

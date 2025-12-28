@@ -713,6 +713,10 @@ void WASAPIAudioBackend::stopAllSounds()
   m_activeSounds.clear();
 }
 
+bool WASAPIAudioBackend::isSoundPlaying(const std::string& soundId) const
+{
+  return m_activeSounds.count(soundId) > 0;
+}
 
 #else // Not Windows - Stub implementation
 
@@ -761,83 +765,7 @@ void WASAPIAudioBackend::stopAllSounds()
   // Nothing to do
 }
 
-#endif // _WIN32
-
-#ifdef _WIN32
-
 bool WASAPIAudioBackend::isSoundPlaying(const std::string& /*soundId*/) const
-{
-  return false;
-}
-
-bool WASAPIAudioBackend::updateSound(const std::string& instanceId,
-                                      const std::vector<AudioStreamConfig>& newOutputs)
-{
-  if(!m_impl || !m_impl->initialized)
-  {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Backend not initialized"));
-    return false;
-  }
-  
-  auto it = m_activeSounds.find(instanceId);
-  if(it == m_activeSounds.end())
-  {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Sound not playing: ") + instanceId);
-    return false;
-  }
-  
-  std::lock_guard<std::mutex> lock(m_impl->streamsMutex);
-  
-  auto streamIt = m_impl->activeStreams.find(instanceId);
-  if(streamIt == m_impl->activeStreams.end())
-  {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("No active streams found for: ") + instanceId);
-    return false;
-  }
-  
-  auto& streams = streamIt->second;
-  
-  // Verify we have matching number of outputs
-  if(streams.size() != newOutputs.size())
-  {
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Stream count mismatch - cannot update dynamically. ") +
-      "Old: " + std::to_string(streams.size()) + 
-      ", New: " + std::to_string(newOutputs.size()));
-    
-    // For now, we can only update volume and delay if stream count matches
-    // A full implementation would need to restart with new configuration
-    return false;
-  }
-  
-  // Update volume and delay for each stream
-  // Note: The delay update won't affect already-buffered audio, only new audio
-  for(size_t i = 0; i < streams.size(); i++)
-  {
-    streams[i]->volume = newOutputs[i].volume;
-    streams[i]->delaySeconds = newOutputs[i].delay / 1000.0;
-    streams[i]->targetChannel = newOutputs[i].channel;
-    
-    Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-      std::string("Updated stream ") + std::to_string(i) + 
-      " - Volume: " + std::to_string(newOutputs[i].volume) +
-      ", Delay: " + std::to_string(newOutputs[i].delay) + "ms");
-  }
-  
-  Log::log(std::string("WASAPIBackend"), LogMessage::I1006_X,
-    std::string("Successfully updated ") + std::to_string(streams.size()) + 
-    " streams for instance: " + instanceId);
-  
-  return true;
-}
-
-#else // Not Windows - Stub implementation
-
-bool WASAPIAudioBackend::updateSound(const std::string& /*instanceId*/,
-                                      const std::vector<AudioStreamConfig>& /*newOutputs*/)
 {
   return false;
 }

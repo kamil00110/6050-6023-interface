@@ -23,22 +23,11 @@
 #include "../../hardware/3dSound/systemVolumeControl.hpp"
 #include "../../world/getworld.hpp"
 
-#define LUA_OBJECT_PROPERTY(name) \
-  if(key == #name)
-
-#define LUA_OBJECT_METHOD(name) \
-  if(key == #name) \
-  { \
-    lua_pushvalue(L, 1); \
-    lua_pushcclosure(L, name, 1); \
-    return 1; \
-  }
-
 namespace Lua::Object {
 
 void ThreeDZone::registerType(lua_State* L)
 {
-  MetaTable::clone(L, Interface::metaTableName, metaTableName);
+  MetaTable::clone(L, Object::metaTableName, metaTableName);
   lua_pushcfunction(L, __index);
   lua_setfield(L, -2, "__index");
   lua_pop(L, 1);
@@ -49,27 +38,107 @@ int ThreeDZone::index(lua_State* L, ::ThreeDZone& zone)
   const auto key = to<std::string_view>(L, 2);
   
   // 3D Audio methods
-  LUA_OBJECT_METHOD(play_sound_at_position)
-  LUA_OBJECT_METHOD(update_sound_position)
-  LUA_OBJECT_METHOD(update_sound_volume)
-  LUA_OBJECT_METHOD(stop_sound)
-  LUA_OBJECT_METHOD(stop_all_sounds)
-  LUA_OBJECT_METHOD(is_sound_playing)
-  LUA_OBJECT_METHOD(get_active_sounds)
-  LUA_OBJECT_METHOD(get_sound_info)
-  LUA_OBJECT_METHOD(get_sound_duration)
-  LUA_OBJECT_METHOD(test_sound_at_position)
+  if(key == "play_sound_at_position")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, play_sound_at_position, 1);
+    return 1;
+  }
+  if(key == "update_sound_position")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, update_sound_position, 1);
+    return 1;
+  }
+  if(key == "update_sound_volume")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, update_sound_volume, 1);
+    return 1;
+  }
+  if(key == "stop_sound")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, stop_sound, 1);
+    return 1;
+  }
+  if(key == "stop_all_sounds")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, stop_all_sounds, 1);
+    return 1;
+  }
+  if(key == "is_sound_playing")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, is_sound_playing, 1);
+    return 1;
+  }
+  if(key == "get_active_sounds")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_active_sounds, 1);
+    return 1;
+  }
+  if(key == "get_sound_info")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_sound_info, 1);
+    return 1;
+  }
+  if(key == "get_sound_duration")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_sound_duration, 1);
+    return 1;
+  }
+  if(key == "test_sound_at_position")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, test_sound_at_position, 1);
+    return 1;
+  }
   
   // System volume control methods
-  LUA_OBJECT_METHOD(get_system_volume)
-  LUA_OBJECT_METHOD(set_system_volume)
-  LUA_OBJECT_METHOD(get_system_mute)
-  LUA_OBJECT_METHOD(set_system_mute)
-  LUA_OBJECT_METHOD(get_device_volume)
-  LUA_OBJECT_METHOD(set_device_volume)
+  if(key == "get_system_volume")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_system_volume, 1);
+    return 1;
+  }
+  if(key == "set_system_volume")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, set_system_volume, 1);
+    return 1;
+  }
+  if(key == "get_system_mute")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_system_mute, 1);
+    return 1;
+  }
+  if(key == "set_system_mute")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, set_system_mute, 1);
+    return 1;
+  }
+  if(key == "get_device_volume")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, get_device_volume, 1);
+    return 1;
+  }
+  if(key == "set_device_volume")
+  {
+    lua_pushvalue(L, 1);
+    lua_pushcclosure(L, set_device_volume, 1);
+    return 1;
+  }
   
-  // Fall back to Interface methods
-  return Interface::index(L, zone);
+  // Fall back to Object methods
+  return Object::index(L, zone);
 }
 
 int ThreeDZone::__index(lua_State* L)
@@ -112,7 +181,7 @@ int ThreeDZone::play_sound_at_position(lua_State* L)
     {
       if(audioPlayer.updateSoundPosition(world, playbackId, x, y))
       {
-        push(L, playbackId);
+        Lua::push(L, playbackId);
         return 1;
       }
       // If update failed, fall through to start new playback
@@ -130,7 +199,7 @@ int ThreeDZone::play_sound_at_position(lua_State* L)
     
     if(!result.empty())
     {
-      push(L, result);
+      Lua::push(L, result);
       return 1;
     }
     
@@ -161,7 +230,7 @@ int ThreeDZone::update_sound_position(lua_State* L)
       world, playbackId, x, y
     );
     
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
@@ -185,7 +254,7 @@ int ThreeDZone::update_sound_volume(lua_State* L)
       playbackId, volume
     );
     
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
@@ -203,7 +272,7 @@ int ThreeDZone::stop_sound(lua_State* L)
   try
   {
     bool success = ThreeDimensionalAudioPlayer::instance().stopSound(playbackId);
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
@@ -236,7 +305,7 @@ int ThreeDZone::is_sound_playing(lua_State* L)
   try
   {
     bool playing = ThreeDimensionalAudioPlayer::instance().isSoundPlaying(playbackId);
-    push(L, playing);
+    Lua::push(L, playing);
     return 1;
   }
   catch(const std::exception& e)
@@ -258,7 +327,7 @@ int ThreeDZone::get_active_sounds(lua_State* L)
     lua_Integer n = 1;
     for(const auto& id : playbackIds)
     {
-      push(L, id);
+      Lua::push(L, id);
       lua_rawseti(L, -2, n);
       n++;
     }
@@ -289,28 +358,28 @@ int ThreeDZone::get_sound_info(lua_State* L)
     // Create info table
     lua_createtable(L, 0, 7);
     
-    push(L, info->playbackId);
+    Lua::push(L, info->playbackId);
     lua_setfield(L, -2, "playback_id");
     
-    push(L, info->soundId);
+    Lua::push(L, info->soundId);
     lua_setfield(L, -2, "sound_id");
     
-    push(L, info->zoneId);
+    Lua::push(L, info->zoneId);
     lua_setfield(L, -2, "zone_id");
     
-    push(L, info->x);
+    Lua::push(L, info->x);
     lua_setfield(L, -2, "x");
     
-    push(L, info->y);
+    Lua::push(L, info->y);
     lua_setfield(L, -2, "y");
     
-    push(L, info->volume);
+    Lua::push(L, info->volume);
     lua_setfield(L, -2, "volume");
     
-    push(L, info->looping);
+    Lua::push(L, info->looping);
     lua_setfield(L, -2, "looping");
     
-    push(L, info->speed);
+    Lua::push(L, info->speed);
     lua_setfield(L, -2, "speed");
     
     return 1;
@@ -355,7 +424,7 @@ int ThreeDZone::get_sound_duration(lua_State* L)
   try
   {
     double duration = ThreeDimensionalAudioPlayer::instance().getSoundDuration(soundId);
-    push(L, duration);
+    Lua::push(L, duration);
     return 1;
   }
   catch(const std::exception& e)
@@ -379,7 +448,7 @@ int ThreeDZone::get_system_volume(lua_State* L)
     }
     else
     {
-      push(L, volume);
+      Lua::push(L, volume);
     }
     return 1;
   }
@@ -398,7 +467,7 @@ int ThreeDZone::set_system_volume(lua_State* L)
   try
   {
     bool success = SystemVolumeControl::instance().setSystemVolume(volume);
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
@@ -414,7 +483,7 @@ int ThreeDZone::get_system_mute(lua_State* L)
   try
   {
     bool muted = SystemVolumeControl::instance().getSystemMute();
-    push(L, muted);
+    Lua::push(L, muted);
     return 1;
   }
   catch(const std::exception& e)
@@ -432,7 +501,7 @@ int ThreeDZone::set_system_mute(lua_State* L)
   try
   {
     bool success = SystemVolumeControl::instance().setSystemMute(muted);
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
@@ -456,7 +525,7 @@ int ThreeDZone::get_device_volume(lua_State* L)
     }
     else
     {
-      push(L, volume);
+      Lua::push(L, volume);
     }
     return 1;
   }
@@ -476,13 +545,15 @@ int ThreeDZone::set_device_volume(lua_State* L)
   try
   {
     bool success = SystemVolumeControl::instance().setDeviceVolume(deviceId, volume);
-    push(L, success);
+    Lua::push(L, success);
     return 1;
   }
   catch(const std::exception& e)
   {
     errorException(L, e);
   }
+}
+
 }
 
 }

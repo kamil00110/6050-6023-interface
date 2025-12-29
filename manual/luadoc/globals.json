@@ -127,6 +127,10 @@
     "type": "library",
     "since": "0.1"
   },
+  "audio": {
+    "type": "library",
+    "since": "0.4"
+  },
   "math": {
     "is_lua_builtin": true,
     "type": "library",

@@ -3390,5 +3390,5 @@
   {
     "term": "audio.test_sound_at_position.parameter.sound_file_id:description",
     "definition": "The identifier of the sound file to use for testing."
-  },
+  }
 ]

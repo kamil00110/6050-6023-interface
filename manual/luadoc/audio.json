@@ -11,6 +11,17 @@
     ],
     "return_values": 0,
     "since": "0.4"
+  }, 
+  "test_sound_at_position": {
+    "type": "function",
+    "parameters": [
+      { "name": "zone_id" },
+      { "name": "x" },
+      { "name": "y" },
+      { "name": "sound_file_id" }
+    ],
+    "return_values": 0,
+    "since": "0.4"
   },
   "update_sound_position": {
     "type": "function",

@@ -284,6 +284,17 @@ class LuaDoc:
             'lua_name': name,
             'items': items}
 
+        name = 'audio'
+            items = []
+            audio_hpp = LuaDoc._read_file(posixpath.join(project_root, 'server', 'src', 'lua', 'audio.hpp'))
+            for item_name in re.findall(r'int\s+([a-z_]+)\(\s*lua_State\s*\*\s*L\s*\)', audio_hpp):
+                items.append(item_name)
+            libs[name] = {
+                'filename': name + '.md',
+                'name': name + ':title',
+                'lua_name': name,
+                'items': items}
+
         # class lib:
         name = 'class'
         items = []

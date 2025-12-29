@@ -3191,4 +3191,204 @@
     "term": "object.category.signals:title",
     "definition": "Signals"
   }
+  {
+    "term": "audio:title",
+    "definition": "Audio library"
+  },
+  {
+    "term": "audio:description",
+    "definition": "The audio library provides functions for playing and managing spatial audio in the 3D world. Sounds can be positioned at specific coordinates, controlled dynamically, and queried for playback status."
+  },
+  {
+    "term": "audio.play_sound_at_position:description",
+    "definition": "Plays a sound at a specific position in the world."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.zone_id:description",
+    "definition": "The zone ID where the sound should be played."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.x:description",
+    "definition": "The X coordinate position in the world (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.y:description",
+    "definition": "The Y coordinate position in the world (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.sound_file_id:description",
+    "definition": "The identifier of the sound file to play."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.playback_id:description",
+    "definition": "Optional unique identifier for this playback instance, allowing you to reference it later."
+  },
+  {
+    "term": "audio.play_sound_at_position.parameter.volume:description",
+    "definition": "Optional volume level (0.0 to 1.0) for this sound playback."
+  },
+  {
+    "term": "audio.update_sound_position:description",
+    "definition": "Updates the spatial position of an already-playing sound."
+  },
+  {
+    "term": "audio.update_sound_position.parameter.zone_id:description",
+    "definition": "The zone ID where of teh setup 3d sound zone."
+  },
+  {
+    "term": "audio.update_sound_position.parameter.playback_id:description",
+    "definition": "The playback identifier of the sound to update."
+  },
+  {
+    "term": "audio.update_sound_position.parameter.new_x:description",
+    "definition": "The new X coordinate position (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.update_sound_position.parameter.new_y:description",
+    "definition": "The new Y coordinate position (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.update_sound_volume:description",
+    "definition": "Changes the volume of a currently playing sound."
+  },
+  {
+    "term": "audio.update_sound_volume.parameter.playback_id:description",
+    "definition": "The playback identifier of the sound to adjust."
+  },
+  {
+    "term": "audio.update_sound_volume.parameter.new_volume:description",
+    "definition": "The new volume level (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.stop_sound:description",
+    "definition": "Stops a specific sound playback."
+  },
+  {
+    "term": "audio.stop_sound.parameter.playback_id:description",
+    "definition": "The playback identifier of the sound to stop."
+  },
+  {
+    "term": "audio.stop_all_sounds:description",
+    "definition": "Stops all currently playing sounds."
+  },
+  {
+    "term": "audio.is_sound_playing:description",
+    "definition": "Checks whether a specific sound is currently playing."
+  },
+  {
+    "term": "audio.is_sound_playing.parameter.playback_id:description",
+    "definition": "The playback identifier to check."
+  },
+  {
+    "term": "audio.is_sound_playing:return_values",
+    "definition": "`true` if the sound is currently playing, `false` otherwise."
+  },
+  {
+    "term": "audio.get_active_sounds:description",
+    "definition": "Returns a list of all currently active sound playbacks."
+  },
+  {
+    "term": "audio.get_active_sounds:return_values",
+    "definition": "A list of all playback IDs of all active sounds."
+  },
+  {
+    "term": "audio.get_sound_info:description",
+    "definition": "Retrieves detailed information about a specific sound playback."
+  },
+  {
+    "term": "audio.get_sound_info.parameter.playback_id:description",
+    "definition": "The playback identifier to query."
+  },
+  {
+    "term": "audio.get_sound_info:return_values",
+    "definition": "A table containing information about the sound (position, volume, etc.), or `nil` if the playback ID is invalid."
+  },
+  {
+    "term": "audio.get_sound_duration:description",
+    "definition": "Returns the duration of a sound file in seconds."
+  },
+  {
+    "term": "audio.get_sound_duration.parameter.sound_file_id:description",
+    "definition": "The identifier of the sound file to query."
+  },
+  {
+    "term": "audio.get_sound_duration:return_values",
+    "definition": "The duration in seconds."
+  },
+  {
+    "term": "audio.get_system_volume:description",
+    "definition": "Returns the current system-wide audio volume."
+  },
+  {
+    "term": "audio.get_system_volume:return_values",
+    "definition": "The system volume level (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.set_system_volume:description",
+    "definition": "Sets the system-wide audio volume."
+  },
+  {
+    "term": "audio.set_system_volume.parameter.volume:description",
+    "definition": "The desired volume level (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.get_system_mute:description",
+    "definition": "Checks whether the system audio is currently muted."
+  },
+  {
+    "term": "audio.get_system_mute:return_values",
+    "definition": "`true` if the system is muted, `false` otherwise."
+  },
+  {
+    "term": "audio.set_system_mute:description",
+    "definition": "Mutes or unmutes the system audio."
+  },
+  {
+    "term": "audio.set_system_mute.parameter.true_or_false:description",
+    "definition": "`true` to mute, `false` to unmute."
+  },
+  {
+    "term": "audio.get_device_volume:description",
+    "definition": "Returns the volume level of a specific audio device."
+  },
+  {
+    "term": "audio.get_device_volume.parameter.device_id:description",
+    "definition": "Optional device identifier. If not provided, returns the default device volume."
+  },
+  {
+    "term": "audio.get_device_volume:return_values",
+    "definition": "The device volume level (0.0 to 1.0), or `nil` if the device is not found."
+  },
+  {
+    "term": "audio.set_device_volume:description",
+    "definition": "Sets the volume level of a specific audio device."
+  },
+  {
+    "term": "audio.set_device_volume.parameter.device_id:description",
+    "definition": "The device identifier."
+  },
+  {
+    "term": "audio.set_device_volume.parameter.volume:description",
+    "definition": "The desired volume level (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.test_sound_at_position:description",
+    "definition": "Plays a test sound at a specific position to verify audio configuration and spatial positioning."
+  },
+  {
+    "term": "audio.test_sound_at_position.parameter.zone_id:description",
+    "definition": "The zone ID where the test sound should be played."
+  },
+  {
+    "term": "audio.test_sound_at_position.parameter.x:description",
+    "definition": "The X coordinate position for the test sound (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.test_sound_at_position.parameter.y:description",
+    "definition": "The Y coordinate position for the test sound (0.0 to 1.0)."
+  },
+  {
+    "term": "audio.test_sound_at_position.parameter.sound_file_id:description",
+    "definition": "The identifier of the sound file to use for testing."
+  },
 ]

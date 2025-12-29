@@ -18,6 +18,7 @@
 #include "to.hpp"
 #include "sandbox.hpp"
 #include "script.hpp"
+#include "../core/objectproperty.tpp"
 #include "../hardware/3dSound/3dAudioPlayer.hpp"
 #include "../hardware/3dSound/systemVolumeControl.hpp"
 #include "../hardware/3dSound/3dSound.hpp"

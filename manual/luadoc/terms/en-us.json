@@ -3190,7 +3190,7 @@
   {
     "term": "object.category.signals:title",
     "definition": "Signals"
-  }
+  },
   {
     "term": "audio:title",
     "definition": "Audio library"

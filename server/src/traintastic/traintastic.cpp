@@ -42,7 +42,9 @@
 #include "../log/logmessageexception.hpp"
 #include "../lua/getversion.hpp"
 #include "../utils/audioenumerator.hpp"
-
+#ifdef WIN32
+  #include "../os/windows/trayicon.hpp"
+#endif
 
 using nlohmann::json;
 

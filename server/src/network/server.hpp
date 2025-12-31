@@ -57,6 +57,7 @@ class Server : public std::enable_shared_from_this<Server>
     void doReceive();
     static std::unique_ptr<Message> processMessage(const Message& message);
     void doAccept();
+    void shutdown(); //Memory leak fix
 
     boost::beast::http::message_generator handleHTTPRequest(boost::beast::http::request<boost::beast::http::string_body>&& request);
     bool handleWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);

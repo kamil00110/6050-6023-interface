@@ -96,6 +96,7 @@ class TrayIcon
   public:
     static void add(bool isRestart = false);
     static void remove();
+    static void removeAsync();
 };
 
 }

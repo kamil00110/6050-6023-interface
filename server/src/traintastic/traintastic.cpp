@@ -268,6 +268,12 @@ void Traintastic::exit()
   if(settings->autoSaveWorldOnExit && world)
     world->save();
 
+  if(m_server)
+  {
+    m_server->shutdown();
+    m_server.reset();
+  }
+
   EventLoop::stop();
 }
 

@@ -353,7 +353,7 @@ void Server::shutdown()
   assert(isEventLoopThread());
 
   if(m_ioContext.stopped())
-    return; 
+    return;
 
   std::promise<void> shutdownComplete;
   auto shutdownFuture = shutdownComplete.get_future();

@@ -290,8 +290,7 @@ void Traintastic::exit()
   }
 
 #ifdef WIN32
-  // CRITICAL: Stop the tray icon thread BEFORE stopping EventLoop
-  // This ensures the Windows message loop exits properly
+  // Signal tray icon thread to exit BEFORE stopping EventLoop
   Windows::TrayIcon::removeAsync();
 #endif
 

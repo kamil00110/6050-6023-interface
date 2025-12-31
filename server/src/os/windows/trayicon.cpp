@@ -78,7 +78,6 @@ void TrayIcon::removeAsync()
 {
   if(s_thread && s_window)
   {
-    // Post WM_QUIT to the tray icon thread to terminate its message loop
     PostMessage(s_window, WM_QUIT, 0, 0);
   }
 }

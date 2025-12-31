@@ -57,7 +57,6 @@ class Server : public std::enable_shared_from_this<Server>
     void doReceive();
     static std::unique_ptr<Message> processMessage(const Message& message);
     void doAccept();
-    void shutdown(); //Memory leak fix
 
     boost::beast::http::message_generator handleHTTPRequest(boost::beast::http::request<boost::beast::http::string_body>&& request);
     bool handleWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
@@ -67,6 +66,7 @@ class Server : public std::enable_shared_from_this<Server>
     void connectionGone(const std::shared_ptr<WebSocketConnection>& connection);
 
   public:
+    void shutdown(); //Memory leak fix
     static constexpr std::string_view id{"server"};
     static constexpr uint16_t defaultPort = 5740; //!< unoffical, not (yet) assigned by IANA
 

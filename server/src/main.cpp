@@ -172,7 +172,10 @@ int main(int argc, char* argv[])
 
 #ifdef WIN32
     if(options.tray)
-      Windows::TrayIcon::remove();
+    {
+      if(Windows::TrayIcon::s_thread)
+        Windows::TrayIcon::remove();
+    }
 #endif
 
     if(Traintastic::instance)

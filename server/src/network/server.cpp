@@ -26,6 +26,7 @@
 #include <boost/url/url_view.hpp>
 #include <boost/url/parse.hpp>
 #include <span>
+#include <future>
 #include <traintastic/network/message.hpp>
 #include <traintastic/utils/standardpaths.hpp>
 #include <version.hpp>
@@ -336,29 +337,47 @@ Server::Server(bool localhostOnly, uint16_t port, bool discoverable)
 Server::~Server()
 {
   assert(isEventLoopThread());
+  shutdown();
 
   if(!m_ioContext.stopped())
   {
-    m_ioContext.post(
-      [this]()
-      {
-        boost::system::error_code ec;
-        if(m_acceptor.cancel(ec))
-          Log::log(id, LogMessage::E1008_SOCKET_ACCEPTOR_CANCEL_FAILED_X, ec);
-
-        m_acceptor.close();
-
-        m_socketUDP.close();
-      });
-
     m_ioContext.stop();
   }
 
   if(m_thread.joinable())
     m_thread.join();
+}
 
-  while(!m_connections.empty())
-    m_connections.front()->disconnect();
+void Server::shutdown()
+{
+  assert(isEventLoopThread());
+
+  if(m_ioContext.stopped())
+    return; 
+
+  std::promise<void> shutdownComplete;
+  auto shutdownFuture = shutdownComplete.get_future();
+  
+  m_ioContext.post(
+    [this, &shutdownComplete]()
+    {
+      boost::system::error_code ec;
+      
+      if(m_acceptor.cancel(ec))
+        Log::log(id, LogMessage::E1008_SOCKET_ACCEPTOR_CANCEL_FAILED_X, ec);
+      
+      m_acceptor.close();
+      m_socketUDP.close();
+
+      while(!m_connections.empty())
+      {
+        m_connections.front()->disconnect();
+      }
+      
+      shutdownComplete.set_value();
+    });
+
+  shutdownFuture.wait();
 }
 
 void Server::connectionGone(const std::shared_ptr<WebSocketConnection>& connection)

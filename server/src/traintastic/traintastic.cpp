@@ -41,6 +41,8 @@
 #include "../log/log.hpp"
 #include "../log/logmessageexception.hpp"
 #include "../lua/getversion.hpp"
+#include "../utils/audioenumerator.hpp"
+
 
 using nlohmann::json;
 
@@ -151,7 +153,13 @@ Traintastic::Traintastic(const std::filesystem::path& dataDir) :
   m_signalSet.add(SIGBREAK); //Windows uses SIGBREAK instead of SIGTERM
 #endif
 
-  m_signalSet.async_wait(&Traintastic::signalHandler);
+  m_signalSet.async_wait(
+    [this](const boost::system::error_code& ec, int sig)
+    {
+      this->signalHandler(ec, sig);
+    }
+
+  );
 
   m_interfaceItems.add(about);
   m_interfaceItems.add(settings);
@@ -165,6 +173,12 @@ Traintastic::Traintastic(const std::filesystem::path& dataDir) :
   m_interfaceItems.add(restart);
   Attributes::addEnabled(shutdown, false);
   m_interfaceItems.add(shutdown);
+}
+
+Traintastic::~Traintastic()
+{
+    boost::system::error_code ec;
+    m_signalSet.cancel(ec); 
 }
 
 void Traintastic::importWorld(const std::vector<std::byte>& worldData)
@@ -199,6 +213,7 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
   Log::log(*this, LogMessage::I1008_X, std::string_view{archive_version_details()});
   Log::log(*this, LogMessage::I1009_ZLIB_X, std::string_view{zlibVersion()});
   Log::log(*this, LogMessage::I9002_X, Lua::getVersion());
+  logAllAudioDevices();
 
   settings = std::make_shared<Settings>(m_dataDir);
   Attributes::setEnabled(restart, settings->allowClientServerRestart);
@@ -254,7 +269,6 @@ Traintastic::RunStatus Traintastic::run(const std::string& worldUUID, bool simul
     Log::log(id, LogMessage::F1008_EVENTLOOP_CRASHED_X, e.what());
     return ExitFailure;
   }
-
   return m_restart ? Restart : ExitSuccess;
 }
 
@@ -267,6 +281,12 @@ void Traintastic::exit()
 
   if(settings->autoSaveWorldOnExit && world)
     world->save();
+
+  if(m_server)
+  {
+    m_server->shutdown();
+    m_server.reset();
+  }
 
   EventLoop::stop();
 }
@@ -347,4 +367,61 @@ void Traintastic::signalHandler(const boost::system::error_code& ec, int signalN
 
   Log::log(*Traintastic::instance, LogMessage::N1001_RECEIVED_SIGNAL_X, std::string_view{val});
   instance->exit();
+}
+/**
+ * Example code to log all speakers with their channel names and IDs
+ * Add this to traintastic.cpp or any other appropriate location
+ */
+
+void Traintastic::logAllAudioDevices()
+{
+  // Get all speaker IDs
+  auto speakerIds = AudioEnumerator::listSpeakerIds();
+  
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("=== Detailed Audio Device Information ==="));
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("Total devices found: ") + std::to_string(speakerIds.size()));
+  
+  // Iterate through each speaker
+  for(size_t i = 0; i < speakerIds.size(); i++)
+  {
+    const auto& speakerId = speakerIds[i];
+    
+    // Get speaker information
+    std::string name = AudioEnumerator::getSpeakerName(speakerId);
+    uint32_t channelCount = AudioEnumerator::getSpeakerChannels(speakerId);
+    auto channels = AudioEnumerator::getSpeakerChannelInfo(speakerId);
+    
+    // Log speaker header
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("\n--- Speaker ") + std::to_string(i + 1) + " ---");
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("Name: ") + name);
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("ID: ") + speakerId);
+    Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+      std::string("Total Channels: ") + std::to_string(channelCount));
+    
+    // Log each channel
+    if(!channels.empty())
+    {
+      Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+        std::string("Channels:"));
+      
+      for(const auto& channel : channels)
+      {
+        Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+          std::string("  [") + std::to_string(channel.channelIndex) + "] " + channel.channelName);
+      }
+    }
+    else
+    {
+      Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+        std::string("  No channel information available"));
+    }
+  }
+  
+  Log::log(std::string("AudioExample"), LogMessage::I1006_X, 
+    std::string("=== End Detailed Audio Device Information ==="));
 }

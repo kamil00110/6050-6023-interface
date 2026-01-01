@@ -284,17 +284,13 @@ void Traintastic::exit()
   if(settings->autoSaveWorldOnExit && world)
     world->save();
 
-  // Shutdown the server and disconnect all clients BEFORE stopping EventLoop
+  // CRITICAL: Shutdown the server and disconnect all clients
+  // BEFORE stopping the EventLoop
   if(m_server)
   {
     m_server->shutdown();
     m_server.reset();
   }
-
-#ifdef WIN32
-  // Signal tray icon thread to exit BEFORE stopping EventLoop
-  Windows::TrayIcon::removeAsync();
-#endif
 
   EventLoop::stop();
 }

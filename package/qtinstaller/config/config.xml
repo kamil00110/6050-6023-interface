@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Installer>
+    <Name>Traintastic</Name>
+    <Version>1.0.0</Version>
+    <Title>Traintastic Installer</Title>
+    <Publisher>Reinder Feenstra</Publisher>
+    <ProductUrl>https://traintastic.org</ProductUrl>
+    <StartMenuDir>Traintastic</StartMenuDir>
+    <TargetDir>@ApplicationsDir@/Traintastic</TargetDir>
+    <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
+    <RemoteRepositories>
+        <Repository>
+            <Url>https://traintastic.org/repository</Url>
+        </Repository>
+    </RemoteRepositories>
+    <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
+    <AllowSpaceInPath>true</AllowSpaceInPath>
+    <WizardStyle>Modern</WizardStyle>
+    <StyleSheet>installer.qss</StyleSheet>
+    <TitleColor>#FFFFFF</TitleColor>
+    <RunProgram>@TargetDir@/client/traintastic-client.exe</RunProgram>
+    <RunProgramDescription>Launch Traintastic Client</RunProgramDescription>
+    <MaintenanceToolName>TraintasticMaintenanceTool</MaintenanceToolName>
+    <Translations>
+        <Translation>en_US</Translation>
+        <Translation>nl_NL</Translation>
+        <Translation>de_DE</Translation>
+        <Translation>it_IT</Translation>
+        <Translation>sv_SE</Translation>
+        <Translation>fr_FR</Translation>
+        <Translation>pl_PL</Translation>
+    </Translations>
+    <ControlScript>controller.js</ControlScript>
+</Installer>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+  <DisplayName>Traintastic Client</DisplayName>
+  <Description>Install the Traintastic client application</Description>
+  <Version>${INSTALLER_VERSION}</Version>
+  <ReleaseDate>2026-01-01</ReleaseDate>
+  <Script>installscript.qs</Script>
+  <Default>true</Default>
+  <Publisher>Reinder Feenstra / Traintastic</Publisher>
+  <Author>Reinder Feenstra</Author>
+</Package>

@@ -13,8 +13,8 @@ set CONFIG_DIR=%PACKAGE_DIR%config
 set PACKAGES_DIR=%PACKAGE_DIR%packages
 set OUTPUT_DIR=%PACKAGE_DIR%output
 
-:: QtIFW binary creator tool path
-set BINARYCREATOR="C:\Qt\Tools\QtInstallerFramework\4.6\bin\binarycreator.exe"
+::ifier binary creator tool path
+set BINARYCREATOR="C:\Qt\Tools\QtInstallerFramework\4.8.1\bin\binarycreator.exe"
 
 :: Check if binarycreator exists
 if not exist %BINARYCREATOR% (

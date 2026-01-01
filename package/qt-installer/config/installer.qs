@@ -1,12 +1,38 @@
 function Controller() {
     installer.autoRejectMessageBoxes();
-    installer.installationFinished.connect(function() {
-        var serverPkg = installer.packageByName("server");
-        if (serverPkg.isInstalled) {
-            var serverExe = installer.value("TargetDir") + "/server/traintastic-server.exe";
-            installer.executeDetached("cmd.exe", ["/c", 'netsh advfirewall firewall add rule name="Traintastic server (TCP)" dir=in program="' + serverExe + '" protocol=TCP localport=5740 action=allow']);
-            installer.executeDetached("cmd.exe", ["/c", 'netsh advfirewall firewall add rule name="Traintastic server (UDP)" dir=in program="' + serverExe + '" protocol=UDP localport=5740 action=allow']);
-            installer.executeDetached("cmd.exe", ["/c", 'netsh advfirewall firewall add rule name="Traintastic server (WLANmaus/Z21)" dir=in program="' + serverExe + '" protocol=UDP localport=21105 action=allow']);
+    installer.setDefaultPageVisible(QInstaller.ComponentSelection, true);
+    installer.setDefaultPageVisible(QInstaller.TargetDirectory, true);
+    installer.setDefaultPageVisible(QInstaller.ReadyForInstallation, true);
+    installer.setDefaultPageVisible(QInstaller.Introduction, true);
+    installer.setDefaultPageVisible(QInstaller.LicenseCheck, true);
+}
+
+function ComponentPage() {
+    var page = gui.pageWidgetByObjectName("ComponentSelectionPage");
+    if (page) {
+        // pre-check Client+Server by default
+        var client = page.findChild("Client");
+        var server = page.findChild("Server");
+        if (client && server) {
+            client.checked = true;
+            server.checked = true;
         }
-    });
+    }
+}
+
+Controller.prototype.WelcomePageCallback = function() {
+    // optional: show intro message
+}
+
+Controller.prototype.TargetDirectoryPageCallback = function() {
+    // enforce target dir or default
+}
+
+Controller.prototype.InstallationFinishedCallback = function() {
+    // post-install: create JSON language file for server
+    var serverSettingsFile = installer.value("TargetDir") + "/server/settings.json";
+    if (!installer.fileExists(serverSettingsFile)) {
+        var lang = installer.environmentVariable("LANG") || "en-us";
+        installer.execute("cmd.exe", ["/c", 'echo {"language":"' + lang + '"} > "' + serverSettingsFile + '"']);
+    }
 }

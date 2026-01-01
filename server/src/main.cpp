@@ -170,24 +170,24 @@ int main(int argc, char* argv[])
       status = EXIT_FAILURE;
     }
 
+if(Traintastic::instance)
+    {
+#ifndef NDEBUG
+      std::weak_ptr<Traintastic> weak = Traintastic::instance;
+#endif
+      Traintastic::instance->destroy();
+      Traintastic::instance.reset();
+#ifndef NDEBUG
+      assert(weak.expired());
+#endif
+    }
+
 #ifdef WIN32
     if(options.tray && Windows::TrayIcon::isRunning())
     {
       Windows::TrayIcon::remove();
     }
 #endif
-
-    if(Traintastic::instance)
-    {
-#ifndef NDEBUG
-      std::weak_ptr<Traintastic> weak = Traintastic::instance;
-#endif
-      Traintastic::instance->destroy(); // notify others to release the object
-      Traintastic::instance.reset();
-#ifndef NDEBUG
-      assert(weak.expired());
-#endif
-    }
   }
   while(restart);
 

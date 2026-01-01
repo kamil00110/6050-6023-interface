@@ -528,6 +528,97 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
+        
+  package-ubuntu-iso:
+    name: Package Ubuntu ISO
+    runs-on: ubuntu-latest
+    needs:
+      - build-client
+      - build-server
+      - build-data
+
+    steps:
+      - name: Create working directories
+        run: |
+          mkdir -p iso_root/packages
+
+      - name: Download client debs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: traintastic-client-deb-*
+          merge-multiple: true
+          path: iso_root/packages
+
+      - name: Download server debs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: traintastic-server-deb-*
+          merge-multiple: true
+          path: iso_root/packages
+
+      - name: Download data debs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: traintastic-data-deb-*
+          merge-multiple: true
+          path: iso_root/packages
+
+      - name: Rename deb packages (ignore arm64)
+        shell: bash
+        run: |
+          set -e
+          cd iso_root/packages
+
+          CLIENT=$(ls traintastic-client*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
+          SERVER=$(ls traintastic-server*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
+          DATA=$(ls traintastic-data*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
+
+          echo "Selected packages:"
+          echo "  CLIENT=$CLIENT"
+          echo "  SERVER=$SERVER"
+          echo "  DATA=$DATA"
+
+          cp "$CLIENT" traintastic-client.deb
+          cp "$SERVER" traintastic-server.deb
+          cp "$DATA" traintastic-data.deb
+
+          rm -f *.deb
+          mv traintastic-client.deb traintastic-server.deb traintastic-data.deb .
+
+      - name: Create ISO README
+        run: |
+          cat > iso_root/README.txt <<EOF
+          Traintastic Ubuntu Packages
+
+          Install order:
+            1) traintastic-data.deb
+            2) traintastic-server.deb
+            3) traintastic-client.deb
+
+          Install with:
+            sudo apt install ./traintastic-*.deb
+          EOF
+
+      - name: Build ISO
+        run: |
+          sudo apt update
+          sudo apt install -y xorriso
+
+          ISO_NAME="traintastic-ubuntu-${{ github.event.inputs.tag_name || github.run_number }}.iso"
+
+          xorriso -as mkisofs \
+            -r -J -joliet-long \
+            -o "$ISO_NAME" \
+            iso_root
+
+          echo "ISO_NAME=$ISO_NAME" >> $GITHUB_ENV
+
+      - name: Upload Ubuntu ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: traintastic-ubuntu-iso
+          path: ${{ env.ISO_NAME }}
+
   package-innosetup:
     name: package innosetup
     runs-on: windows-2022

@@ -368,10 +368,6 @@ jobs:
           os: ubuntu-24.04
           defines: ""
 
-        - name: "raspberrypios_10"
-          os: [self-hosted, ARM64, RaspberryPi]
-          defines: ""
-
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
 

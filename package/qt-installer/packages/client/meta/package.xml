@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+  <DisplayName>Traintastic Client</DisplayName>
+  <Description>The client application for Traintastic</Description>
+  <Version>1.0.0</Version> <!-- workflow replaces with GitHub version -->
+  <ReleaseDate>2026-01-01</ReleaseDate> <!-- workflow replaces with build date -->
+  <Default>true</Default>
+  <Required>false</Required>
+  <Script>client.qs</Script> <!-- optional JS for post-install -->
+</Package>

@@ -1,10 +1,20 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <Package>
   <DisplayName>Traintastic Client</DisplayName>
-  <Description>The client application for Traintastic</Description>
-  <Version>1.0.0</Version> <!-- workflow fills GitHub version -->
-  <ReleaseDate>2026-01-01</ReleaseDate> <!-- workflow fills build date -->
+  <Description>The Traintastic Client application</Description>
+  <Version>1.0.0</Version>
+  <ReleaseDate>2026-01-01</ReleaseDate>
   <Default>true</Default>
-  <Required>false</Required>
   <Script>installer.qs</Script>
+  <Dependencies></Dependencies>
+
+  <Files>
+    <File source="../../client/build/Release/traintastic-client.exe" target="client/" />
+    <File source="../../client/build/Release/*.dll" target="client/" />
+    <File source="../../client/build/Release/bearer/*.dll" target="client/bearer" />
+    <File source="../../client/build/Release/iconengines/*.dll" target="client/iconengines" />
+    <File source="../../client/build/Release/imageformats/*.dll" target="client/imageformats" />
+    <File source="../../client/build/Release/platforms/*.dll" target="client/platforms" />
+    <File source="../../client/build/Release/styles/*.dll" target="client/styles" />
+  </Files>
 </Package>

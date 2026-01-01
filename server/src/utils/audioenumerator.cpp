@@ -554,17 +554,18 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
       return devices;
     }
     
+    // Determine default device
     snd_pcm_t* defaultPcm = nullptr;
-    std::string defaultDeviceName;
-    if(snd_pcm_open(&defaultPcm, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) >= 0)
+    std::string defaultDeviceId;
+    if(snd_pcm_open(&defaultPcm, "default", SND_PCM_STREAM_PLAYBACK, 0) >= 0)
     {
       snd_pcm_info_t* info;
       snd_pcm_info_alloca(&info);
       if(snd_pcm_info(defaultPcm, info) >= 0)
       {
-        const char* infoName = snd_pcm_info_get_name(info);
-        if(infoName)
-          defaultDeviceName = infoName;
+        int card = snd_pcm_info_get_card(info);
+        int device = snd_pcm_info_get_device(info);
+        defaultDeviceId = "hw:" + std::to_string(card) + "," + std::to_string(device);
       }
       snd_pcm_close(defaultPcm);
     }
@@ -591,38 +592,69 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
         continue;
       }
       
+      // Skip null device and other non-hardware virtual devices
+      std::string nameStr(name);
+      if(nameStr == "null" || nameStr.find("sysdefault:") != std::string::npos)
+      {
+        free(name);
+        if(desc) free(desc);
+        if(ioid) free(ioid);
+        continue;
+      }
+      
+      // Try to open the device (without NONBLOCK to be more compatible)
       snd_pcm_t* pcm = nullptr;
-      if(snd_pcm_open(&pcm, name, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK) >= 0)
+      int openResult = snd_pcm_open(&pcm, name, SND_PCM_STREAM_PLAYBACK, 0);
+      
+      if(openResult >= 0 && pcm)
       {
         snd_pcm_hw_params_t* params;
         snd_pcm_hw_params_alloca(&params);
         
         if(snd_pcm_hw_params_any(pcm, params) >= 0)
         {
+          unsigned int minChannels = 0;
           unsigned int maxChannels = 0;
-          if(snd_pcm_hw_params_get_channels_max(params, &maxChannels) >= 0)
+          
+          snd_pcm_hw_params_get_channels_min(params, &minChannels);
+          snd_pcm_hw_params_get_channels_max(params, &maxChannels);
+          
+          // Sanity check: limit to reasonable channel count
+          const unsigned int MAX_REASONABLE_CHANNELS = 32;
+          
+          if(maxChannels > 0 && maxChannels <= MAX_REASONABLE_CHANNELS)
           {
-            // Sanity check: limit to reasonable channel count (most systems won't exceed 32)
-            // This prevents bad_alloc from invalid/virtual devices reporting huge numbers
-            const unsigned int MAX_REASONABLE_CHANNELS = 32;
-            if(maxChannels > 0 && maxChannels <= MAX_REASONABLE_CHANNELS)
+            AudioDeviceInfo info;
+            info.deviceId = std::string("alsa:") + name;
+            
+            // Clean up description (ALSA often has multi-line descriptions)
+            if(desc)
             {
-              AudioDeviceInfo info;
-              info.deviceId = std::string("alsa:") + name;
-              info.deviceName = desc ? desc : name;
-              info.channelCount = maxChannels;
-              info.isDefault = (!defaultDeviceName.empty() && defaultDeviceName == name);
-              
-              for(unsigned int ch = 0; ch < maxChannels; ch++)
-              {
-                AudioChannelInfo channelInfo;
-                channelInfo.channelIndex = ch;
-                channelInfo.channelName = getChannelName(ch, maxChannels);
-                info.channels.push_back(channelInfo);
-              }
-              
-              devices.push_back(info);
+              std::string descStr(desc);
+              size_t newlinePos = descStr.find('\n');
+              if(newlinePos != std::string::npos)
+                descStr = descStr.substr(0, newlinePos);
+              info.deviceName = descStr;
             }
+            else
+            {
+              info.deviceName = name;
+            }
+            
+            // Use maxChannels as the reported channel count
+            info.channelCount = maxChannels;
+            info.isDefault = (nameStr == "default" || 
+                             nameStr.find(defaultDeviceId) != std::string::npos);
+            
+            for(unsigned int ch = 0; ch < maxChannels; ch++)
+            {
+              AudioChannelInfo channelInfo;
+              channelInfo.channelIndex = ch;
+              channelInfo.channelName = getChannelName(ch, maxChannels);
+              info.channels.push_back(channelInfo);
+            }
+            
+            devices.push_back(info);
           }
         }
         
@@ -635,6 +667,44 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
     }
     
     snd_device_name_free_hint(hints);
+    
+    // If no devices found, try to add at least the default device
+    if(devices.empty())
+    {
+      snd_pcm_t* pcm = nullptr;
+      if(snd_pcm_open(&pcm, "default", SND_PCM_STREAM_PLAYBACK, 0) >= 0)
+      {
+        snd_pcm_hw_params_t* params;
+        snd_pcm_hw_params_alloca(&params);
+        
+        if(snd_pcm_hw_params_any(pcm, params) >= 0)
+        {
+          unsigned int maxChannels = 0;
+          snd_pcm_hw_params_get_channels_max(params, &maxChannels);
+          
+          if(maxChannels > 0 && maxChannels <= 32)
+          {
+            AudioDeviceInfo info;
+            info.deviceId = "alsa:default";
+            info.deviceName = "Default Audio Device";
+            info.channelCount = maxChannels;
+            info.isDefault = true;
+            
+            for(unsigned int ch = 0; ch < maxChannels; ch++)
+            {
+              AudioChannelInfo channelInfo;
+              channelInfo.channelIndex = ch;
+              channelInfo.channelName = getChannelName(ch, maxChannels);
+              info.channels.push_back(channelInfo);
+            }
+            
+            devices.push_back(info);
+          }
+        }
+        
+        snd_pcm_close(pcm);
+      }
+    }
   }
   catch(const std::exception& e)
   {

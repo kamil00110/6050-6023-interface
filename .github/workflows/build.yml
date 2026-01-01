@@ -508,60 +508,38 @@ jobs:
     needs: [build-client, build-server, build-lang, build-manual]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: FranzDiebold/github-env-vars-action@v2
+
+    - name: Checkout
+      uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    - name: Download client artifacts
+    - name: Download artifacts: client
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
-        path: package/qt-installer/packages/client/data/files/
+        path: ${{ github.workspace }}/package/qt-installer/packages/client/data/files
 
-    - name: Download server artifacts
+    - name: Download artifacts: server
       uses: actions/download-artifact@v4
       with:
         name: traintastic-server-windows
-        path: package/qt-installer/packages/server/data/files/
+        path: ${{ github.workspace }}/package/qt-installer/packages/server/data/files
 
-    - name: Download translations
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-lang
-        path: package/qt-installer/packages/data/data/files/translations/
-
-    - name: Download manual
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-manual
-        path: package/qt-installer/packages/data/data/files/manual/
-
-    - name: Download LNCV XML
+    - name: Download artifacts: data
       uses: actions/download-artifact@v4
       with:
         name: traintastic-data
-        path: package/qt-installer/packages/data/data/files/lncv/xml/
+        path: ${{ github.workspace }}/package/qt-installer/packages/data/data/files
 
-    - name: Replace version in package.xml
+    - name: Build Qt Installer
+      shell: cmd
       run: |
-        $version = "${{ github.event.inputs.tag_name }}"
-        Get-ChildItem package/qt-installer/packages/*/meta/package.xml | ForEach-Object {
-          (Get-Content $_) -replace '<Version>.*</Version>', "<Version>$version</Version>" | Set-Content $_
-        }
-
-    - name: Build Qt installer
-      run: |
-        "C:\Qt\Tools\QtInstallerFramework\bin\binarycreator.exe" ^
-          --offline-only ^
-          --config package/qt-installer/config/config.xml ^
-          --packages package/qt-installer/packages ^
-          package/qt-installer/output/traintastic-installer.exe
-
-    - name: Upload Qt installer
-      uses: actions/upload-artifact@v4
-      with:
-        name: traintastic-qt-installer
-        path: package/qt-installer/output/traintastic-installer.exe
+        C:/Qt/QtIFW/Tools/QtInstallerFramework/bin/binarycreator.exe ^
+          -c "%GITHUB_WORKSPACE%/package/qt-installer/config/config.xml" ^
+          -p "%GITHUB_WORKSPACE%/package/qt-installer/packages" ^
+          "%GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-setup.exe"
 
   deploy:
     name: Deploy to website

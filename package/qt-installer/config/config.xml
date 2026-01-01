@@ -1,27 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Installer>
   <Name>Traintastic</Name>
-  <Version>1.0.0</Version> <!-- workflow will replace this with actual version -->
+  <Version>1.0.0</Version> <!-- Filled dynamically by workflow -->
   <Title>Traintastic Installer</Title>
   <Publisher>Reinder Feenstra</Publisher>
-  <ProductUrl>https://traintastic.org</ProductUrl>
-  <InstallerApplicationIcon>installer-icon.ico</InstallerApplicationIcon>
-  <InstallerWindowIcon>installer-icon.ico</InstallerWindowIcon>
-  <ApplicationIcon>traintastic-icon.ico</ApplicationIcon>
-  <LogoPixmap>installer-logo.png</LogoPixmap>
   <StartMenuDir>Traintastic</StartMenuDir>
   <TargetDir>@HomeDir@/Traintastic</TargetDir>
+  <ApplicationIcon>installer-icon.ico</ApplicationIcon>
+  <Watermark>installer-watermark.png</Watermark>
   <WizardStyle>Modern</WizardStyle>
-  <Languages>
-    <Language name="en" />
-    <Language name="nl" />
-    <Language name="de" />
-    <Language name="it" />
-    <Language name="sv" />
-    <Language name="fr" />
-    <Language name="pl" />
-  </Languages>
+  <InstallerApplicationIcon>installer-icon.ico</InstallerApplicationIcon>
+  <InstallerWindowTitle>Traintastic Installer</InstallerWindowTitle>
+  <InstallerVersion>2.0</InstallerVersion>
   <RemoteRepositories>
-    <!-- Optional: leave empty -->
+    <Repository>
+      <Url>file://../packages</Url>
+    </Repository>
   </RemoteRepositories>
 </Installer>

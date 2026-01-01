@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Installer>
+  <Name>Traintastic Installer</Name>
+  <Version>@VERSION@</Version>
+  <Title>Traintastic Installer</Title>
+  <Publisher>Reinder Feenstra / Traintastic</Publisher>
+  <Author>Reinder Feenstra</Author>
+  <StartMenuDir>Traintastic</StartMenuDir>
+  <TargetDir>@HomeDir@/Traintastic</TargetDir>
+  <WizardStyle>Modern</WizardStyle>
+  <ApplicationIcon>icon.ico</ApplicationIcon>
+  <InstallerApplicationIcon>icon.ico</InstallerApplicationIcon>
+</Installer>

@@ -562,7 +562,9 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
       snd_pcm_info_alloca(&info);
       if(snd_pcm_info(defaultPcm, info) >= 0)
       {
-        defaultDeviceName = snd_pcm_info_get_name(info);
+        const char* infoName = snd_pcm_info_get_name(info);
+        if(infoName)
+          defaultDeviceName = infoName;
       }
       snd_pcm_close(defaultPcm);
     }
@@ -573,13 +575,19 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
       char* desc = snd_device_name_get_hint(*hint, "DESC");
       char* ioid = snd_device_name_get_hint(*hint, "IOID");
       
-      if(!name) continue;
+      if(!name)
+      {
+        if(desc) free(desc);
+        if(ioid) free(ioid);
+        continue;
+      }
       
+      // Skip input-only devices
       if(ioid && strcmp(ioid, "Input") == 0)
       {
         free(name);
         if(desc) free(desc);
-        if(ioid) free(ioid);
+        free(ioid);
         continue;
       }
       
@@ -592,25 +600,29 @@ std::vector<AudioDeviceInfo> AudioEnumerator::enumerateDevices()
         if(snd_pcm_hw_params_any(pcm, params) >= 0)
         {
           unsigned int maxChannels = 0;
-          snd_pcm_hw_params_get_channels_max(params, &maxChannels);
-          
-          if(maxChannels > 0)
+          if(snd_pcm_hw_params_get_channels_max(params, &maxChannels) >= 0)
           {
-            AudioDeviceInfo info;
-            info.deviceId = std::string("alsa:") + name;
-            info.deviceName = desc ? desc : name;
-            info.channelCount = maxChannels;
-            info.isDefault = (defaultDeviceName == name);
-            
-            for(unsigned int ch = 0; ch < maxChannels; ch++)
+            // Sanity check: limit to reasonable channel count (most systems won't exceed 32)
+            // This prevents bad_alloc from invalid/virtual devices reporting huge numbers
+            const unsigned int MAX_REASONABLE_CHANNELS = 32;
+            if(maxChannels > 0 && maxChannels <= MAX_REASONABLE_CHANNELS)
             {
-              AudioChannelInfo channelInfo;
-              channelInfo.channelIndex = ch;
-              channelInfo.channelName = getChannelName(ch, maxChannels);
-              info.channels.push_back(channelInfo);
+              AudioDeviceInfo info;
+              info.deviceId = std::string("alsa:") + name;
+              info.deviceName = desc ? desc : name;
+              info.channelCount = maxChannels;
+              info.isDefault = (!defaultDeviceName.empty() && defaultDeviceName == name);
+              
+              for(unsigned int ch = 0; ch < maxChannels; ch++)
+              {
+                AudioChannelInfo channelInfo;
+                channelInfo.channelIndex = ch;
+                channelInfo.channelName = getChannelName(ch, maxChannels);
+                info.channels.push_back(channelInfo);
+              }
+              
+              devices.push_back(info);
             }
-            
-            devices.push_back(info);
           }
         }
         

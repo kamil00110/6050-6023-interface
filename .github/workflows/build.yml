@@ -502,53 +502,60 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
-  package-innosetup:
-    name: package innosetup
-    runs-on: windows-2022
-    needs: [build-client, build-server, build-lang, build-manual]
+package-qt-installer:
+  name: package qt installer
+  runs-on: windows-2022
+  needs: [build-client, build-server, build-lang, build-manual]
 
-    steps:
-    - uses: FranzDiebold/github-env-vars-action@v2
+  steps:
+  - uses: FranzDiebold/github-env-vars-action@v2
 
-    - name: Checkout
-      uses: actions/checkout@v3
-      with:
-        submodules: recursive
+  - name: Checkout
+    uses: actions/checkout@v3
+    with:
+      submodules: recursive
 
-    - name: Download artifacts 1/2
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-client-windows
-        path: ${{github.workspace}}/client/build/Release
+  - name: Download artifacts: client
+    uses: actions/download-artifact@v4
+    with:
+      name: traintastic-client-windows
+      path: ${{github.workspace}}/client/build/Release
 
-    - name: Download artifacts 2/2
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-server-windows
-        path: ${{github.workspace}}/server/build
+  - name: Download artifacts: server
+    uses: actions/download-artifact@v4
+    with:
+      name: traintastic-server-windows
+      path: ${{github.workspace}}/server/build
 
-    - name: "Download artifact: lang"
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-lang
-        path: ${{github.workspace}}/shared/translations
+  - name: Download artifacts: language
+    uses: actions/download-artifact@v4
+    with:
+      name: traintastic-lang
+      path: ${{github.workspace}}/shared/translations
 
-    - name: "Download artifact: manual"
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-manual
-        path: ${{github.workspace}}/manual/output
+  - name: Download artifacts: manual
+    uses: actions/download-artifact@v4
+    with:
+      name: traintastic-manual
+      path: ${{github.workspace}}/manual/output
 
-    - name: Build installer
-      shell: cmd
-      run: |
-        "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" %GITHUB_WORKSPACE%/package/innosetup/traintastic.iss
+  - name: Build Qt Installer
+    shell: cmd
+    run: |
+      REM Change this path to your Qt IFW installation if different
+      set QTIFW_BIN="C:/Qt/IFW/bin/binarycreator.exe"
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: package-innosetup
-        path: ${{github.workspace}}/package/innosetup/output
+      REM Build the installer
+      %QTIFW_BIN% ^
+        --config %GITHUB_WORKSPACE%/package/qt-installer/config/config.xml ^
+        --packages %GITHUB_WORKSPACE%/package/qt-installer/packages ^
+        %GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-installer.exe
+
+  - name: Upload Qt Installer
+    uses: actions/upload-artifact@v4
+    with:
+      name: package-qt-installer
+      path: ${{github.workspace}}/package/qt-installer/output
 
   deploy:
     name: Deploy to website

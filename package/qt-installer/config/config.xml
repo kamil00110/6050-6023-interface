@@ -1,20 +1,18 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0"?>
 <Installer>
   <Name>Traintastic</Name>
-  <Version>1.0.0</Version> <!-- Filled dynamically by workflow -->
+  <Version>1.0.0</Version> <!-- this can be replaced from GitHub workflow -->
   <Title>Traintastic Installer</Title>
   <Publisher>Reinder Feenstra</Publisher>
-  <StartMenuDir>Traintastic</StartMenuDir>
-  <TargetDir>@HomeDir@/Traintastic</TargetDir>
-  <ApplicationIcon>installer-icon.ico</ApplicationIcon>
-  <Watermark>installer-watermark.png</Watermark>
-  <WizardStyle>Modern</WizardStyle>
+  <ProductUrl>https://traintastic.org</ProductUrl>
   <InstallerApplicationIcon>installer-icon.ico</InstallerApplicationIcon>
-  <InstallerWindowTitle>Traintastic Installer</InstallerWindowTitle>
-  <InstallerVersion>2.0</InstallerVersion>
+  <WizardStyle>Modern</WizardStyle>
+  <LicenseFile>../../LICENSE</LicenseFile>
+  <TargetDir>@HomeDir@/Traintastic</TargetDir>
+  <RunProgram>vc_redist.x64.exe</RunProgram>
   <RemoteRepositories>
     <Repository>
-      <Url>file://../packages</Url>
+      <Url>file://packages/</Url>
     </Repository>
   </RemoteRepositories>
 </Installer>

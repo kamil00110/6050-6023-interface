@@ -97,6 +97,7 @@ class TrayIcon
     static void add(bool isRestart = false);
     static void remove();
     static void removeAsync();
+    static bool isRunning() { return s_thread != nullptr; }
 };
 
 }

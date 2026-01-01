@@ -510,48 +510,53 @@ jobs:
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
 
-    - name: Checkout
+    - name: "Checkout"
       uses: actions/checkout@v3
       with:
         submodules: recursive
 
-    - name: Download artifacts: client
+    - name: "Download artifacts: client"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{github.workspace}}/package/qt-installer/packages/client/data/files
+        path: ${{ github.workspace }}/package/qt-installer/packages/client/data/files
 
-    - name: Download artifacts: server
+    - name: "Download artifacts: server"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-server-windows
-        path: ${{github.workspace}}/package/qt-installer/packages/server/data/files
+        path: ${{ github.workspace }}/package/qt-installer/packages/server/data/files
 
-    - name: Download artifacts: language
+    - name: "Download artifacts: language"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-lang
-        path: ${{github.workspace}}/package/qt-installer/packages/data/data/files/translations
+        path: ${{ github.workspace }}/package/qt-installer/packages/data/data/files/translations
 
-    - name: Download artifacts: manual
+    - name: "Download artifacts: manual"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-manual
-        path: ${{github.workspace}}/package/qt-installer/packages/data/data/files/manual
+        path: ${{ github.workspace }}/package/qt-installer/packages/data/data/files/manual
 
-    - name: Build Qt Installer
+    - name: "Build Qt Installer"
       shell: cmd
       run: |
-        "%ProgramFiles%\Qt\Tools\QtInstallerFramework\bin\binarycreator.exe" ^
-          --config "%GITHUB_WORKSPACE%/package/qt-installer/config/config.xml" ^
-          --packages "%GITHUB_WORKSPACE%/package/qt-installer/packages" ^
-          "%GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-setup.exe"
+        rem Make sure binarycreator.exe is in PATH or adjust path below
+        set PATH=C:\Qt\Tools\QtInstallerFramework\4.4.2\bin;%PATH%
+        rem Create the installer
+        binarycreator.exe ^
+          --offline-only ^
+          --verbose ^
+          --packages packages ^
+          --config config/config.xml ^
+          --output output/traintastic-windows-installer.exe
 
-    - name: Upload Qt Installer
+    - name: "Upload artifact"
       uses: actions/upload-artifact@v4
       with:
         name: package-qt-installer
-        path: ${{ github.workspace }}/package/qt-installer/output
+        path: ${{ github.workspace }}/package/qt-installer/output/traintastic-windows-installer.exe
 
 
   deploy:

@@ -1,14 +1,12 @@
 <?xml version="1.0"?>
 <Package>
-  <DisplayName>Traintastic Server</DisplayName>
-  <Description>The Traintastic Server application</Description>
+  <DisplayName>Server</DisplayName>
+  <Description>Install the Traintastic server application</Description>
   <Version>1.0.0</Version>
   <ReleaseDate>2026-01-01</ReleaseDate>
   <Default>true</Default>
   <Script>installer.qs</Script>
-  <Dependencies></Dependencies>
-
   <Files>
-    <File source="../../server/build/traintastic-server.exe" target="server/" />
+    <File name="../../server/build/traintastic-server.exe" />
   </Files>
 </Package>

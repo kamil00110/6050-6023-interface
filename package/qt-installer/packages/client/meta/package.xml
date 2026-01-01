@@ -2,9 +2,9 @@
 <Package>
   <DisplayName>Traintastic Client</DisplayName>
   <Description>The client application for Traintastic</Description>
-  <Version>1.0.0</Version> <!-- workflow replaces with GitHub version -->
-  <ReleaseDate>2026-01-01</ReleaseDate> <!-- workflow replaces with build date -->
+  <Version>1.0.0</Version> <!-- workflow fills GitHub version -->
+  <ReleaseDate>2026-01-01</ReleaseDate> <!-- workflow fills build date -->
   <Default>true</Default>
   <Required>false</Required>
-  <Script>client.qs</Script> <!-- optional JS for post-install -->
+  <Script>installer.qs</Script>
 </Package>

@@ -337,6 +337,7 @@ Server::Server(bool localhostOnly, uint16_t port, bool discoverable)
 Server::~Server()
 {
   assert(isEventLoopThread());
+
   shutdown();
 
   if(!m_ioContext.stopped())

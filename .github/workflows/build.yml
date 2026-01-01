@@ -502,60 +502,86 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
-package-qt-installer:
-  name: package qt installer
-  runs-on: windows-2022
-  needs: [build-client, build-server, build-lang, build-manual]
+  package-qt-installer:
+    name: package qt installer
+    runs-on: windows-2022
+    needs: [build-client, build-server, build-lang, build-manual]
 
-  steps:
-  - uses: FranzDiebold/github-env-vars-action@v2
+    steps:
+    - uses: FranzDiebold/github-env-vars-action@v2
 
-  - name: Checkout
-    uses: actions/checkout@v3
-    with:
-      submodules: recursive
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
-  - name: Download artifacts: client
-    uses: actions/download-artifact@v4
-    with:
-      name: traintastic-client-windows
-      path: ${{github.workspace}}/client/build/Release
+    - name: Set Installer Version and Date
+      run: |
+        echo "INSTALLER_VERSION=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
+        echo "RELEASE_DATE=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
-  - name: Download artifacts: server
-    uses: actions/download-artifact@v4
-    with:
-      name: traintastic-server-windows
-      path: ${{github.workspace}}/server/build
+    - name: Download artifacts: client
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-client-windows
+        path: ${{github.workspace}}/client/build/Release
 
-  - name: Download artifacts: language
-    uses: actions/download-artifact@v4
-    with:
-      name: traintastic-lang
-      path: ${{github.workspace}}/shared/translations
+    - name: Download artifacts: server
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-server-windows
+        path: ${{github.workspace}}/server/build
 
-  - name: Download artifacts: manual
-    uses: actions/download-artifact@v4
-    with:
-      name: traintastic-manual
-      path: ${{github.workspace}}/manual/output
+    - name: Download artifacts: language
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-lang
+        path: ${{github.workspace}}/shared/translations
 
-  - name: Build Qt Installer
-    shell: cmd
-    run: |
-      REM Change this path to your Qt IFW installation if different
-      set QTIFW_BIN="C:/Qt/IFW/bin/binarycreator.exe"
+    - name: Download artifacts: manual
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-manual
+        path: ${{github.workspace}}/manual/output
 
-      REM Build the installer
-      %QTIFW_BIN% ^
-        --config %GITHUB_WORKSPACE%/package/qt-installer/config/config.xml ^
-        --packages %GITHUB_WORKSPACE%/package/qt-installer/packages ^
-        %GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-installer.exe
+    - name: Copy files into Qt Installer structure
+      run: |
+        # Client files
+        mkdir -p package/qt-installer/packages/client/data/files
+        cp ${{github.workspace}}/client/build/Release/traintastic-client.exe package/qt-installer/packages/client/data/files/
 
-  - name: Upload Qt Installer
-    uses: actions/upload-artifact@v4
-    with:
-      name: package-qt-installer
-      path: ${{github.workspace}}/package/qt-installer/output
+        # Server files
+        mkdir -p package/qt-installer/packages/server/data/files
+        cp ${{github.workspace}}/server/build/Release/traintastic-server.exe package/qt-installer/packages/server/data/files/
+
+        # Data files
+        mkdir -p package/qt-installer/packages/data/data/files
+        cp -r ${{github.workspace}}/shared/translations/* package/qt-installer/packages/data/data/files/
+        cp -r ${{github.workspace}}/manual/output/* package/qt-installer/packages/data/data/files/
+
+    - name: Replace variables in XML files
+      shell: bash
+      run: |
+        for file in package/qt-installer/config/config.xml \
+                    package/qt-installer/packages/*/meta/package.xml; do
+          sed -i "s/@VERSION@/${INSTALLER_VERSION}/g" "$file"
+          sed -i "s/@RELEASEDATE@/${RELEASE_DATE}/g" "$file"
+        done
+
+    - name: Build Qt Installer
+      shell: cmd
+      run: |
+        set QTIFW_BIN="C:/Qt/IFW/bin/binarycreator.exe"
+        %QTIFW_BIN% ^
+          --config %GITHUB_WORKSPACE%/package/qt-installer/config/config.xml ^
+          --packages %GITHUB_WORKSPACE%/package/qt-installer/packages ^
+          %GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-installer.exe
+
+    - name: Upload Qt Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-qt-installer
+        path: ${{github.workspace}}/package/qt-installer/output
 
   deploy:
     name: Deploy to website

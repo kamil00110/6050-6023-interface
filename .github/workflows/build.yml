@@ -454,7 +454,7 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
-package-qtinstaller:
+  package-qtinstaller:
     name: package qtinstaller
     runs-on: windows-2022
     needs: [build-client, build-server, build-lang, build-manual]

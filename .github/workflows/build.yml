@@ -502,112 +502,74 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
-  package-innosetup:
-    name: package innosetup
+  package-qtinstaller:
+    name: package qtinstaller
     runs-on: windows-2022
     needs: [build-client, build-server, build-lang, build-manual]
-
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
-
+    
     - name: Checkout
       uses: actions/checkout@v3
       with:
         submodules: recursive
-
+    
     - name: Download artifacts 1/2
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
         path: ${{github.workspace}}/client/build/Release
-
+    
     - name: Download artifacts 2/2
       uses: actions/download-artifact@v4
       with:
         name: traintastic-server-windows
         path: ${{github.workspace}}/server/build
-
+    
     - name: "Download artifact: lang"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-lang
         path: ${{github.workspace}}/shared/translations
-
+    
     - name: "Download artifact: manual"
       uses: actions/download-artifact@v4
       with:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output
-
+    
+    - name: Install Qt Installer Framework
+      shell: pwsh
+      run: |
+        $qtifw_version = "4.6"
+        $qtifw_url = "https://download.qt.io/official_releases/qt-installer-framework/$qtifw_version/QtInstallerFramework-windows-x64-$qtifw_version.0.exe"
+        $qtifw_installer = "$env:TEMP\QtIFW-installer.exe"
+        
+        Write-Host "Downloading Qt Installer Framework $qtifw_version..."
+        Invoke-WebRequest -Uri $qtifw_url -OutFile $qtifw_installer
+        
+        Write-Host "Installing Qt Installer Framework..."
+        Start-Process -FilePath $qtifw_installer -ArgumentList @(
+          '--accept-licenses',
+          '--confirm-command',
+          '--root', 'C:\Qt\Tools\QtInstallerFramework\4.6',
+          'install'
+        ) -Wait -NoNewWindow
+        
+        Write-Host "Qt Installer Framework installed successfully"
+    
     - name: Build installer
       shell: cmd
       run: |
-        "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" %GITHUB_WORKSPACE%/package/innosetup/traintastic.iss
-
+        cd %GITHUB_WORKSPACE%\package\qtinstaller
+        call build-installer.bat
+    
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: package-innosetup
-        path: ${{github.workspace}}/package/innosetup/output
-
-  deploy:
-    name: Deploy to website
-    if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-latest
-    needs: [package-innosetup, build-server, build-client, build-data, build-manual]
-
-    steps:
-    - uses: FranzDiebold/github-env-vars-action@v2
-
-    - name: Download artifacts 1/6
-      uses: actions/download-artifact@v4
-      with:
-        name: package-innosetup
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    - name: Download artifacts 2/6
-      uses: actions/download-artifact@v4
-      with:
-        pattern: traintastic-client-deb-*
-        merge-multiple: true
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    - name: Download artifacts 3/6
-      uses: actions/download-artifact@v4
-      with:
-        pattern: traintastic-server-deb-*
-        merge-multiple: true
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    - name: Download artifacts 4/6
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-server-test-code-coverage
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}/ccov
-
-    - name: Download artifacts 5/6
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-manual
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}/manual
-
-    - name: Download artifacts 6/6
-      uses: actions/download-artifact@v4
-      with:
-        pattern: traintastic-data-deb-*
-        merge-multiple: true
-        path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    - uses: easingthemes/ssh-deploy@v2.2.11
-      env:
-          SSH_PRIVATE_KEY: ${{secrets.SERVER_SSH_KEY}}
-          ARGS: "-rltgoDzvO"
-          SOURCE: "dist/*"
-          REMOTE_HOST: ${{secrets.REMOTE_HOST}}
-          REMOTE_PORT: ${{secrets.REMOTE_PORT}}
-          REMOTE_USER: ${{secrets.REMOTE_USER}}
-          TARGET: ${{secrets.REMOTE_TARGET}}/traintastic/
-
+        name: package-qtinstaller
+        path: ${{github.workspace}}/package/qtinstaller/output/*.exe
+        
   update-readme-contributors:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/master'

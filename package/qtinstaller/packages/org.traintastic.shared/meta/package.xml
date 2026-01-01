@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Traintastic Shared Data</DisplayName>
+    <Description>Shared data files (translations, manual, LNCV definitions)</Description>
+    <Version>1.0.0</Version>
+    <ReleaseDate>2025-01-01</ReleaseDate>
+    <n>org.traintastic.shared</n>
+    <Default>true</Default>
+    <ForcedInstallation>true</ForcedInstallation>
+    <Essential>true</Essential>
+    <Virtual>false</Virtual>
+    <SortingPriority>110</SortingPriority>
+    <Script>installscript.js</Script>
+</Package>

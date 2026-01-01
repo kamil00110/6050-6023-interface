@@ -563,7 +563,7 @@ jobs:
           merge-multiple: true
           path: iso_root/packages
 
-      - name: Rename deb packages (ignore arm64)
+      - name: Select amd64 debs and rename (ignore arm64)
         shell: bash
         run: |
           set -e
@@ -585,23 +585,62 @@ jobs:
           rm -f *.deb
           mv traintastic-client.deb traintastic-server.deb traintastic-data.deb .
 
-      - name: Create ISO README
+      - name: Generate installer script
+        shell: bash
+        run: |
+          cat > iso_root/install.sh <<'EOF'
+          #!/usr/bin/env bash
+          set -e
+
+          if [ "$EUID" -ne 0 ]; then
+            echo "This installer must be run as root."
+            echo "Please re-run using: sudo ./install.sh"
+            exit 1
+          fi
+
+          SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+          DATA_DEB="$SCRIPT_DIR/packages/traintastic-data.deb"
+          SERVER_DEB="$SCRIPT_DIR/packages/traintastic-server.deb"
+          CLIENT_DEB="$SCRIPT_DIR/packages/traintastic-client.deb"
+
+          SERVICE_NAME="traintastic-server.service"
+
+          echo "Using files from:"
+          echo "  $SCRIPT_DIR"
+
+          if systemctl list-unit-files | grep -q "^$SERVICE_NAME"; then
+            echo "Stopping service..."
+            systemctl stop "$SERVICE_NAME" || true
+          fi
+
+          echo "Installing packages..."
+          apt install -y \
+            "$DATA_DEB" \
+            "$SERVER_DEB" \
+            "$CLIENT_DEB"
+
+          if systemctl list-unit-files | grep -q "^$SERVICE_NAME"; then
+            echo "Starting service..."
+            systemctl start "$SERVICE_NAME"
+          fi
+
+          echo "Installation complete."
+          EOF
+
+          chmod +x iso_root/install.sh
+
+      - name: Create README
         run: |
           cat > iso_root/README.txt <<EOF
-          Traintastic Ubuntu Packages
+          Traintastic Ubuntu Installer
 
-          Install order:
-            1) traintastic-data.deb
-            2) traintastic-server.deb
-            3) traintastic-client.deb
-
-          Install with:
-            sudo apt install ./traintastic-*.deb
+          Run as root:
+            sudo ./install.sh
           EOF
 
       - name: Build ISO
         run: |
-          sudo apt update
           sudo apt install -y xorriso
 
           ISO_NAME="traintastic-ubuntu-${{ github.event.inputs.tag_name || github.run_number }}.iso"

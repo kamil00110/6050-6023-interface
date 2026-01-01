@@ -171,10 +171,9 @@ int main(int argc, char* argv[])
     }
 
 #ifdef WIN32
-    if(options.tray)
+    if(options.tray && Windows::TrayIcon::isRunning())
     {
-      if(Windows::TrayIcon::s_thread)
-        Windows::TrayIcon::remove();
+      Windows::TrayIcon::remove();
     }
 #endif
 

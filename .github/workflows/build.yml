@@ -519,27 +519,40 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: traintastic-client-windows
-        path: ${{ github.workspace }}/package/qt-installer/packages/client/data/files
+        path: ${{github.workspace}}/package/qt-installer/packages/client/data/files
 
     - name: Download artifacts: server
       uses: actions/download-artifact@v4
       with:
         name: traintastic-server-windows
-        path: ${{ github.workspace }}/package/qt-installer/packages/server/data/files
+        path: ${{github.workspace}}/package/qt-installer/packages/server/data/files
 
-    - name: Download artifacts: data
+    - name: Download artifacts: language
       uses: actions/download-artifact@v4
       with:
-        name: traintastic-data
-        path: ${{ github.workspace }}/package/qt-installer/packages/data/data/files
+        name: traintastic-lang
+        path: ${{github.workspace}}/package/qt-installer/packages/data/data/files/translations
+
+    - name: Download artifacts: manual
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-manual
+        path: ${{github.workspace}}/package/qt-installer/packages/data/data/files/manual
 
     - name: Build Qt Installer
       shell: cmd
       run: |
-        C:/Qt/QtIFW/Tools/QtInstallerFramework/bin/binarycreator.exe ^
-          -c "%GITHUB_WORKSPACE%/package/qt-installer/config/config.xml" ^
-          -p "%GITHUB_WORKSPACE%/package/qt-installer/packages" ^
+        "%ProgramFiles%\Qt\Tools\QtInstallerFramework\bin\binarycreator.exe" ^
+          --config "%GITHUB_WORKSPACE%/package/qt-installer/config/config.xml" ^
+          --packages "%GITHUB_WORKSPACE%/package/qt-installer/packages" ^
           "%GITHUB_WORKSPACE%/package/qt-installer/output/traintastic-setup.exe"
+
+    - name: Upload Qt Installer
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-qt-installer
+        path: ${{ github.workspace }}/package/qt-installer/output
+
 
   deploy:
     name: Deploy to website

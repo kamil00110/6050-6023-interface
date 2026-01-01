@@ -454,7 +454,7 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output/*
 
-  package-qtinstaller:
+package-qtinstaller:
     name: package qtinstaller
     runs-on: windows-2022
     needs: [build-client, build-server, build-lang, build-manual]
@@ -493,9 +493,10 @@ jobs:
     - name: Install Qt Installer Framework
       shell: pwsh
       run: |
-        $qtifw_version = "4.6"
-        $qtifw_url = "https://download.qt.io/official_releases/qt-installer-framework/$qtifw_version/QtInstallerFramework-windows-x64-$qtifw_version.0.exe"
+        $qtifw_version = "4.8.1"
+        $qtifw_url = "https://download.qt.io/official_releases/qt-installer-framework/$qtifw_version/QtInstallerFramework-windows-x64-$qtifw_version.exe"
         $qtifw_installer = "$env:TEMP\QtIFW-installer.exe"
+        $install_path = "C:\Qt\Tools\QtInstallerFramework\$qtifw_version"
         
         Write-Host "Downloading Qt Installer Framework $qtifw_version..."
         Invoke-WebRequest -Uri $qtifw_url -OutFile $qtifw_installer
@@ -504,7 +505,7 @@ jobs:
         Start-Process -FilePath $qtifw_installer -ArgumentList @(
           '--accept-licenses',
           '--confirm-command',
-          '--root', 'C:\Qt\Tools\QtInstallerFramework\4.6',
+          '--root', $install_path,
           'install'
         ) -Wait -NoNewWindow
         

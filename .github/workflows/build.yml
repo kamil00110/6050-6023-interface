@@ -569,21 +569,27 @@ jobs:
           set -e
           cd iso_root/packages
 
-          CLIENT=$(ls traintastic-client*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
-          SERVER=$(ls traintastic-server*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
-          DATA=$(ls traintastic-data*ubuntu_24.04*.deb | grep -v arm64 | head -n1)
+          CLIENT="traintastic-client-deb-ubuntu_24.04"
+          SERVER="traintastic-server-deb-ubuntu_24.04"
+          DATA="traintastic-data-deb-ubuntu_24.04"
+
+          # verify files exist
+          for f in "$CLIENT" "$SERVER" "$DATA"; do
+            if [ ! -f "$f" ]; then
+              echo "Error: file $f not found in $(pwd)"
+              exit 1
+            fi
+          done
 
           echo "Selected packages:"
           echo "  CLIENT=$CLIENT"
           echo "  SERVER=$SERVER"
           echo "  DATA=$DATA"
 
+          # copy/rename for installer
           cp "$CLIENT" traintastic-client.deb
           cp "$SERVER" traintastic-server.deb
           cp "$DATA" traintastic-data.deb
-
-          rm -f *.deb
-          mv traintastic-client.deb traintastic-server.deb traintastic-data.deb .
 
       - name: Generate installer script
         shell: bash
@@ -592,10 +598,16 @@ jobs:
           #!/usr/bin/env bash
           set -e
 
+          # enforce root
           if [ "$EUID" -ne 0 ]; then
-            echo "This installer must be run as root."
-            echo "Please re-run using: sudo ./install.sh"
-            exit 1
+            if command -v pkexec >/dev/null 2>&1; then
+              exec pkexec "$0"
+            elif command -v sudo >/dev/null 2>&1; then
+              exec sudo "$0"
+            else
+              echo "This installer must be run as root."
+              exit 1
+            fi
           fi
 
           SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -635,8 +647,8 @@ jobs:
           cat > iso_root/README.txt <<EOF
           Traintastic Ubuntu Installer
 
-          Run as root:
-            sudo ./install.sh
+          Run the installer:
+            ./install.sh
           EOF
 
       - name: Build ISO

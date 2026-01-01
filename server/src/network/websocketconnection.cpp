@@ -66,20 +66,23 @@ void WebSocketConnection::start()
 void WebSocketConnection::disconnect()
 {
   assert(isEventLoopThread());
-
+  
+  // CRITICAL: Capture shared_ptr to keep connection alive during async operations
+  auto self = shared_from_this();
+  
   m_server.m_ioContext.post(
-    [this]()
+    [self]()
     {
-      if(m_ws->is_open())
+      if(self->m_ws->is_open())
       {
         boost::system::error_code ec;
-        m_ws->close(boost::beast::websocket::close_code::normal, ec);
+        self->m_ws->close(boost::beast::websocket::close_code::normal, ec);
       }
-
+      
       EventLoop::call(
-        [this]()
+        [self]()
         {
-          m_server.connectionGone(shared_from_this());
+          self->m_server.connectionGone(self);
         });
     });
 }

@@ -613,11 +613,12 @@ jobs:
         
         # Copy client files
         mkdir -p packages/org.traintastic.client/data
-        cp -r ${{github.workspace}}/client/extracted/usr/* packages/org.traintastic.client/data/
+        cp -r ${{github.workspace}}/client/extracted/* packages/org.traintastic.client/data/
+
         
         # Copy server files
         mkdir -p packages/org.traintastic.server/data
-        cp -r ${{github.workspace}}/server/extracted/usr/* packages/org.traintastic.server/data/
+        cp -r ${{github.workspace}}/server/extracted/* packages/org.traintastic.server/data/
         
         # Copy shared data (translations, manual, lncv) from the data deb
         mkdir -p packages/org.traintastic.shared/data

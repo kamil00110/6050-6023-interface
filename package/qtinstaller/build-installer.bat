@@ -94,5 +94,12 @@ echo ========================================
 echo Build completed successfully!
 echo Output: %OUTPUT_DIR%\%INSTALLER_NAME%
 echo ========================================
+echo.
+echo To run with verbose logging:
+echo %OUTPUT_DIR%\%INSTALLER_NAME% --verbose --script
+echo.
+echo Log file will be created at:
+echo %TEMP%\traintastic-installer.log
+echo.
 
 endlocal

@@ -9,7 +9,7 @@
     <TargetDir>@HomeDir@/traintastic</TargetDir>
     <Logo>logo.svg</Logo>
     <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
-    <InstallerWindowIcon>logo.svg</InstallerWindowIcon>
+    <InstallerWindowIcon>InstallerLogo.svg</InstallerWindowIcon>
     <RemoteRepositories>
         <Repository>
             <Url>https://traintastic.org/repository</Url>

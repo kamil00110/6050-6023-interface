@@ -8,6 +8,10 @@ Component.prototype.createOperations = function() {
         component.createOperations();
         
         var commonAppData = installer.value("CommonAppDataDir");
+        if (!commonAppData) {
+            commonAppData = installer.value("AllUsersAppDataDir");
+        }
+        
         var dataDir = commonAppData + "/traintastic";
         
         // Ensure traintastic data directory exists
@@ -18,16 +22,15 @@ Component.prototype.createOperations = function() {
         
         // Delete old translation files (migration from older versions)
         var oldTranslations = [
-            "en-us.txt",
-            "nl-nl.txt", 
-            "de-de.txt",
-            "it-it.txt"
+            dataDir + "/translations/en-us.txt",
+            dataDir + "/translations/nl-nl.txt", 
+            dataDir + "/translations/de-de.txt",
+            dataDir + "/translations/it-it.txt"
         ];
         
         for (var i = 0; i < oldTranslations.length; i++) {
-            var oldFile = dataDir + "/translations/" + oldTranslations[i];
-            if (installer.fileExists(oldFile)) {
-                component.addOperation("Delete", oldFile);
+            if (installer.fileExists(oldTranslations[i])) {
+                component.addOperation("Delete", oldTranslations[i]);
             }
         }
         

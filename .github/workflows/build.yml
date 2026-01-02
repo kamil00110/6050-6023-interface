@@ -524,128 +524,128 @@ jobs:
         path: ${{github.workspace}}/package/qtinstaller/output/*.exe
         
   package-qtinstaller-ubuntu:
-      name: package qtinstaller ubuntu ${{matrix.config.arch}}
-      runs-on: ${{matrix.config.os}}
-      needs: [build-client, build-server, build-lang, build-manual]
-      strategy:
-        fail-fast: false
-        matrix:
-          config:
-          - arch: x64
-            os: ubuntu-24.04
-            client_artifact: traintastic-client-deb-ubuntu_24.04
-            server_artifact: traintastic-server-deb-ubuntu_24.04
-          - arch: arm64
-            os: ubuntu-24.04-arm
-            client_artifact: traintastic-client-deb-ubuntu_24.04_arm64
-            server_artifact: traintastic-server-deb-ubuntu_24.04_arm64
-      
-      steps:
-      - uses: FranzDiebold/github-env-vars-action@v2
-      
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      
-      - name: Install Qt Installer Framework
-        run: |
-          sudo apt update
-          sudo apt install -y wget p7zip-full
-          
-          QTIFW_VERSION="4.8.1"
-          QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
-          
-          echo "Downloading Qt Installer Framework ${QTIFW_VERSION}..."
-          wget -q ${QTIFW_URL} -O /tmp/qtifw-installer.run
-          
-          echo "Installing Qt Installer Framework..."
-          chmod +x /tmp/qtifw-installer.run
-          /tmp/qtifw-installer.run --accept-licenses --confirm-command --root ~/QtIFW install
-          
-          echo "Qt Installer Framework installed successfully"
-          echo "$HOME/QtIFW/bin" >> $GITHUB_PATH
-      
-      - name: Extract client files from deb
-        run: |
-          mkdir -p ${{github.workspace}}/client/extracted
-          
-          # Download the client deb artifact
-          # Note: GitHub Actions will download to a subdirectory
-      
-      - name: Download client artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{matrix.config.client_artifact}}
-          path: ${{github.workspace}}/client/deb
-      
-      - name: Download server artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{matrix.config.server_artifact}}
-          path: ${{github.workspace}}/server/deb
-      
-      - name: "Download artifact: lang"
-        uses: actions/download-artifact@v4
-        with:
-          name: traintastic-lang
-          path: ${{github.workspace}}/shared/translations
-      
-      - name: "Download artifact: manual"
-        uses: actions/download-artifact@v4
-        with:
-          name: traintastic-manual
-          path: ${{github.workspace}}/manual/output
-      
-      - name: Extract deb packages
-        run: |
-          # Extract client deb
-          cd ${{github.workspace}}/client
-          mkdir -p extracted
-          dpkg-deb -x deb/*.deb extracted/
-          
-          # Extract server deb
-          cd ${{github.workspace}}/server
-          mkdir -p extracted
-          dpkg-deb -x deb/*.deb extracted/
-      
-      - name: Prepare package structure
-        run: |
-          cd ${{github.workspace}}/package/qtinstaller-linux
-          
-          # Copy client files
-          mkdir -p packages/org.traintastic.client/data
-          cp -r ${{github.workspace}}/client/extracted/usr/* packages/org.traintastic.client/data/
-          
-          # Copy server files
-          mkdir -p packages/org.traintastic.server/data
-          cp -r ${{github.workspace}}/server/extracted/usr/* packages/org.traintastic.server/data/
-          
-          # Copy shared data
-          mkdir -p packages/org.traintastic.shared/data/translations
-          mkdir -p packages/org.traintastic.shared/data/manual
-          mkdir -p packages/org.traintastic.shared/data/lncv
-          
-          cp ${{github.workspace}}/shared/translations/*.lang packages/org.traintastic.shared/data/translations/
-          cp -r ${{github.workspace}}/manual/output/* packages/org.traintastic.shared/data/manual/
-          cp ${{github.workspace}}/shared/data/lncv/xml/*.xml packages/org.traintastic.shared/data/lncv/
-          cp ${{github.workspace}}/shared/data/lncv/xml/*.xsd packages/org.traintastic.shared/data/lncv/
-          
-          # Copy license
-          cp ${{github.workspace}}/LICENSE packages/org.traintastic.server/meta/license.txt
-          cp ${{github.workspace}}/LICENSE packages/org.traintastic.client/meta/license.txt
-      
-      - name: Build installer
-        run: |
-          cd ${{github.workspace}}/package/qtinstaller-linux
-          chmod +x build-installer.sh
-          ./build-installer.sh
-      
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-qtinstaller-ubuntu-${{matrix.config.arch}}
-          path: ${{github.workspace}}/package/qtinstaller-linux/output/*.run
+    name: package qtinstaller ubuntu ${{matrix.config.arch}}
+    runs-on: ${{matrix.config.os}}
+    needs: [build-client, build-server, build-lang, build-manual]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+        - arch: x64
+          os: ubuntu-24.04
+          client_artifact: traintastic-client-deb-ubuntu_24.04
+          server_artifact: traintastic-server-deb-ubuntu_24.04
+        - arch: arm64
+          os: ubuntu-24.04-arm
+          client_artifact: traintastic-client-deb-ubuntu_24.04_arm64
+          server_artifact: traintastic-server-deb-ubuntu_24.04_arm64
+    
+    steps:
+    - uses: FranzDiebold/github-env-vars-action@v2
+    
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install Qt Installer Framework
+      run: |
+        sudo apt update
+        sudo apt install -y wget p7zip-full
+        
+        QTIFW_VERSION="4.8.1"
+        QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
+        
+        echo "Downloading Qt Installer Framework ${QTIFW_VERSION}..."
+        wget -q ${QTIFW_URL} -O /tmp/qtifw-installer.run
+        
+        echo "Installing Qt Installer Framework..."
+        chmod +x /tmp/qtifw-installer.run
+        /tmp/qtifw-installer.run --accept-licenses --confirm-command --root ~/QtIFW install
+        
+        echo "Qt Installer Framework installed successfully"
+        echo "$HOME/QtIFW/bin" >> $GITHUB_PATH
+    
+    - name: Extract client files from deb
+      run: |
+        mkdir -p ${{github.workspace}}/client/extracted
+        
+        # Download the client deb artifact
+        # Note: GitHub Actions will download to a subdirectory
+    
+    - name: Download client artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{matrix.config.client_artifact}}
+        path: ${{github.workspace}}/client/deb
+    
+    - name: Download server artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{matrix.config.server_artifact}}
+        path: ${{github.workspace}}/server/deb
+    
+    - name: "Download artifact: lang"
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-lang
+        path: ${{github.workspace}}/shared/translations
+    
+    - name: "Download artifact: manual"
+      uses: actions/download-artifact@v4
+      with:
+        name: traintastic-manual
+        path: ${{github.workspace}}/manual/output
+    
+    - name: Extract deb packages
+      run: |
+        # Extract client deb
+        cd ${{github.workspace}}/client
+        mkdir -p extracted
+        dpkg-deb -x deb/*.deb extracted/
+        
+        # Extract server deb
+        cd ${{github.workspace}}/server
+        mkdir -p extracted
+        dpkg-deb -x deb/*.deb extracted/
+    
+    - name: Prepare package structure
+      run: |
+        cd ${{github.workspace}}/package/qtinstaller-linux
+        
+        # Copy client files
+        mkdir -p packages/org.traintastic.client/data
+        cp -r ${{github.workspace}}/client/extracted/usr/* packages/org.traintastic.client/data/
+        
+        # Copy server files
+        mkdir -p packages/org.traintastic.server/data
+        cp -r ${{github.workspace}}/server/extracted/usr/* packages/org.traintastic.server/data/
+        
+        # Copy shared data
+        mkdir -p packages/org.traintastic.shared/data/translations
+        mkdir -p packages/org.traintastic.shared/data/manual
+        mkdir -p packages/org.traintastic.shared/data/lncv
+        
+        cp ${{github.workspace}}/shared/translations/*.lang packages/org.traintastic.shared/data/translations/
+        cp -r ${{github.workspace}}/manual/output/* packages/org.traintastic.shared/data/manual/
+        cp ${{github.workspace}}/shared/data/lncv/xml/*.xml packages/org.traintastic.shared/data/lncv/
+        cp ${{github.workspace}}/shared/data/lncv/xml/*.xsd packages/org.traintastic.shared/data/lncv/
+        
+        # Copy license
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.server/meta/license.txt
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.client/meta/license.txt
+    
+    - name: Build installer
+      run: |
+        cd ${{github.workspace}}/package/qtinstaller-linux
+        chmod +x build-installer.sh
+        ./build-installer.sh
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: package-qtinstaller-ubuntu-${{matrix.config.arch}}
+        path: ${{github.workspace}}/package/qtinstaller-linux/output/*.run
         
   update-readme-contributors:
     runs-on: ubuntu-latest

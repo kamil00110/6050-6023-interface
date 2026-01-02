@@ -8,9 +8,8 @@
     <StartMenuDir>Traintastic</StartMenuDir>
     <TargetDir>@HomeDir@/traintastic</TargetDir>
     <Logo>logo.svg</Logo>
-    <WaterMark>watermark.png</WaterMark>
     <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
-    <InstallerWindowIcon>logo.png</InstallerWindowIcon>
+    <InstallerWindowIcon>logo.svg</InstallerWindowIcon>
     <RemoteRepositories>
         <Repository>
             <Url>https://traintastic.org/repository</Url>

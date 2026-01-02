@@ -9,19 +9,46 @@ Component.prototype.createOperations = function() {
         
         var targetDir = installer.value("TargetDir");
         var homeDir = installer.value("HomeDir");
-        var serverBin = targetDir + "/bin/traintastic-server";
+        
+        // Find the actual server binary path (extracted from deb)
+        var serverBin = "";
+        var possiblePaths = [
+            targetDir + "/usr/bin/traintastic-server",
+            targetDir + "/bin/traintastic-server"
+        ];
+        
+        for (var i = 0; i < possiblePaths.length; i++) {
+            if (installer.fileExists(possiblePaths[i])) {
+                serverBin = possiblePaths[i];
+                console.log("Found server at: " + serverBin);
+                break;
+            }
+        }
+        
+        if (serverBin === "") {
+            console.log("ERROR: Could not find server binary");
+            return;
+        }
+        
         var maintenanceTool = targetDir + "/TraintasticMaintenanceTool";
         
         // Make server executable
         component.addOperation("Execute", "chmod", "+x", serverBin);
         
+        // Create symlink in target/bin for easier access
+        component.addOperation("Mkdir", targetDir + "/bin");
+        component.addOperation("Execute", 
+            "ln", "-sf", 
+            serverBin, 
+            targetDir + "/bin/traintastic-server");
+        
         // Create desktop entry for server
         var desktopEntry = "[Desktop Entry]\n" +
             "Type=Application\n" +
-            "n=Traintastic Server\n" +
+            "Name=Traintastic Server\n" +
             "Comment=Model railway control system server\n" +
-            "Exec=" + serverBin + " --tray\n" +
-            "Icon=" + targetDir + "/share/pixmaps/traintastic-server.png\n" +
+            "Exec=" + targetDir + "/bin/traintastic-server --tray\n" +
+            "Icon=" + targetDir + "/usr/share/pixmaps/traintastic-server.png\n" +
             "Categories=Utility;Application;\n" +
             "Terminal=false\n";
         
@@ -34,10 +61,10 @@ Component.prototype.createOperations = function() {
         // Create desktop entry for maintenance tool
         var maintenanceEntry = "[Desktop Entry]\n" +
             "Type=Application\n" +
-            "n=Modify, Repair or Uninstall Traintastic\n" +
+            "Name=Modify, Repair or Uninstall Traintastic\n" +
             "Comment=Update, modify, repair or uninstall Traintastic\n" +
             "Exec=" + maintenanceTool + "\n" +
-            "Icon=" + targetDir + "/share/pixmaps/traintastic.png\n" +
+            "Icon=" + targetDir + "/usr/share/pixmaps/traintastic.png\n" +
             "Categories=System;Settings;\n" +
             "Terminal=false\n";
         
@@ -69,7 +96,7 @@ Component.prototype.createOperations = function() {
                 "\n" +
                 "[Service]\n" +
                 "Type=simple\n" +
-                "ExecStart=" + serverBin + "\n" +
+                "ExecStart=" + targetDir + "/bin/traintastic-server\n" +
                 "Restart=on-failure\n" +
                 "RestartSec=5\n" +
                 "\n" +

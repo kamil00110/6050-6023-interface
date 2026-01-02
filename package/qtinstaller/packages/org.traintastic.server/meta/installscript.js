@@ -13,9 +13,10 @@ Component.prototype.createOperations = function() {
         
         var targetDir = installer.value("TargetDir");
         var serverExe = targetDir + "/server/traintastic-server.exe";
+        var maintenanceTool = targetDir + "/TraintasticMaintenanceTool.exe";
         
-        // Check and install VC++ Redistributable
-        if (needsVCRedist()) {
+        // Check and install VC++ Redistributable (only on initial install)
+        if (installer.isInstaller() && needsVCRedist()) {
             var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
             component.addOperation("Execute", 
                 "{0,1}", 
@@ -45,6 +46,15 @@ Component.prototype.createOperations = function() {
             "iconPath=" + serverExe,
             "iconId=0",
             "description=Start Traintastic Server");
+        
+        // Add maintenance tool shortcut to start menu
+        component.addOperation("CreateShortcut",
+            maintenanceTool,
+            "@StartMenuDir@/Modify, Repair or Uninstall Traintastic.lnk",
+            "workingDirectory=" + targetDir,
+            "iconPath=" + maintenanceTool,
+            "iconId=0",
+            "description=Modify, update, repair or uninstall Traintastic");
         
         // Firewall rules - get checkbox states from UI
         var page = component.userInterface("FirewallPage");
@@ -127,16 +137,18 @@ Component.prototype.createOperations = function() {
                 "description=Start Traintastic Server");
         }
         
-        // Create server settings file if it doesn't exist
-        var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
-        var settingsPath = settingsDir + "/settings.json";
-        
-        if (!installer.fileExists(settingsPath)) {
-            var language = getTraintasticLanguage();
-            var settingsContent = '{"language":"' + language + '"}';
+        // Create server settings file if it doesn't exist (only on initial install)
+        if (installer.isInstaller()) {
+            var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
+            var settingsPath = settingsDir + "/settings.json";
             
-            component.addOperation("Mkdir", settingsDir);
-            component.addOperation("AppendFile", settingsPath, settingsContent);
+            if (!installer.fileExists(settingsPath)) {
+                var language = getTraintasticLanguage();
+                var settingsContent = '{"language":"' + language + '"}';
+                
+                component.addOperation("Mkdir", settingsDir);
+                component.addOperation("AppendFile", settingsPath, settingsContent);
+            }
         }
         
     } catch (e) {

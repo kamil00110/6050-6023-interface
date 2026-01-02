@@ -523,24 +523,10 @@ jobs:
         name: package-qtinstaller
         path: ${{github.workspace}}/package/qtinstaller/output/*.exe
         
-  package-qtinstaller-ubuntu:
-    name: package qtinstaller ubuntu ${{matrix.config.arch}}
-    runs-on: ${{matrix.config.os}}
+  package-qtinstaller-ubuntu-universal:
+    name: package qtinstaller ubuntu (universal x64+arm64)
+    runs-on: ubuntu-24.04
     needs: [build-client, build-server, build-data]
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-        - arch: x64
-          os: ubuntu-24.04
-          client_artifact: traintastic-client-deb-ubuntu_24.04
-          server_artifact: traintastic-server-deb-ubuntu_24.04
-          data_artifact: traintastic-data-deb-ubuntu_24.04
-        - arch: arm64
-          os: ubuntu-24.04-arm
-          client_artifact: traintastic-client-deb-ubuntu_24.04_arm64
-          server_artifact: traintastic-server-deb-ubuntu_24.04_arm64
-          data_artifact: traintastic-data-deb-ubuntu_24.04
     
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -556,11 +542,7 @@ jobs:
         sudo apt install -y wget p7zip-full libxkbcommon0 libxkbcommon-x11-0 libx11-xcb1 libxcb1 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 libxcb-cursor0 libxcb-keysyms1 libxcb-icccm4 libxcb-image0 libxcb-render-util0 libxcb-util1 libxrender1 libxi6 libsm6 libice6 libegl1 libgl1
         
         QTIFW_VERSION="4.8.1"
-        if [ "${{ matrix.config.arch }}" = "arm64" ]; then
-          QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-arm64-${QTIFW_VERSION}.run"
-        else
-          QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
-        fi
+        QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
         
         echo "Downloading Qt Installer Framework ${QTIFW_VERSION}..."
         wget -q ${QTIFW_URL} -O /tmp/qtifw-installer.run
@@ -572,74 +554,296 @@ jobs:
         echo "Qt Installer Framework installed successfully"
         echo "$HOME/QtIFW/bin" >> $GITHUB_PATH
     
-    - name: Download client artifact
+    - name: Download x64 artifacts
       uses: actions/download-artifact@v4
       with:
-        name: ${{matrix.config.client_artifact}}
-        path: ${{github.workspace}}/client/deb
+        pattern: traintastic-*-deb-ubuntu_24.04
+        path: ${{github.workspace}}/artifacts/x64
+        merge-multiple: false
     
-    - name: Download server artifact
+    - name: Download arm64 artifacts
       uses: actions/download-artifact@v4
       with:
-        name: ${{matrix.config.server_artifact}}
-        path: ${{github.workspace}}/server/deb
-    
-    - name: Download data artifact
-      uses: actions/download-artifact@v4
-      with:
-        name: ${{matrix.config.data_artifact}}
-        path: ${{github.workspace}}/shared/deb
+        pattern: traintastic-*-deb-ubuntu_24.04_arm64
+        path: ${{github.workspace}}/artifacts/arm64
+        merge-multiple: false
     
     - name: Extract deb packages
       run: |
-        # Extract client deb
-        cd ${{github.workspace}}/client
-        mkdir -p extracted
-        dpkg-deb -x deb/*.deb extracted/
+        # Extract x64 packages
+        mkdir -p ${{github.workspace}}/extracted/x64/client
+        mkdir -p ${{github.workspace}}/extracted/x64/server
+        mkdir -p ${{github.workspace}}/extracted/shared
         
-        # Extract server deb
-        cd ${{github.workspace}}/server
-        mkdir -p extracted
-        dpkg-deb -x deb/*.deb extracted/
+        dpkg-deb -x ${{github.workspace}}/artifacts/x64/traintastic-client-deb-ubuntu_24.04/*.deb ${{github.workspace}}/extracted/x64/client/
+        dpkg-deb -x ${{github.workspace}}/artifacts/x64/traintastic-server-deb-ubuntu_24.04/*.deb ${{github.workspace}}/extracted/x64/server/
+        dpkg-deb -x ${{github.workspace}}/artifacts/x64/traintastic-data-deb-ubuntu_24.04/*.deb ${{github.workspace}}/extracted/shared/
         
-        # Extract data deb (contains translations, manual, lncv)
-        cd ${{github.workspace}}/shared
-        mkdir -p extracted
-        dpkg-deb -x deb/*.deb extracted/
+        # Extract arm64 packages
+        mkdir -p ${{github.workspace}}/extracted/arm64/client
+        mkdir -p ${{github.workspace}}/extracted/arm64/server
+        
+        dpkg-deb -x ${{github.workspace}}/artifacts/arm64/traintastic-client-deb-ubuntu_24.04_arm64/*.deb ${{github.workspace}}/extracted/arm64/client/
+        dpkg-deb -x ${{github.workspace}}/artifacts/arm64/traintastic-server-deb-ubuntu_24.04_arm64/*.deb ${{github.workspace}}/extracted/arm64/server/
     
-    - name: Prepare package structure
+    - name: Create universal package structure
       run: |
         cd ${{github.workspace}}/package/qtinstaller-linux
         
-        # Copy client files
-        mkdir -p packages/org.traintastic.client/data
-        cp -r ${{github.workspace}}/client/extracted/* packages/org.traintastic.client/data/
-
+        # Create architecture-specific component directories
+        mkdir -p packages/org.traintastic.client.x64/{meta,data}
+        mkdir -p packages/org.traintastic.client.arm64/{meta,data}
+        mkdir -p packages/org.traintastic.server.x64/{meta,data}
+        mkdir -p packages/org.traintastic.server.arm64/{meta,data}
         
-        # Copy server files
-        mkdir -p packages/org.traintastic.server/data
-        cp -r ${{github.workspace}}/server/extracted/* packages/org.traintastic.server/data/
+        # Copy extracted files
+        cp -r ${{github.workspace}}/extracted/x64/client/* packages/org.traintastic.client.x64/data/
+        cp -r ${{github.workspace}}/extracted/arm64/client/* packages/org.traintastic.client.arm64/data/
+        cp -r ${{github.workspace}}/extracted/x64/server/* packages/org.traintastic.server.x64/data/
+        cp -r ${{github.workspace}}/extracted/arm64/server/* packages/org.traintastic.server.arm64/data/
         
-        # Copy shared data (translations, manual, lncv) from the data deb
+        # Copy shared data (architecture-independent)
         mkdir -p packages/org.traintastic.shared/data
-        if [ -d "${{github.workspace}}/shared/extracted/usr/share/traintastic" ]; then
-          cp -r ${{github.workspace}}/shared/extracted/usr/share/traintastic/* packages/org.traintastic.shared/data/
+        if [ -d "${{github.workspace}}/extracted/shared/usr/share/traintastic" ]; then
+          cp -r ${{github.workspace}}/extracted/shared/usr/share/traintastic/* packages/org.traintastic.shared/data/
         fi
-        
-        # Copy license
-        cp ${{github.workspace}}/LICENSE packages/org.traintastic.server/meta/license.txt
-        cp ${{github.workspace}}/LICENSE packages/org.traintastic.client/meta/license.txt
     
-    - name: Build installer
+    - name: Create architecture-specific package files
+      run: |
+        cd ${{github.workspace}}/package/qtinstaller-linux
+        
+        # Create package.xml for x64 client
+        cat > packages/org.traintastic.client.x64/meta/package.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Package>
+            <DisplayName>Traintastic Client (x64)</DisplayName>
+            <Description>Client for x86_64/AMD64 systems</Description>
+            <Version>1.0.0</Version>
+            <ReleaseDate>2025-01-01</ReleaseDate>
+            <Name>org.traintastic.client.x64</Name>
+            <Default>script</Default>
+            <Script>installscript.js</Script>
+            <Licenses>
+                <License name="TraintasticLicense" file="license.txt" />
+            </Licenses>
+        </Package>
+        EOF
+        
+        # Create package.xml for arm64 client
+        cat > packages/org.traintastic.client.arm64/meta/package.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Package>
+            <DisplayName>Traintastic Client (ARM64)</DisplayName>
+            <Description>Client for ARM64/aarch64 systems</Description>
+            <Version>1.0.0</Version>
+            <ReleaseDate>2025-01-01</ReleaseDate>
+            <Name>org.traintastic.client.arm64</Name>
+            <Default>script</Default>
+            <Script>installscript.js</Script>
+            <Licenses>
+                <License name="TraintasticLicense" file="license.txt" />
+            </Licenses>
+        </Package>
+        EOF
+        
+        # Create package.xml for x64 server
+        cat > packages/org.traintastic.server.x64/meta/package.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Package>
+            <DisplayName>Traintastic Server (x64)</DisplayName>
+            <Description>Server for x86_64/AMD64 systems</Description>
+            <Version>1.0.0</Version>
+            <ReleaseDate>2025-01-01</ReleaseDate>
+            <Name>org.traintastic.server.x64</Name>
+            <Default>script</Default>
+            <Script>installscript.js</Script>
+            <Licenses>
+                <License name="TraintasticLicense" file="license.txt" />
+            </Licenses>
+        </Package>
+        EOF
+        
+        # Create package.xml for arm64 server
+        cat > packages/org.traintastic.server.arm64/meta/package.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <Package>
+            <DisplayName>Traintastic Server (ARM64)</DisplayName>
+            <Description>Server for ARM64/aarch64 systems</Description>
+            <Version>1.0.0</Version>
+            <ReleaseDate>2025-01-01</ReleaseDate>
+            <Name>org.traintastic.server.arm64</Name>
+            <Default>script</Default>
+            <Script>installscript.js</Script>
+            <Licenses>
+                <License name="TraintasticLicense" file="license.txt" />
+            </Licenses>
+        </Package>
+        EOF
+        
+        # Copy installscripts (same for all architectures)
+        cp packages/org.traintastic.client/meta/installscript.js packages/org.traintastic.client.x64/meta/
+        cp packages/org.traintastic.client/meta/installscript.js packages/org.traintastic.client.arm64/meta/
+        cp packages/org.traintastic.server/meta/installscript.js packages/org.traintastic.server.x64/meta/
+        cp packages/org.traintastic.server/meta/installscript.js packages/org.traintastic.server.arm64/meta/
+        
+        # Copy licenses
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.client.x64/meta/license.txt
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.client.arm64/meta/license.txt
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.server.x64/meta/license.txt
+        cp ${{github.workspace}}/LICENSE packages/org.traintastic.server.arm64/meta/license.txt
+    
+    - name: Create architecture detection controller
+      run: |
+        cd ${{github.workspace}}/package/qtinstaller-linux/config
+        
+        # Backup original controller
+        mv controller.js controller-original.js
+        
+        # Create new controller with arch detection
+        cat > controller.js << 'EOF'
+        function Controller() {
+            installer.setValue("verbose", "true");
+            
+            // Detect architecture at startup
+            var arch = installer.execute("uname", ["-m"])[0];
+            if (arch) {
+                arch = arch.trim();
+            }
+            
+            console.log("Detected architecture: " + arch);
+            
+            var detectedArch = "unknown";
+            if (arch === "x86_64" || arch === "amd64") {
+                detectedArch = "x64";
+            } else if (arch === "aarch64" || arch === "arm64") {
+                detectedArch = "arm64";
+            }
+            
+            installer.setValue("DetectedArch", detectedArch);
+            console.log("Will install for: " + detectedArch);
+            
+            if (detectedArch === "unknown") {
+                QMessageBox.critical(
+                    "unsupportedArchitecture",
+                    "Unsupported Architecture",
+                    "Your system architecture (" + arch + ") is not supported.\n\n" +
+                    "Traintastic supports:\n" +
+                    "• x86_64 (Intel/AMD 64-bit)\n" +
+                    "• ARM64 (aarch64)\n\n" +
+                    "Installation cannot continue.",
+                    QMessageBox.Ok
+                );
+            }
+        }
+        
+        Controller.prototype.IntroductionPageCallback = function() {
+            var widget = gui.currentPageWidget();
+            if (widget != null) {
+                if (installer.isInstaller()) {
+                    var detectedArch = installer.value("DetectedArch");
+                    var archName = detectedArch === "x64" ? "x86_64" : (detectedArch === "arm64" ? "ARM64" : "Unknown");
+                    
+                    widget.title = "Welcome to Traintastic Installer";
+                    if (widget.MessageLabel) {
+                        widget.MessageLabel.setText(
+                            "This will install Traintastic on your computer.\n\n" +
+                            "Detected architecture: " + archName
+                        );
+                    }
+                }
+            }
+        }
+        
+        Controller.prototype.ComponentSelectionPageCallback = function() {
+            var widget = gui.currentPageWidget();
+            if (widget != null) {
+                var detectedArch = installer.value("DetectedArch");
+                
+                console.log("ComponentSelection: Auto-selecting components for " + detectedArch);
+                
+                // Get all components
+                var clientX64 = installer.componentByName("org.traintastic.client.x64");
+                var clientArm64 = installer.componentByName("org.traintastic.client.arm64");
+                var serverX64 = installer.componentByName("org.traintastic.server.x64");
+                var serverArm64 = installer.componentByName("org.traintastic.server.arm64");
+                
+                if (detectedArch === "x64") {
+                    // Select x64, deselect arm64
+                    if (clientX64) {
+                        clientX64.setValue("Default", "true");
+                        installer.setDefaultComponentForUser("org.traintastic.client.x64", true);
+                    }
+                    if (serverX64) {
+                        serverX64.setValue("Default", "true");
+                        installer.setDefaultComponentForUser("org.traintastic.server.x64", true);
+                    }
+                    if (clientArm64) {
+                        clientArm64.setValue("Default", "false");
+                        installer.setDefaultComponentForUser("org.traintastic.client.arm64", false);
+                    }
+                    if (serverArm64) {
+                        serverArm64.setValue("Default", "false");
+                        installer.setDefaultComponentForUser("org.traintastic.server.arm64", false);
+                    }
+                } else if (detectedArch === "arm64") {
+                    // Select arm64, deselect x64
+                    if (clientArm64) {
+                        clientArm64.setValue("Default", "true");
+                        installer.setDefaultComponentForUser("org.traintastic.client.arm64", true);
+                    }
+                    if (serverArm64) {
+                        serverArm64.setValue("Default", "true");
+                        installer.setDefaultComponentForUser("org.traintastic.server.arm64", true);
+                    }
+                    if (clientX64) {
+                        clientX64.setValue("Default", "false");
+                        installer.setDefaultComponentForUser("org.traintastic.client.x64", false);
+                    }
+                    if (serverX64) {
+                        serverX64.setValue("Default", "false");
+                        installer.setDefaultComponentForUser("org.traintastic.server.x64", false);
+                    }
+                }
+                
+                // Refresh the component tree
+                widget.selectAll();
+            }
+        }
+        
+        Controller.prototype.TargetDirectoryPageCallback = function() {
+            var widget = gui.currentPageWidget();
+            if (widget != null) {
+                widget.TargetDirectoryLineEdit.setText(installer.value("TargetDir"));
+            }
+        }
+        
+        Controller.prototype.FinishedPageCallback = function() {
+            var widget = gui.currentPageWidget();
+            if (widget != null) {
+                if (installer.isInstaller() || installer.isUpdater()) {
+                    if (widget.RunItCheckBox) {
+                        widget.RunItCheckBox.visible = true;
+                        widget.RunItCheckBox.checked = false;
+                    }
+                }
+            }
+        }
+        EOF
+    
+    - name: Build universal installer
       run: |
         cd ${{github.workspace}}/package/qtinstaller-linux
         chmod +x build-installer.sh
+        
+        # Modify build script to name it "universal"
+        sed -i 's/traintastic-setup-v${VERSION}-linux-${ARCH_NAME}.run/traintastic-setup-v${VERSION}-linux-universal.run/' build-installer.sh
+        
         ./build-installer.sh
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: package-qtinstaller-ubuntu-${{matrix.config.arch}}
+        name: package-qtinstaller-ubuntu-universal
         path: ${{github.workspace}}/package/qtinstaller-linux/output/*.run
         
   update-readme-contributors:

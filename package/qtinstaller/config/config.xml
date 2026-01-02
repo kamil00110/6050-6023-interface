@@ -10,7 +10,7 @@
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
     <Logo>logo.svg</Logo>
     <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
-    <InstallerWindowIcon>logo.png</InstallerWindowIcon>
+    <InstallerWindowIcon>logo.svg</InstallerWindowIcon>
     <RemoteRepositories>
         <Repository>
             <Url>https://traintastic.org/repository</Url>

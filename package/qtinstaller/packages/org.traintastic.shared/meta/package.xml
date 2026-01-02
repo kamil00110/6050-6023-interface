@@ -5,10 +5,6 @@
     <Version>1.0.0</Version>
     <ReleaseDate>2025-01-01</ReleaseDate>
     <n>org.traintastic.shared</n>
-    <Default>true</Default>
     <ForcedInstallation>true</ForcedInstallation>
-    <Essential>true</Essential>
-    <Virtual>false</Virtual>
-    <SortingPriority>110</SortingPriority>
     <Script>installscript.js</Script>
 </Package>

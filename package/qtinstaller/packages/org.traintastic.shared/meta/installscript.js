@@ -21,21 +21,55 @@ Component.prototype.createOperations = function() {
         // Ensure traintastic data directory exists
         component.addOperation("Mkdir", dataDir);
         
-        // Use Move operation instead of CopyDirectory - it's more reliable
+        // Use Execute with robocopy to move directories (more reliable than Move operation)
+        // robocopy /MOVE moves files and removes source directories
+        // /E copies subdirectories including empty ones
+        // /NFL /NDL /NJH /NJS /NC /NS makes output quieter
+        
         // Move translations
-        component.addOperation("Move",
+        component.addElevatedOperation("Execute",
+            "{0,1,8}",  // Allow error codes 0 (success), 1 (files copied), 8 (some files/dirs not copied)
+            "robocopy",
             targetDir + "/translations",
-            dataDir + "/translations");
+            dataDir + "/translations",
+            "/E",
+            "/MOVE",
+            "UNDOEXECUTE",
+            "robocopy",
+            dataDir + "/translations",
+            targetDir + "/translations",
+            "/E",
+            "/MOVE");
         
         // Move manual
-        component.addOperation("Move",
+        component.addElevatedOperation("Execute",
+            "{0,1,8}",
+            "robocopy",
             targetDir + "/manual",
-            dataDir + "/manual");
+            dataDir + "/manual",
+            "/E",
+            "/MOVE",
+            "UNDOEXECUTE",
+            "robocopy",
+            dataDir + "/manual",
+            targetDir + "/manual",
+            "/E",
+            "/MOVE");
         
         // Move LNCV
-        component.addOperation("Move",
+        component.addElevatedOperation("Execute",
+            "{0,1,8}",
+            "robocopy",
             targetDir + "/lncv",
-            dataDir + "/lncv");
+            dataDir + "/lncv",
+            "/E",
+            "/MOVE",
+            "UNDOEXECUTE",
+            "robocopy",
+            dataDir + "/lncv",
+            targetDir + "/lncv",
+            "/E",
+            "/MOVE");
         
         // Delete old translation files (migration from older versions)
         var oldTranslations = [

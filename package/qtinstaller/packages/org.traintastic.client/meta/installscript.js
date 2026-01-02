@@ -9,9 +9,8 @@ Component.prototype.createOperations = function() {
         
         var targetDir = installer.value("TargetDir");
         var clientExe = targetDir + "/client/traintastic-client.exe";
-        var commonAppData = installer.value("CommonAppDataDir");
         
-        // Create shortcuts
+        // Create start menu shortcut
         component.addOperation("CreateShortcut",
             clientExe,
             "@StartMenuDir@/Traintastic Client.lnk",
@@ -20,13 +19,11 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Start Traintastic Client");
         
-        // Check if server component is also installed
-        var serverInstalled = installer.componentByName("org.traintastic.server").installationRequested();
-        
-        // Only create desktop icon if it was requested (from server's UI page)
-        if (serverInstalled) {
-            var serverPage = installer.componentByName("org.traintastic.server").userInterface("FirewallPage");
-            if (serverPage && serverPage.createDesktopIcon.checked) {
+        // Check if server component is installed for desktop shortcut
+        var serverComponent = installer.componentByName("org.traintastic.server");
+        if (serverComponent) {
+            var serverPage = serverComponent.userInterface("FirewallPage");
+            if (serverPage && serverPage.createDesktopIcon && serverPage.createDesktopIcon.checked) {
                 component.addOperation("CreateShortcut",
                     clientExe,
                     "@DesktopDir@/Traintastic Client.lnk",
@@ -38,7 +35,7 @@ Component.prototype.createOperations = function() {
         }
         
         // Write client language configuration
-        var iniPath = commonAppData + "/traintastic/traintastic-client.ini";
+        var iniPath = installer.value("CommonAppDataDir") + "/traintastic/traintastic-client.ini";
         var language = getTraintasticLanguage();
         
         component.addOperation("Settings",
@@ -48,24 +45,24 @@ Component.prototype.createOperations = function() {
             "value=" + language);
             
     } catch (e) {
-        console.log("Error in createOperations: " + e);
+        console.log("Error in client createOperations: " + e);
     }
 }
 
 function getTraintasticLanguage() {
-    var locale = QLocale().name();
+    var locale = installer.value("Locale");
     
-    if (locale.startsWith("nl"))
+    if (locale.indexOf("nl") === 0)
         return "nl-nl";
-    else if (locale.startsWith("de"))
+    else if (locale.indexOf("de") === 0)
         return "de-de";
-    else if (locale.startsWith("it"))
+    else if (locale.indexOf("it") === 0)
         return "it-it";
-    else if (locale.startsWith("sv"))
+    else if (locale.indexOf("sv") === 0)
         return "sv-se";
-    else if (locale.startsWith("fr"))
+    else if (locale.indexOf("fr") === 0)
         return "fr-fr";
-    else if (locale.startsWith("pl"))
+    else if (locale.indexOf("pl") === 0)
         return "pl-pl";
     else
         return "en-us";

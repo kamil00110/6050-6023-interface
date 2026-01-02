@@ -1,16 +1,5 @@
 function Component() {
     // Constructor
-    component.loaded.connect(this, Component.prototype.installerLoaded);
-    
-    // Add custom wizard page for firewall options
-    installer.addWizardPage(component, "FirewallPage", QInstaller.ComponentSelection);
-}
-
-Component.prototype.installerLoaded = function() {
-    if (installer.isInstaller()) {
-        component.setValue("FirewallTraintastic", "false");
-        component.setValue("FirewallWLANmaus", "false");
-    }
 }
 
 Component.prototype.createOperations = function() {
@@ -18,21 +7,23 @@ Component.prototype.createOperations = function() {
         // Call default implementation
         component.createOperations();
         
+        if (systemInfo.kernelType !== "winnt") {
+            return;
+        }
+        
         var targetDir = installer.value("TargetDir");
         var serverExe = targetDir + "/server/traintastic-server.exe";
         
         // Check and install VC++ Redistributable
-        var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
-        if (systemInfo.kernelType === "winnt") {
-            if (needsVCRedist()) {
-                component.addOperation("Execute", 
-                    "{0,1}", 
-                    vcRedistExe, 
-                    "/quiet", 
-                    "/norestart",
-                    "UNDOEXECUTE",
-                    "echo", "VC++ Redist uninstall not needed");
-            }
+        if (needsVCRedist()) {
+            var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
+            component.addOperation("Execute", 
+                "{0,1}", 
+                vcRedistExe, 
+                "/quiet", 
+                "/norestart",
+                "UNDOEXECUTE",
+                "echo", "VC++ Redist uninstall not needed");
         }
         
         // Create registry entries
@@ -44,38 +35,21 @@ Component.prototype.createOperations = function() {
         component.addOperation("GlobalConfig",
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
             "Version",
-            installer.value("Version"));
-            
-        component.addOperation("GlobalConfig",
-            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
-            "Components",
-            getInstalledComponents());
+            "@ProductVersion@");
         
         // Create shortcuts
-        var startMenuDir = installer.value("StartMenuDir");
-        
         component.addOperation("CreateShortcut",
             serverExe,
             "@StartMenuDir@/Traintastic Server.lnk",
             "workingDirectory=" + targetDir + "/server",
             "iconPath=" + serverExe,
             "iconId=0",
-            "description=Start Traintastic Server",
-            "arguments=--tray");
-            
-        if (component.userInterface("FirewallPage").createDesktopIcon.checked) {
-            component.addOperation("CreateShortcut",
-                serverExe,
-                "@DesktopDir@/Traintastic Server.lnk",
-                "workingDirectory=" + targetDir + "/server",
-                "iconPath=" + serverExe,
-                "iconId=0",
-                "description=Start Traintastic Server",
-                "arguments=--tray");
-        }
+            "description=Start Traintastic Server");
         
-        // Firewall rules
-        if (component.userInterface("FirewallPage").allowTraintastic.checked) {
+        // Firewall rules - get checkbox states from UI
+        var page = component.userInterface("FirewallPage");
+        
+        if (page && page.allowTraintastic && page.allowTraintastic.checked) {
             component.addElevatedOperation("Execute",
                 "{0,1}",
                 "netsh",
@@ -119,7 +93,7 @@ Component.prototype.createOperations = function() {
                 "name=Traintastic server (UDP)");
         }
         
-        if (component.userInterface("FirewallPage").allowWLANmaus.checked) {
+        if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
             component.addElevatedOperation("Execute",
                 "{0,1}",
                 "netsh",
@@ -142,10 +116,20 @@ Component.prototype.createOperations = function() {
                 "name=Traintastic server (WLANmaus/Z21)");
         }
         
+        // Desktop shortcuts
+        if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
+            component.addOperation("CreateShortcut",
+                serverExe,
+                "@DesktopDir@/Traintastic Server.lnk",
+                "workingDirectory=" + targetDir + "/server",
+                "iconPath=" + serverExe,
+                "iconId=0",
+                "description=Start Traintastic Server");
+        }
+        
         // Create server settings file if it doesn't exist
-        var settingsPath = QDesktopServices.storageLocation(QDesktopServices.DataLocation) 
-            + "/traintastic/server/settings.json";
-        var settingsDir = QDir(settingsPath).path;
+        var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
+        var settingsPath = settingsDir + "/settings.json";
         
         if (!installer.fileExists(settingsPath)) {
             var language = getTraintasticLanguage();
@@ -156,7 +140,7 @@ Component.prototype.createOperations = function() {
         }
         
     } catch (e) {
-        console.log("Error in createOperations: " + e);
+        console.log("Error in server createOperations: " + e);
     }
 }
 
@@ -164,19 +148,25 @@ function needsVCRedist() {
     if (systemInfo.kernelType !== "winnt")
         return false;
         
-    var regPath = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64";
-    var version = installer.value(regPath + "\\Version");
-    
-    if (version === "") {
-        console.log("VC++ Redistributable not found");
-        return true;
-    }
-    
-    console.log("VC++ Redistributable version: " + version);
-    
-    // Check if version is at least v14.24.28127.04
-    if (version < "v14.24.28127.04") {
-        console.log("VC++ Redistributable version too old");
+    try {
+        var version = installer.execute("reg", ["query", 
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64",
+            "/v", "Version"])[0];
+        
+        if (!version) {
+            console.log("VC++ Redistributable not found");
+            return true;
+        }
+        
+        console.log("VC++ Redistributable found: " + version);
+        
+        // Check if version is at least v14.24.28127.04
+        if (version.indexOf("v14.2") === -1 || version < "v14.24") {
+            console.log("VC++ Redistributable version too old");
+            return true;
+        }
+    } catch (e) {
+        console.log("Error checking VC++ Redistributable: " + e);
         return true;
     }
     
@@ -184,37 +174,20 @@ function needsVCRedist() {
 }
 
 function getTraintasticLanguage() {
-    var locale = QLocale().name();
+    var locale = installer.value("Locale");
     
-    if (locale.startsWith("nl"))
+    if (locale.indexOf("nl") === 0)
         return "nl-nl";
-    else if (locale.startsWith("de"))
+    else if (locale.indexOf("de") === 0)
         return "de-de";
-    else if (locale.startsWith("it"))
+    else if (locale.indexOf("it") === 0)
         return "it-it";
-    else if (locale.startsWith("sv"))
+    else if (locale.indexOf("sv") === 0)
         return "sv-se";
-    else if (locale.startsWith("fr"))
+    else if (locale.indexOf("fr") === 0)
         return "fr-fr";
-    else if (locale.startsWith("pl"))
+    else if (locale.indexOf("pl") === 0)
         return "pl-pl";
     else
         return "en-us";
-}
-
-function getInstalledComponents() {
-    var components = [];
-    
-    if (installer.componentByName("org.traintastic.server").installationRequested())
-        components.push("Server");
-        
-    if (installer.componentByName("org.traintastic.client").installationRequested())
-        components.push("Client");
-        
-    return components.join(",");
-}
-
-Component.prototype.FirewallPageCallback = function() {
-    var page = component.userInterface("FirewallPage");
-    page.complete = true;
 }

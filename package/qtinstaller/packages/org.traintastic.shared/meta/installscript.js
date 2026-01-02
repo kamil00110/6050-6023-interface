@@ -4,21 +4,47 @@ function Component() {
 
 Component.prototype.createOperations = function() {
     try {
-        // Call default implementation to copy files
+        // First, call default implementation to extract files to TargetDir
         component.createOperations();
         
         var commonAppData = installer.value("CommonAppDataDir");
         if (!commonAppData) {
-            commonAppData = installer.value("AllUsersAppDataDir");
+            commonAppData = "C:/ProgramData";
         }
         
         var dataDir = commonAppData + "/traintastic";
+        var targetDir = installer.value("TargetDir");
+        
+        console.log("Moving shared data from: " + targetDir);
+        console.log("Moving shared data to: " + dataDir);
         
         // Ensure traintastic data directory exists
         component.addOperation("Mkdir", dataDir);
-        component.addOperation("Mkdir", dataDir + "/translations");
-        component.addOperation("Mkdir", dataDir + "/manual");
-        component.addOperation("Mkdir", dataDir + "/lncv");
+        
+        // Move translations from TargetDir to ProgramData
+        component.addOperation("CopyDirectory",
+            targetDir + "/translations",
+            dataDir + "/translations");
+        
+        // Move manual from TargetDir to ProgramData
+        component.addOperation("CopyDirectory",
+            targetDir + "/manual",
+            dataDir + "/manual");
+        
+        // Move LNCV from TargetDir to ProgramData
+        component.addOperation("CopyDirectory",
+            targetDir + "/lncv",
+            dataDir + "/lncv");
+        
+        // Remove the copied directories from Program Files
+        component.addOperation("Rmdir",
+            targetDir + "/translations");
+        
+        component.addOperation("Rmdir",
+            targetDir + "/manual");
+        
+        component.addOperation("Rmdir",
+            targetDir + "/lncv");
         
         // Delete old translation files (migration from older versions)
         var oldTranslations = [
@@ -35,7 +61,6 @@ Component.prototype.createOperations = function() {
         }
         
         // Delete old DLL files that are now statically linked (migration)
-        var targetDir = installer.value("TargetDir");
         var oldDlls = [
             targetDir + "/server/lua53.dll",
             targetDir + "/server/lua54.dll",
@@ -51,5 +76,6 @@ Component.prototype.createOperations = function() {
         
     } catch (e) {
         console.log("Error in shared component createOperations: " + e);
+        console.log("Stack: " + e.stack);
     }
 }

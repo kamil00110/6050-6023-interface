@@ -551,11 +551,15 @@ jobs:
     - name: Install Qt Installer Framework
       run: |
         sudo apt update
-        sudo apt install -y wget p7zip-full
+        sudo apt install -y \ wget \ p7zip-full \ libxkbcommon-x11-0 \ libxkbcommon0 \ libxcb-xinerama0 \ libxcb-cursor0 \ libx11-xcb1 \ libxcb-keysyms1 \ libxcb-icccm4 \ libxcb-image0 \ libxcb-render-util0
         
         QTIFW_VERSION="4.8.1"
-        QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
-        
+        if [ "${{ matrix.config.arch }}" = "arm64" ]; then
+          QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-arm64-${QTIFW_VERSION}.run"
+        else
+          QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
+        fi
+
         echo "Downloading Qt Installer Framework ${QTIFW_VERSION}..."
         wget -q ${QTIFW_URL} -O /tmp/qtifw-installer.run
         

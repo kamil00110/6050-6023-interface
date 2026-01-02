@@ -9,18 +9,44 @@ Component.prototype.createOperations = function() {
         
         var targetDir = installer.value("TargetDir");
         var homeDir = installer.value("HomeDir");
-        var clientBin = targetDir + "/bin/traintastic-client";
+        
+        // Find the actual client binary path (extracted from deb)
+        var clientBin = "";
+        var possiblePaths = [
+            targetDir + "/usr/bin/traintastic-client",
+            targetDir + "/bin/traintastic-client"
+        ];
+        
+        for (var i = 0; i < possiblePaths.length; i++) {
+            if (installer.fileExists(possiblePaths[i])) {
+                clientBin = possiblePaths[i];
+                console.log("Found client at: " + clientBin);
+                break;
+            }
+        }
+        
+        if (clientBin === "") {
+            console.log("ERROR: Could not find client binary");
+            return;
+        }
         
         // Make client executable
         component.addOperation("Execute", "chmod", "+x", clientBin);
         
+        // Create symlink in target/bin for easier access
+        component.addOperation("Mkdir", targetDir + "/bin");
+        component.addOperation("Execute", 
+            "ln", "-sf", 
+            clientBin, 
+            targetDir + "/bin/traintastic-client");
+        
         // Create desktop entry for client
         var desktopEntry = "[Desktop Entry]\n" +
             "Type=Application\n" +
-            "n=Traintastic Client\n" +
+            "Name=Traintastic Client\n" +
             "Comment=Model railway control system client\n" +
-            "Exec=" + clientBin + "\n" +
-            "Icon=" + targetDir + "/share/pixmaps/traintastic-client.png\n" +
+            "Exec=" + targetDir + "/bin/traintastic-client\n" +
+            "Icon=" + targetDir + "/usr/share/pixmaps/traintastic-client.png\n" +
             "Categories=Utility;Application;\n" +
             "Terminal=false\n";
         

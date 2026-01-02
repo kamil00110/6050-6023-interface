@@ -9,7 +9,6 @@
     <TargetDir>@ApplicationsDir@/Traintastic</TargetDir>
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
     <Logo>logo.svg</Logo>
-    <WaterMark>watermark.png</WaterMark>
     <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
     <InstallerWindowIcon>logo.png</InstallerWindowIcon>
     <RemoteRepositories>

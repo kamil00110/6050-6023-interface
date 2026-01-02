@@ -1,106 +1,296 @@
 function Component() {
-    // Constructor - shared component is always installed
+    // Constructor
 }
 
 Component.prototype.createOperations = function() {
     try {
-        // First, call default implementation to extract files to TargetDir
+        // Call default implementation
         component.createOperations();
         
-        var commonAppData = installer.value("CommonAppDataDir");
-        if (!commonAppData) {
-            commonAppData = "C:/ProgramData";
+        if (systemInfo.kernelType !== "winnt") {
+            return;
         }
         
-        var dataDir = commonAppData + "/traintastic";
         var targetDir = installer.value("TargetDir");
+        var serverExe = targetDir + "/server/traintastic-server.exe";
+        var maintenanceTool = targetDir + "/TraintasticMaintenanceTool.exe";
         
-        console.log("Moving shared data from: " + targetDir);
-        console.log("Moving shared data to: " + dataDir);
+        // Check and install VC++ Redistributable (only on initial install)
+        if (installer.isInstaller() && needsVCRedist()) {
+            var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
+            component.addOperation("Execute", 
+                "{0,1}", 
+                vcRedistExe, 
+                "/quiet", 
+                "/norestart",
+                "UNDOEXECUTE",
+                "cmd", "/c", "echo", "VC++ Redist uninstall not needed");
+        }
         
-        // Ensure traintastic data directory exists
-        component.addOperation("Mkdir", dataDir);
+        // Create registry entries (always, even on update)
+        component.addOperation("GlobalConfig",
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+            "InstallLocation",
+            targetDir);
+            
+        component.addOperation("GlobalConfig",
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+            "Version",
+            "@ProductVersion@");
         
-        // Use Execute with robocopy to move directories (more reliable than Move operation)
-        // robocopy /MOVE moves files and removes source directories
-        // /E copies subdirectories including empty ones
-        // /NFL /NDL /NJH /NJS /NC /NS makes output quieter
+        // Add uninstall registry entries for proper Windows Programs & Features integration
+        var uninstallKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic";
         
-        // Move translations
-        component.addElevatedOperation("Execute",
-            "{0,1,8}",  // Allow error codes 0 (success), 1 (files copied), 8 (some files/dirs not copied)
-            "robocopy",
-            targetDir + "/translations",
-            dataDir + "/translations",
-            "/E",
-            "/MOVE",
-            "UNDOEXECUTE",
-            "robocopy",
-            dataDir + "/translations",
-            targetDir + "/translations",
-            "/E",
-            "/MOVE");
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayName",
+            "Traintastic");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayVersion",
+            "@ProductVersion@");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "Publisher",
+            "Reinder Feenstra");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayIcon",
+            serverExe + ",0");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "InstallLocation",
+            targetDir);
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "UninstallString",
+            '"' + maintenanceTool + '"');
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "ModifyPath",
+            '"' + maintenanceTool + '" --manage-packages');
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "NoModify",
+            "0");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "NoRepair",
+            "1");
         
-        // Move manual
-        component.addElevatedOperation("Execute",
-            "{0,1,8}",
-            "robocopy",
-            targetDir + "/manual",
-            dataDir + "/manual",
-            "/E",
-            "/MOVE",
-            "UNDOEXECUTE",
-            "robocopy",
-            dataDir + "/manual",
-            targetDir + "/manual",
-            "/E",
-            "/MOVE");
+        // Create shortcuts
+        component.addOperation("CreateShortcut",
+            serverExe,
+            "@StartMenuDir@/Traintastic Server.lnk",
+            "workingDirectory=" + targetDir + "/server",
+            "iconPath=" + serverExe,
+            "iconId=0",
+            "description=Start Traintastic Server");
         
-        // Move LNCV
-        component.addElevatedOperation("Execute",
-            "{0,1,8}",
-            "robocopy",
-            targetDir + "/lncv",
-            dataDir + "/lncv",
-            "/E",
-            "/MOVE",
-            "UNDOEXECUTE",
-            "robocopy",
-            dataDir + "/lncv",
-            targetDir + "/lncv",
-            "/E",
-            "/MOVE");
+        // Add maintenance tool shortcut to start menu
+        component.addOperation("CreateShortcut",
+            maintenanceTool,
+            "@StartMenuDir@/Modify, Repair or Uninstall Traintastic.lnk",
+            "workingDirectory=" + targetDir,
+            "iconPath=" + maintenanceTool,
+            "iconId=0",
+            "description=Modify, update, repair or uninstall Traintastic");
         
-        // Delete old translation files (migration from older versions)
-        var oldTranslations = [
-            dataDir + "/translations/en-us.txt",
-            dataDir + "/translations/nl-nl.txt", 
-            dataDir + "/translations/de-de.txt",
-            dataDir + "/translations/it-it.txt"
-        ];
+        // Firewall rules - get checkbox states from UI
+        var page = component.userInterface("FirewallPage");
         
-        for (var i = 0; i < oldTranslations.length; i++) {
-            if (installer.fileExists(oldTranslations[i])) {
-                component.addOperation("Delete", oldTranslations[i]);
+        if (page && page.allowTraintastic && page.allowTraintastic.checked) {
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                "name=Traintastic server (TCP)",
+                "dir=in",
+                "program=" + serverExe,
+                "protocol=TCP",
+                "localport=5740",
+                "action=allow",
+                "UNDOEXECUTE",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "delete",
+                "rule",
+                "name=Traintastic server (TCP)");
+                
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                "name=Traintastic server (UDP)",
+                "dir=in",
+                "program=" + serverExe,
+                "protocol=UDP",
+                "localport=5740",
+                "action=allow",
+                "UNDOEXECUTE",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "delete",
+                "rule",
+                "name=Traintastic server (UDP)");
+        }
+        
+        if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "add",
+                "rule",
+                "name=Traintastic server (WLANmaus/Z21)",
+                "dir=in",
+                "program=" + serverExe,
+                "protocol=UDP",
+                "localport=21105",
+                "action=allow",
+                "UNDOEXECUTE",
+                "netsh",
+                "advfirewall",
+                "firewall",
+                "delete",
+                "rule",
+                "name=Traintastic server (WLANmaus/Z21)");
+        }
+        
+        // Desktop shortcuts
+        if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
+            component.addOperation("CreateShortcut",
+                serverExe,
+                "@DesktopDir@/Traintastic Server.lnk",
+                "workingDirectory=" + targetDir + "/server",
+                "iconPath=" + serverExe,
+                "iconId=0",
+                "description=Start Traintastic Server");
+        }
+        
+        // Auto-start server on Windows startup
+        if (page && page.startServerOnStartup && page.startServerOnStartup.checked) {
+            var startupKey = "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+            component.addOperation("GlobalConfig",
+                startupKey,
+                "Traintastic Server",
+                '"' + serverExe + '" --tray');
+        }
+        
+        // Create server settings file if it doesn't exist (only on initial install)
+        if (installer.isInstaller()) {
+            var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
+            var settingsPath = settingsDir + "/settings.json";
+            
+            if (!installer.fileExists(settingsPath)) {
+                var language = getTraintasticLanguage();
+                var settingsContent = '{"language":"' + language + '"}';
+                
+                component.addOperation("Mkdir", settingsDir);
+                component.addOperation("AppendFile", settingsPath, settingsContent);
             }
         }
         
-        // Delete old DLL files that are now statically linked (migration)
-        var oldDlls = [
-            targetDir + "/server/lua53.dll",
-            targetDir + "/server/lua54.dll",
-            targetDir + "/server/archive.dll",
-            targetDir + "/server/zlib1.dll"
-        ];
-        
-        for (var i = 0; i < oldDlls.length; i++) {
-            if (installer.fileExists(oldDlls[i])) {
-                component.addOperation("Delete", oldDlls[i]);
-            }
+        // Clean up ALL registry entries on uninstall (remove ghost installations)
+        if (installer.isUninstaller()) {
+            // Remove all Traintastic registry keys
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "reg",
+                "delete",
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org",
+                "/f",
+                "UNDOEXECUTE",
+                "cmd", "/c", "echo", "Registry cleanup undo not needed");
+                
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "reg",
+                "delete",
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic",
+                "/f",
+                "UNDOEXECUTE",
+                "cmd", "/c", "echo", "Registry cleanup undo not needed");
+                
+            // Remove auto-start entry
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "reg",
+                "delete",
+                "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+                "/v",
+                "Traintastic Server",
+                "/f",
+                "UNDOEXECUTE",
+                "cmd", "/c", "echo", "Auto-start cleanup undo not needed");
         }
         
     } catch (e) {
-        console.log("Error in shared component createOperations: " + e);
-        console.log("Stack: " + e.stack);
+        console.log("Error in server createOperations: " + e);
     }
+}
+
+function needsVCRedist() {
+    if (systemInfo.kernelType !== "winnt")
+        return false;
+        
+    try {
+        var version = installer.execute("reg", ["query", 
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64",
+            "/v", "Version"])[0];
+        
+        if (!version) {
+            console.log("VC++ Redistributable not found");
+            return true;
+        }
+        
+        console.log("VC++ Redistributable found: " + version);
+        
+        // Check if version is at least v14.24.28127.04
+        if (version.indexOf("v14.2") === -1 || version < "v14.24") {
+            console.log("VC++ Redistributable version too old");
+            return true;
+        }
+    } catch (e) {
+        console.log("Error checking VC++ Redistributable: " + e);
+        return true;
+    }
+    
+    return false;
+}
+
+function getTraintasticLanguage() {
+    var locale = installer.value("Locale");
+    
+    if (locale.indexOf("nl") === 0)
+        return "nl-nl";
+    else if (locale.indexOf("de") === 0)
+        return "de-de";
+    else if (locale.indexOf("it") === 0)
+        return "it-it";
+    else if (locale.indexOf("sv") === 0)
+        return "sv-se";
+    else if (locale.indexOf("fr") === 0)
+        return "fr-fr";
+    else if (locale.indexOf("pl") === 0)
+        return "pl-pl";
+    else
+        return "en-us";
 }

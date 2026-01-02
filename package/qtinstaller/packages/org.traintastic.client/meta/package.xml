@@ -6,21 +6,8 @@
     <ReleaseDate>2025-01-01</ReleaseDate>
     <n>org.traintastic.client</n>
     <Default>true</Default>
-    <ForcedInstallation>false</ForcedInstallation>
-    <Essential>false</Essential>
-    <Virtual>false</Virtual>
-    <SortingPriority>90</SortingPriority>
     <Script>installscript.js</Script>
     <Licenses>
-        <License n="TraintasticLicense" file="license.txt" />
+        <License name="TraintasticLicense" file="license.txt" />
     </Licenses>
-    <Translations>
-        <Translation>en_US.qm</Translation>
-        <Translation>nl_NL.qm</Translation>
-        <Translation>de_DE.qm</Translation>
-        <Translation>it_IT.qm</Translation>
-        <Translation>sv_SE.qm</Translation>
-        <Translation>fr_FR.qm</Translation>
-        <Translation>pl_PL.qm</Translation>
-    </Translations>
 </Package>

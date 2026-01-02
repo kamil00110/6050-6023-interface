@@ -526,7 +526,7 @@ jobs:
   package-qtinstaller-ubuntu:
     name: package qtinstaller ubuntu ${{matrix.config.arch}}
     runs-on: ${{matrix.config.os}}
-    needs: [build-client, build-server, build-lang, build-manual]
+    needs: [build-client, build-server, build-data]
     strategy:
       fail-fast: false
       matrix:
@@ -535,10 +535,12 @@ jobs:
           os: ubuntu-24.04
           client_artifact: traintastic-client-deb-ubuntu_24.04
           server_artifact: traintastic-server-deb-ubuntu_24.04
+          data_artifact: traintastic-data-deb-ubuntu_24.04
         - arch: arm64
           os: ubuntu-24.04-arm
           client_artifact: traintastic-client-deb-ubuntu_24.04_arm64
           server_artifact: traintastic-server-deb-ubuntu_24.04_arm64
+          data_artifact: traintastic-data-deb-ubuntu_24.04
     
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -559,7 +561,7 @@ jobs:
         else
           QTIFW_URL="https://download.qt.io/official_releases/qt-installer-framework/${QTIFW_VERSION}/QtInstallerFramework-linux-x64-${QTIFW_VERSION}.run"
         fi
-
+        
         echo "Downloading Qt Installer Framework ${QTIFW_VERSION}..."
         wget -q ${QTIFW_URL} -O /tmp/qtifw-installer.run
         
@@ -569,13 +571,6 @@ jobs:
         
         echo "Qt Installer Framework installed successfully"
         echo "$HOME/QtIFW/bin" >> $GITHUB_PATH
-    
-    - name: Extract client files from deb
-      run: |
-        mkdir -p ${{github.workspace}}/client/extracted
-        
-        # Download the client deb artifact
-        # Note: GitHub Actions will download to a subdirectory
     
     - name: Download client artifact
       uses: actions/download-artifact@v4
@@ -589,17 +584,11 @@ jobs:
         name: ${{matrix.config.server_artifact}}
         path: ${{github.workspace}}/server/deb
     
-    - name: "Download artifact: lang"
+    - name: Download data artifact
       uses: actions/download-artifact@v4
       with:
-        name: traintastic-lang
-        path: ${{github.workspace}}/shared/translations
-    
-    - name: "Download artifact: manual"
-      uses: actions/download-artifact@v4
-      with:
-        name: traintastic-manual
-        path: ${{github.workspace}}/manual/output
+        name: ${{matrix.config.data_artifact}}
+        path: ${{github.workspace}}/shared/deb
     
     - name: Extract deb packages
       run: |
@@ -610,6 +599,11 @@ jobs:
         
         # Extract server deb
         cd ${{github.workspace}}/server
+        mkdir -p extracted
+        dpkg-deb -x deb/*.deb extracted/
+        
+        # Extract data deb (contains translations, manual, lncv)
+        cd ${{github.workspace}}/shared
         mkdir -p extracted
         dpkg-deb -x deb/*.deb extracted/
     
@@ -625,15 +619,11 @@ jobs:
         mkdir -p packages/org.traintastic.server/data
         cp -r ${{github.workspace}}/server/extracted/usr/* packages/org.traintastic.server/data/
         
-        # Copy shared data
-        mkdir -p packages/org.traintastic.shared/data/translations
-        mkdir -p packages/org.traintastic.shared/data/manual
-        mkdir -p packages/org.traintastic.shared/data/lncv
-        
-        cp ${{github.workspace}}/shared/translations/*.lang packages/org.traintastic.shared/data/translations/
-        cp -r ${{github.workspace}}/manual/output/* packages/org.traintastic.shared/data/manual/
-        cp ${{github.workspace}}/shared/data/lncv/xml/*.xml packages/org.traintastic.shared/data/lncv/
-        cp ${{github.workspace}}/shared/data/lncv/xml/*.xsd packages/org.traintastic.shared/data/lncv/
+        # Copy shared data (translations, manual, lncv) from the data deb
+        mkdir -p packages/org.traintastic.shared/data
+        if [ -d "${{github.workspace}}/shared/extracted/usr/share/traintastic" ]; then
+          cp -r ${{github.workspace}}/shared/extracted/usr/share/traintastic/* packages/org.traintastic.shared/data/
+        fi
         
         # Copy license
         cp ${{github.workspace}}/LICENSE packages/org.traintastic.server/meta/license.txt

@@ -2,15 +2,27 @@ function Controller() {
     // Enable verbose installer output for debugging
     installer.setValue("verbose", "true");
     
-    installer.autoRejectMessageBoxes();
-    installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);
-    installer.setMessageBoxAutomaticAnswer("stopProcessesForUpdates", QMessageBox.Ignore);
+    // Check if this is an update/maintenance run
+    if (installer.isInstaller()) {
+        installer.autoRejectMessageBoxes();
+        installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);
+        installer.setMessageBoxAutomaticAnswer("stopProcessesForUpdates", QMessageBox.Ignore);
+    }
 }
 
 Controller.prototype.IntroductionPageCallback = function() {
     var widget = gui.currentPageWidget();
     if (widget != null) {
-        widget.title = "Welcome to Traintastic Installer";
+        if (installer.isInstaller()) {
+            widget.title = "Welcome to Traintastic Installer";
+            widget.MessageLabel.setText("This will install Traintastic on your computer.");
+        } else if (installer.isUninstaller()) {
+            widget.title = "Uninstall Traintastic";
+            widget.MessageLabel.setText("This will remove Traintastic from your computer.");
+        } else if (installer.isUpdater()) {
+            widget.title = "Update Traintastic";
+            widget.MessageLabel.setText("This will update Traintastic to the latest version.");
+        }
     }
 }
 
@@ -30,8 +42,12 @@ Controller.prototype.ComponentSelectionPageCallback = function() {
 
 Controller.prototype.FinishedPageCallback = function() {
     var widget = gui.currentPageWidget();
-    if (widget != null && installer.isInstaller()) {
-        widget.RunItCheckBox.visible = true;
-        widget.RunItCheckBox.checked = false;
+    if (widget != null) {
+        if (installer.isInstaller() || installer.isUpdater()) {
+            widget.RunItCheckBox.visible = true;
+            widget.RunItCheckBox.checked = false;
+        } else if (installer.isUninstaller()) {
+            widget.RunItCheckBox.visible = false;
+        }
     }
 }

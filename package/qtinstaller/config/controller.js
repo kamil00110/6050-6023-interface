@@ -1,4 +1,7 @@
 function Controller() {
+    // Enable verbose installer output for debugging
+    installer.setValue("verbose", "true");
+    
     installer.autoRejectMessageBoxes();
     installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);
     installer.setMessageBoxAutomaticAnswer("stopProcessesForUpdates", QMessageBox.Ignore);

@@ -21,30 +21,21 @@ Component.prototype.createOperations = function() {
         // Ensure traintastic data directory exists
         component.addOperation("Mkdir", dataDir);
         
-        // Move translations from TargetDir to ProgramData
-        component.addOperation("CopyDirectory",
+        // Use Move operation instead of CopyDirectory - it's more reliable
+        // Move translations
+        component.addOperation("Move",
             targetDir + "/translations",
             dataDir + "/translations");
         
-        // Move manual from TargetDir to ProgramData
-        component.addOperation("CopyDirectory",
+        // Move manual
+        component.addOperation("Move",
             targetDir + "/manual",
             dataDir + "/manual");
         
-        // Move LNCV from TargetDir to ProgramData
-        component.addOperation("CopyDirectory",
+        // Move LNCV
+        component.addOperation("Move",
             targetDir + "/lncv",
             dataDir + "/lncv");
-        
-        // Remove the copied directories from Program Files
-        component.addOperation("Rmdir",
-            targetDir + "/translations");
-        
-        component.addOperation("Rmdir",
-            targetDir + "/manual");
-        
-        component.addOperation("Rmdir",
-            targetDir + "/lncv");
         
         // Delete old translation files (migration from older versions)
         var oldTranslations = [

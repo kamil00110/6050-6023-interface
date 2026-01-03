@@ -2,44 +2,63 @@ function Controller() {
     // Enable verbose installer output for debugging
     installer.setValue("verbose", "true");
     
-    // Check if Traintastic is already installed
-    var existingInstall = installer.value("HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic\\InstallLocation");
+    // Clean up stale lock files before starting
+    if (installer.isUpdater() || installer.isPackageManager()) {
+        var cacheDir = installer.value("HomeDir") + "/AppData/Local/cache/qt-installer-framework";
+        var lockFile = cacheDir + "/135517b1-2668-3c27-9010-5dab869c084f/cache.lock";
+        
+        if (installer.fileExists(lockFile)) {
+            console.log("Removing stale lock file: " + lockFile);
+            try {
+                installer.execute("cmd", ["/c", "del", "/f", "/q", lockFile.replace(/\//g, "\\")]);
+            } catch(e) {
+                console.log("Could not remove lock file: " + e);
+            }
+        }
+    }
     
-    if (installer.isInstaller() && existingInstall && existingInstall !== "") {
+    // Check if Traintastic is already installed
+    var existingInstall = "";
+    try {
+        var result = installer.execute("reg", ["query", 
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+            "/v", "InstallLocation"]);
+        if (result && result.length > 0) {
+            var output = result[0];
+            var match = output.match(/InstallLocation\s+REG_SZ\s+(.+)/);
+            if (match && match[1]) {
+                existingInstall = match[1].trim();
+            }
+        }
+    } catch(e) {
+        console.log("No existing installation found");
+    }
+    
+    if (installer.isInstaller() && existingInstall !== "") {
         console.log("Existing installation detected at: " + existingInstall);
         
         // Check if maintenance tool exists
-        var maintenanceTool = existingInstall + "/TraintasticMaintenanceTool.exe";
+        var maintenanceTool = existingInstall + "\\TraintasticMaintenanceTool.exe";
         
         if (installer.fileExists(maintenanceTool)) {
             // Launch maintenance tool and exit installer
             console.log("Launching maintenance tool: " + maintenanceTool);
             
-            // Show message to user
-            var result = QMessageBox.information(
+            var button = QMessageBox.question(
                 "existingInstallation",
                 "Traintastic Already Installed",
                 "Traintastic is already installed on this computer.\n\n" +
-                "Click OK to open the Maintenance Tool where you can:\n" +
+                "Click 'Yes' to open the Maintenance Tool where you can:\n" +
                 "• Update to a newer version\n" +
                 "• Modify installed components\n" +
                 "• Repair the installation\n" +
                 "• Uninstall Traintastic\n\n" +
-                "Click Cancel to continue with a new installation (not recommended).",
-                QMessageBox.Ok | QMessageBox.Cancel
+                "Click 'No' to continue with a new installation (not recommended).",
+                QMessageBox.Yes | QMessageBox.No
             );
             
-            if (result === QMessageBox.Ok) {
+            if (button === QMessageBox.Yes) {
                 installer.execute(maintenanceTool, []);
-                installer.setDefaultPageVisible(QInstaller.Introduction, false);
-                installer.setDefaultPageVisible(QInstaller.TargetDirectory, false);
-                installer.setDefaultPageVisible(QInstaller.ComponentSelection, false);
-                installer.setDefaultPageVisible(QInstaller.LicenseCheck, false);
-                installer.setDefaultPageVisible(QInstaller.ReadyForInstallation, false);
-                installer.setDefaultPageVisible(QInstaller.PerformInstallation, false);
-                installer.setDefaultPageVisible(QInstaller.InstallationFinished, false);
-                
-                // Exit gracefully
                 gui.clickButton(buttons.CancelButton);
                 return;
             }
@@ -78,7 +97,7 @@ Controller.prototype.IntroductionPageCallback = function() {
 
 Controller.prototype.TargetDirectoryPageCallback = function() {
     var widget = gui.currentPageWidget();
-    if (widget != null) {
+    if (widget != null && widget.TargetDirectoryLineEdit) {
         widget.TargetDirectoryLineEdit.setText(installer.value("TargetDir"));
     }
 }

@@ -19,15 +19,14 @@ Component.prototype.createOperations = function() {
         if (installer.isInstaller() && needsVCRedist()) {
             var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
             component.addOperation("Execute", 
-                "{0,1}", 
+                "{0,1,3010}", 
                 vcRedistExe, 
                 "/quiet", 
-                "/norestart",
-                "UNDOEXECUTE",
-                "echo", "VC++ Redist uninstall not needed");
+                "/norestart");
+            // No UNDOEXECUTE - VC++ should stay installed even after uninstall
         }
         
-        // Create registry entries
+        // Create registry entries (always, even on update)
         component.addOperation("GlobalConfig",
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
             "InstallLocation",
@@ -37,6 +36,54 @@ Component.prototype.createOperations = function() {
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
             "Version",
             "@ProductVersion@");
+        
+        // Add uninstall registry entries for proper Windows Programs & Features integration
+        var uninstallKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic";
+        
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayName",
+            "Traintastic");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayVersion",
+            "@ProductVersion@");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "Publisher",
+            "Reinder Feenstra");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "DisplayIcon",
+            serverExe + ",0");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "InstallLocation",
+            targetDir);
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "UninstallString",
+            '"' + maintenanceTool + '"');
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "ModifyPath",
+            '"' + maintenanceTool + '" --manage-packages');
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "NoModify",
+            "0");
+            
+        component.addOperation("GlobalConfig",
+            uninstallKey,
+            "NoRepair",
+            "1");
         
         // Create shortcuts
         component.addOperation("CreateShortcut",
@@ -56,85 +103,96 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Modify, update, repair or uninstall Traintastic");
         
-        // Firewall rules - get checkbox states from UI
-        var page = component.userInterface("FirewallPage");
-        
-        if (page && page.allowTraintastic && page.allowTraintastic.checked) {
-            component.addElevatedOperation("Execute",
-                "{0,1}",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                "name=Traintastic server (TCP)",
-                "dir=in",
-                "program=" + serverExe,
-                "protocol=TCP",
-                "localport=5740",
-                "action=allow",
-                "UNDOEXECUTE",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "delete",
-                "rule",
-                "name=Traintastic server (TCP)");
-                
-            component.addElevatedOperation("Execute",
-                "{0,1}",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                "name=Traintastic server (UDP)",
-                "dir=in",
-                "program=" + serverExe,
-                "protocol=UDP",
-                "localport=5740",
-                "action=allow",
-                "UNDOEXECUTE",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "delete",
-                "rule",
-                "name=Traintastic server (UDP)");
-        }
-        
-        if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
-            component.addElevatedOperation("Execute",
-                "{0,1}",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                "name=Traintastic server (WLANmaus/Z21)",
-                "dir=in",
-                "program=" + serverExe,
-                "protocol=UDP",
-                "localport=21105",
-                "action=allow",
-                "UNDOEXECUTE",
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "delete",
-                "rule",
-                "name=Traintastic server (WLANmaus/Z21)");
-        }
-        
-        // Desktop shortcuts
-        if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
-            component.addOperation("CreateShortcut",
-                serverExe,
-                "@DesktopDir@/Traintastic Server.lnk",
-                "workingDirectory=" + targetDir + "/server",
-                "iconPath=" + serverExe,
-                "iconId=0",
-                "description=Start Traintastic Server");
+        // Firewall rules - get checkbox states from UI (only during install, not update)
+        if (installer.isInstaller()) {
+            var page = component.userInterface("FirewallPage");
+            
+            if (page && page.allowTraintastic && page.allowTraintastic.checked) {
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    "name=Traintastic server (TCP)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=TCP",
+                    "localport=5740",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "delete",
+                    "rule",
+                    "name=Traintastic server (TCP)");
+                    
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    "name=Traintastic server (UDP)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=UDP",
+                    "localport=5740",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "delete",
+                    "rule",
+                    "name=Traintastic server (UDP)");
+            }
+            
+            if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    "name=Traintastic server (WLANmaus/Z21)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=UDP",
+                    "localport=21105",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh",
+                    "advfirewall",
+                    "firewall",
+                    "delete",
+                    "rule",
+                    "name=Traintastic server (WLANmaus/Z21)");
+            }
+            
+            // Desktop shortcuts
+            if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
+                component.addOperation("CreateShortcut",
+                    serverExe,
+                    "@DesktopDir@/Traintastic Server.lnk",
+                    "workingDirectory=" + targetDir + "/server",
+                    "iconPath=" + serverExe,
+                    "iconId=0",
+                    "description=Start Traintastic Server");
+            }
+            
+            // Auto-start server on Windows startup
+            if (page && page.startServerOnStartup && page.startServerOnStartup.checked) {
+                var startupKey = "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
+                component.addOperation("GlobalConfig",
+                    startupKey,
+                    "Traintastic Server",
+                    '"' + serverExe + '" --tray');
+            }
         }
         
         // Create server settings file if it doesn't exist (only on initial install)
@@ -149,6 +207,29 @@ Component.prototype.createOperations = function() {
                 component.addOperation("Mkdir", settingsDir);
                 component.addOperation("AppendFile", settingsPath, settingsContent);
             }
+        }
+        
+        // Clean up ALL registry entries on uninstall (remove ghost installations)
+        if (installer.isUninstaller()) {
+            // Remove all Traintastic registry keys - use reg delete with /f flag
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "cmd",
+                "/c",
+                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\" /f");
+                
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "cmd",
+                "/c",
+                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic\" /f");
+                
+            // Remove auto-start entry
+            component.addElevatedOperation("Execute",
+                "{0,1}",
+                "cmd",
+                "/c",
+                "reg delete \"HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Traintastic Server\" /f");
         }
         
     } catch (e) {

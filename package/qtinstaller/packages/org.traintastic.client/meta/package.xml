@@ -1,4 +1,3 @@
-//package/qtinstaller/packages/org.traintastic.client/meta/package.xml
 <?xml version="1.0" encoding="UTF-8"?>
 <Package>
     <DisplayName>Traintastic Client</DisplayName>

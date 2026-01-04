@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>FirewallPage</class>
- <widget class="QWidget" name="FirewallPage">
+ <class>ServerPage</class>
+ <widget class="QWidget" name="ServerPage">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>400</height>
+    <width>500</width>
+    <height>450</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Additional Options</string>
+   <string>Server Options</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QLabel" name="titleLabel">
      <property name="text">
-      <string>Additional Options</string>
+      <string>Server Options</string>
      </property>
      <property name="font">
       <font>
@@ -25,6 +25,16 @@
        <weight>75</weight>
        <bold>true</bold>
       </font>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="descLabel">
+     <property name="text">
+      <string>Configure optional features for Traintastic Server.</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
      </property>
     </widget>
    </item>
@@ -39,7 +49,7 @@
      <property name="sizeHint" stdset="0">
       <size>
        <width>20</width>
-       <height>20</height>
+       <height>15</height>
       </size>
      </property>
     </spacer>
@@ -47,13 +57,13 @@
    <item>
     <widget class="QGroupBox" name="firewallGroupBox">
      <property name="title">
-      <string>Windows Firewall:</string>
+      <string>Windows Firewall</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
        <widget class="QCheckBox" name="allowTraintastic">
         <property name="text">
-         <string>Allow Traintastic client</string>
+         <string>Allow Traintastic client connections (port 5740)</string>
         </property>
         <property name="checked">
          <bool>false</bool>
@@ -63,7 +73,7 @@
       <item>
        <widget class="QCheckBox" name="allowWLANmaus">
         <property name="text">
-         <string>Allow WLANmaus/Z21</string>
+         <string>Allow WLANmaus/Z21 protocol (port 21105)</string>
         </property>
         <property name="checked">
          <bool>false</bool>
@@ -92,7 +102,7 @@
    <item>
     <widget class="QGroupBox" name="shortcutsGroupBox">
      <property name="title">
-      <string>Shortcuts:</string>
+      <string>Shortcuts</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
@@ -127,13 +137,13 @@
    <item>
     <widget class="QGroupBox" name="startupGroupBox">
      <property name="title">
-      <string>Startup:</string>
+      <string>Startup</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <item>
        <widget class="QCheckBox" name="startServerOnStartup">
         <property name="text">
-         <string>Start server automatically on Windows startup</string>
+         <string>Start Traintastic Server automatically when Windows starts</string>
         </property>
         <property name="checked">
          <bool>false</bool>

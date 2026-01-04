@@ -1,32 +1,43 @@
-//package/qtinstaller/translations/en_US.ts
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
-    <name>FirewallPage</name>
+    <name>ServerPage</name>
     <message>
-        <source>Additional Options</source>
-        <translation>Additional Options</translation>
+        <source>Server Options</source>
+        <translation>Server Options</translation>
     </message>
     <message>
-        <source>Windows Firewall:</source>
-        <translation>Windows Firewall:</translation>
+        <source>Configure optional features for Traintastic Server.</source>
+        <translation>Configure optional features for Traintastic Server.</translation>
     </message>
     <message>
-        <source>Allow Traintastic client</source>
-        <translation>Allow Traintastic client</translation>
+        <source>Windows Firewall</source>
+        <translation>Windows Firewall</translation>
     </message>
     <message>
-        <source>Allow WLANmaus/Z21</source>
-        <translation>Allow WLANmaus/Z21</translation>
+        <source>Allow Traintastic client connections (port 5740)</source>
+        <translation>Allow Traintastic client connections (port 5740)</translation>
     </message>
     <message>
-        <source>Shortcuts:</source>
-        <translation>Shortcuts:</translation>
+        <source>Allow WLANmaus/Z21 protocol (port 21105)</source>
+        <translation>Allow WLANmaus/Z21 protocol (port 21105)</translation>
+    </message>
+    <message>
+        <source>Shortcuts</source>
+        <translation>Shortcuts</translation>
     </message>
     <message>
         <source>Create desktop shortcuts</source>
         <translation>Create desktop shortcuts</translation>
+    </message>
+    <message>
+        <source>Startup</source>
+        <translation>Startup</translation>
+    </message>
+    <message>
+        <source>Start Traintastic Server automatically when Windows starts</source>
+        <translation>Start Traintastic Server automatically when Windows starts</translation>
     </message>
 </context>
 <context>
@@ -73,12 +84,8 @@
         <translation>This will install Traintastic on your computer.</translation>
     </message>
     <message>
-        <source>Select Components</source>
-        <translation>Select Components</translation>
-    </message>
-    <message>
-        <source>Select which components to install</source>
-        <translation>Select which components to install</translation>
+        <source>Select Installation Type</source>
+        <translation>Select Installation Type</translation>
     </message>
     <message>
         <source>Launch Traintastic Client</source>

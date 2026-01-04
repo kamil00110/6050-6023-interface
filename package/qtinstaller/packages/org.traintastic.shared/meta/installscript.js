@@ -21,27 +21,28 @@ Component.prototype.createOperations = function() {
         if (installer.isInstaller() || installer.isUpdater()) {
             component.addOperation("Mkdir", dataDir);
             
-            // Move directories using robocopy (exit codes 0-7 are success)
+            // Move directories using robocopy
+            // Note: robocopy exit codes 0-7 are success, 8+ are errors
             component.addElevatedOperation("Execute",
-                "{0-7}",
                 "robocopy",
                 targetDir + "\\translations",
                 dataDir + "\\translations",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS");
+                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
+                "ERRORMESSAGE", "Failed to move translations directory");
             
             component.addElevatedOperation("Execute",
-                "{0-7}",
                 "robocopy",
                 targetDir + "\\manual",
                 dataDir + "\\manual",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS");
+                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
+                "ERRORMESSAGE", "Failed to move manual directory");
             
             component.addElevatedOperation("Execute",
-                "{0-7}",
                 "robocopy",
                 targetDir + "\\lncv",
                 dataDir + "\\lncv",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS");
+                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
+                "ERRORMESSAGE", "Failed to move lncv directory");
         }
         
         // Migration: delete old translation files

@@ -1,4 +1,3 @@
-//package/qtinstaller/packages/org.traintastic.server/meta/installscript.js
 function Component() {
     // Constructor
 }
@@ -25,6 +24,15 @@ Component.prototype.createOperations = function() {
                 "/norestart");
         }
         
+        // Save component selection to registry
+        var componentSelection = installer.value("ComponentSelection");
+        if (componentSelection) {
+            component.addOperation("GlobalConfig",
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+                "Components",
+                componentSelection);
+        }
+        
         // Registry: Traintastic location
         component.addOperation("GlobalConfig",
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
@@ -36,7 +44,7 @@ Component.prototype.createOperations = function() {
             "Version",
             "@ProductVersion@");
         
-        // Registry: Windows Uninstall entry (prevents duplicate entries)
+        // Registry: Windows Uninstall entry
         var uninstallKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic";
         
         component.addOperation("GlobalConfig", uninstallKey, "DisplayName", "Traintastic");
@@ -130,7 +138,7 @@ Component.prototype.createOperations = function() {
                     '"' + serverExe + '" --tray');
             }
             
-            // Create initial settings file
+            // Create initial settings file with language
             var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
             var settingsPath = settingsDir + "/settings.json";
             

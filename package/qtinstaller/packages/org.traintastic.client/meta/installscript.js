@@ -24,6 +24,7 @@ Component.prototype.createOperations = function() {
             if (serverComponent) {
                 var serverPage = serverComponent.userInterface("ServerPage");
                 if (serverPage && serverPage.createDesktopIcon && serverPage.createDesktopIcon.checked) {
+                    console.log("Creating desktop shortcut for client");
                     component.addOperation("CreateShortcut",
                         clientExe,
                         "@DesktopDir@/Traintastic Client.lnk",
@@ -32,13 +33,28 @@ Component.prototype.createOperations = function() {
                         "iconId=0",
                         "description=Start Traintastic Client");
                 }
+            } else {
+                // If server component is not installed, don't check the page
+                console.log("Server component not selected, skipping desktop shortcut check");
             }
         }
         
-        // Write client language configuration
-        var iniPath = installer.value("CommonAppDataDir") + "/traintastic/traintastic-client.ini";
+        // Write client language configuration to ProgramData
+        var commonAppData = installer.value("CommonAppDataDir");
+        if (!commonAppData || commonAppData === "") {
+            commonAppData = "C:/ProgramData";
+        }
+        
+        var iniDir = commonAppData + "/traintastic";
+        var iniPath = iniDir + "/traintastic-client.ini";
         var language = getTraintasticLanguage();
         
+        console.log("Writing client config to: " + iniPath);
+        
+        // Create directory if it doesn't exist
+        component.addOperation("Mkdir", iniDir);
+        
+        // Write language setting
         component.addOperation("Settings",
             "path=" + iniPath,
             "method=set",

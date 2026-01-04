@@ -78,7 +78,18 @@ Component.prototype.createOperations = function() {
         if (installer.isInstaller()) {
             var page = component.userInterface("ServerPage");
             
+            if (page) {
+                console.log("ServerPage UI loaded successfully");
+                console.log("allowTraintastic: " + (page.allowTraintastic ? "found" : "NOT FOUND"));
+                console.log("allowWLANmaus: " + (page.allowWLANmaus ? "found" : "NOT FOUND"));
+                console.log("createDesktopIcon: " + (page.createDesktopIcon ? "found" : "NOT FOUND"));
+                console.log("startServerOnStartup: " + (page.startServerOnStartup ? "found" : "NOT FOUND"));
+            } else {
+                console.log("ERROR: ServerPage UI not loaded!");
+            }
+            
             if (page && page.allowTraintastic && page.allowTraintastic.checked) {
+                console.log("Adding firewall rule for Traintastic client");
                 component.addElevatedOperation("Execute",
                     "{0,1}",
                     "netsh", "advfirewall", "firewall", "add", "rule",
@@ -107,6 +118,7 @@ Component.prototype.createOperations = function() {
             }
             
             if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
+                console.log("Adding firewall rule for WLANmaus/Z21");
                 component.addElevatedOperation("Execute",
                     "{0,1}",
                     "netsh", "advfirewall", "firewall", "add", "rule",
@@ -122,6 +134,7 @@ Component.prototype.createOperations = function() {
             }
             
             if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
+                console.log("Creating desktop shortcut");
                 component.addOperation("CreateShortcut",
                     serverExe,
                     "@DesktopDir@/Traintastic Server.lnk",
@@ -132,6 +145,7 @@ Component.prototype.createOperations = function() {
             }
             
             if (page && page.startServerOnStartup && page.startServerOnStartup.checked) {
+                console.log("Adding server to Windows startup");
                 component.addOperation("GlobalConfig",
                     "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                     "Traintastic Server",

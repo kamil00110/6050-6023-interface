@@ -1,11 +1,9 @@
-//package/qtinstaller/packages/org.traintastic.client/meta/installscript.js
 function Component() {
     // Constructor
 }
 
 Component.prototype.createOperations = function() {
     try {
-        // Call default implementation
         component.createOperations();
         
         var targetDir = installer.value("TargetDir");
@@ -20,18 +18,20 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Start Traintastic Client");
         
-        // Check if server component is installed for desktop shortcut
-        var serverComponent = installer.componentByName("org.traintastic.server");
-        if (serverComponent) {
-            var serverPage = serverComponent.userInterface("FirewallPage");
-            if (serverPage && serverPage.createDesktopIcon && serverPage.createDesktopIcon.checked) {
-                component.addOperation("CreateShortcut",
-                    clientExe,
-                    "@DesktopDir@/Traintastic Client.lnk",
-                    "workingDirectory=" + targetDir + "/client",
-                    "iconPath=" + clientExe,
-                    "iconId=0",
-                    "description=Start Traintastic Client");
+        // Desktop shortcut - check if requested in server component options
+        if (installer.isInstaller()) {
+            var serverComponent = installer.componentByName("org.traintastic.server");
+            if (serverComponent) {
+                var serverPage = serverComponent.userInterface("ServerPage");
+                if (serverPage && serverPage.createDesktopIcon && serverPage.createDesktopIcon.checked) {
+                    component.addOperation("CreateShortcut",
+                        clientExe,
+                        "@DesktopDir@/Traintastic Client.lnk",
+                        "workingDirectory=" + targetDir + "/client",
+                        "iconPath=" + clientExe,
+                        "iconId=0",
+                        "description=Start Traintastic Client");
+                }
             }
         }
         
@@ -53,18 +53,12 @@ Component.prototype.createOperations = function() {
 function getTraintasticLanguage() {
     var locale = installer.value("Locale");
     
-    if (locale.indexOf("nl") === 0)
-        return "nl-nl";
-    else if (locale.indexOf("de") === 0)
-        return "de-de";
-    else if (locale.indexOf("it") === 0)
-        return "it-it";
-    else if (locale.indexOf("sv") === 0)
-        return "sv-se";
-    else if (locale.indexOf("fr") === 0)
-        return "fr-fr";
-    else if (locale.indexOf("pl") === 0)
-        return "pl-pl";
-    else
-        return "en-us";
+    if (locale.indexOf("nl") === 0) return "nl-nl";
+    if (locale.indexOf("de") === 0) return "de-de";
+    if (locale.indexOf("it") === 0) return "it-it";
+    if (locale.indexOf("sv") === 0) return "sv-se";
+    if (locale.indexOf("fr") === 0) return "fr-fr";
+    if (locale.indexOf("pl") === 0) return "pl-pl";
+    
+    return "en-us";
 }

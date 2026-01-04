@@ -4,7 +4,6 @@ function Component() {
 
 Component.prototype.createOperations = function() {
     try {
-        // Call default implementation
         component.createOperations();
         
         if (systemInfo.kernelType !== "winnt") {
@@ -15,7 +14,7 @@ Component.prototype.createOperations = function() {
         var serverExe = targetDir + "/server/traintastic-server.exe";
         var maintenanceTool = targetDir + "/TraintasticMaintenanceTool.exe";
         
-        // Check and install VC++ Redistributable (only on initial install)
+        // VC++ Redistributable (only on initial install, no undo)
         if (installer.isInstaller() && needsVCRedist()) {
             var vcRedistExe = targetDir + "/client/vc_redist.x64.exe";
             component.addOperation("Execute", 
@@ -23,10 +22,9 @@ Component.prototype.createOperations = function() {
                 vcRedistExe, 
                 "/quiet", 
                 "/norestart");
-            // No UNDOEXECUTE - VC++ should stay installed even after uninstall
         }
         
-        // Create registry entries (always, even on update)
+        // Registry: Traintastic location
         component.addOperation("GlobalConfig",
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
             "InstallLocation",
@@ -37,55 +35,20 @@ Component.prototype.createOperations = function() {
             "Version",
             "@ProductVersion@");
         
-        // Add uninstall registry entries for proper Windows Programs & Features integration
+        // Registry: Windows Uninstall entry (prevents duplicate entries)
         var uninstallKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic";
         
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "DisplayName",
-            "Traintastic");
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "DisplayVersion",
-            "@ProductVersion@");
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "Publisher",
-            "Reinder Feenstra");
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "DisplayIcon",
-            serverExe + ",0");
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "InstallLocation",
-            targetDir);
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "UninstallString",
-            '"' + maintenanceTool + '"');
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "ModifyPath",
-            '"' + maintenanceTool + '" --manage-packages');
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "NoModify",
-            "0");
-            
-        component.addOperation("GlobalConfig",
-            uninstallKey,
-            "NoRepair",
-            "1");
+        component.addOperation("GlobalConfig", uninstallKey, "DisplayName", "Traintastic");
+        component.addOperation("GlobalConfig", uninstallKey, "DisplayVersion", "@ProductVersion@");
+        component.addOperation("GlobalConfig", uninstallKey, "Publisher", "Reinder Feenstra");
+        component.addOperation("GlobalConfig", uninstallKey, "DisplayIcon", serverExe + ",0");
+        component.addOperation("GlobalConfig", uninstallKey, "InstallLocation", targetDir);
+        component.addOperation("GlobalConfig", uninstallKey, "UninstallString", '"' + maintenanceTool + '"');
+        component.addOperation("GlobalConfig", uninstallKey, "ModifyPath", '"' + maintenanceTool + '" --manage-packages');
+        component.addOperation("GlobalConfig", uninstallKey, "NoModify", "0");
+        component.addOperation("GlobalConfig", uninstallKey, "NoRepair", "1");
         
-        // Create shortcuts
+        // Start menu shortcuts
         component.addOperation("CreateShortcut",
             serverExe,
             "@StartMenuDir@/Traintastic Server.lnk",
@@ -94,7 +57,6 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Start Traintastic Server");
         
-        // Add maintenance tool shortcut to start menu
         component.addOperation("CreateShortcut",
             maintenanceTool,
             "@StartMenuDir@/Modify, Repair or Uninstall Traintastic.lnk",
@@ -103,18 +65,14 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Modify, update, repair or uninstall Traintastic");
         
-        // Firewall rules - get checkbox states from UI (only during install, not update)
+        // Optional features (only on initial install)
         if (installer.isInstaller()) {
-            var page = component.userInterface("FirewallPage");
+            var page = component.userInterface("ServerPage");
             
             if (page && page.allowTraintastic && page.allowTraintastic.checked) {
                 component.addElevatedOperation("Execute",
                     "{0,1}",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "add",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
                     "name=Traintastic server (TCP)",
                     "dir=in",
                     "program=" + serverExe,
@@ -122,20 +80,12 @@ Component.prototype.createOperations = function() {
                     "localport=5740",
                     "action=allow",
                     "UNDOEXECUTE",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "delete",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
                     "name=Traintastic server (TCP)");
                     
                 component.addElevatedOperation("Execute",
                     "{0,1}",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "add",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
                     "name=Traintastic server (UDP)",
                     "dir=in",
                     "program=" + serverExe,
@@ -143,22 +93,14 @@ Component.prototype.createOperations = function() {
                     "localport=5740",
                     "action=allow",
                     "UNDOEXECUTE",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "delete",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
                     "name=Traintastic server (UDP)");
             }
             
             if (page && page.allowWLANmaus && page.allowWLANmaus.checked) {
                 component.addElevatedOperation("Execute",
                     "{0,1}",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "add",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
                     "name=Traintastic server (WLANmaus/Z21)",
                     "dir=in",
                     "program=" + serverExe,
@@ -166,15 +108,10 @@ Component.prototype.createOperations = function() {
                     "localport=21105",
                     "action=allow",
                     "UNDOEXECUTE",
-                    "netsh",
-                    "advfirewall",
-                    "firewall",
-                    "delete",
-                    "rule",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
                     "name=Traintastic server (WLANmaus/Z21)");
             }
             
-            // Desktop shortcuts
             if (page && page.createDesktopIcon && page.createDesktopIcon.checked) {
                 component.addOperation("CreateShortcut",
                     serverExe,
@@ -185,51 +122,40 @@ Component.prototype.createOperations = function() {
                     "description=Start Traintastic Server");
             }
             
-            // Auto-start server on Windows startup
             if (page && page.startServerOnStartup && page.startServerOnStartup.checked) {
-                var startupKey = "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
                 component.addOperation("GlobalConfig",
-                    startupKey,
+                    "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
                     "Traintastic Server",
                     '"' + serverExe + '" --tray');
             }
-        }
-        
-        // Create server settings file if it doesn't exist (only on initial install)
-        if (installer.isInstaller()) {
+            
+            // Create initial settings file
             var settingsDir = installer.value("HomeDir") + "/AppData/Local/traintastic/server";
             var settingsPath = settingsDir + "/settings.json";
             
             if (!installer.fileExists(settingsPath)) {
                 var language = getTraintasticLanguage();
-                var settingsContent = '{"language":"' + language + '"}';
-                
                 component.addOperation("Mkdir", settingsDir);
-                component.addOperation("AppendFile", settingsPath, settingsContent);
+                component.addOperation("AppendFile", settingsPath, '{"language":"' + language + '"}');
             }
         }
         
-        // Clean up ALL registry entries on uninstall (remove ghost installations)
+        // Complete registry cleanup on uninstall
         if (installer.isUninstaller()) {
-            // Remove all Traintastic registry keys - use reg delete with /f flag
             component.addElevatedOperation("Execute",
                 "{0,1}",
-                "cmd",
-                "/c",
-                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\" /f");
+                "cmd", "/c",
+                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\" /f 2>nul");
                 
             component.addElevatedOperation("Execute",
                 "{0,1}",
-                "cmd",
-                "/c",
-                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic\" /f");
+                "cmd", "/c",
+                "reg delete \"HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Traintastic\" /f 2>nul");
                 
-            // Remove auto-start entry
             component.addElevatedOperation("Execute",
                 "{0,1}",
-                "cmd",
-                "/c",
-                "reg delete \"HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Traintastic Server\" /f");
+                "cmd", "/c",
+                "reg delete \"HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Traintastic Server\" /f 2>nul");
         }
         
     } catch (e) {
@@ -242,18 +168,18 @@ function needsVCRedist() {
         return false;
         
     try {
-        var version = installer.execute("reg", ["query", 
+        var result = installer.execute("reg", ["query", 
             "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\14.0\\VC\\Runtimes\\x64",
-            "/v", "Version"])[0];
+            "/v", "Version"]);
         
-        if (!version) {
+        if (!result || result.length === 0) {
             console.log("VC++ Redistributable not found");
             return true;
         }
         
+        var version = result[0];
         console.log("VC++ Redistributable found: " + version);
         
-        // Check if version is at least v14.24.28127.04
         if (version.indexOf("v14.2") === -1 || version < "v14.24") {
             console.log("VC++ Redistributable version too old");
             return true;
@@ -269,18 +195,12 @@ function needsVCRedist() {
 function getTraintasticLanguage() {
     var locale = installer.value("Locale");
     
-    if (locale.indexOf("nl") === 0)
-        return "nl-nl";
-    else if (locale.indexOf("de") === 0)
-        return "de-de";
-    else if (locale.indexOf("it") === 0)
-        return "it-it";
-    else if (locale.indexOf("sv") === 0)
-        return "sv-se";
-    else if (locale.indexOf("fr") === 0)
-        return "fr-fr";
-    else if (locale.indexOf("pl") === 0)
-        return "pl-pl";
-    else
-        return "en-us";
+    if (locale.indexOf("nl") === 0) return "nl-nl";
+    if (locale.indexOf("de") === 0) return "de-de";
+    if (locale.indexOf("it") === 0) return "it-it";
+    if (locale.indexOf("sv") === 0) return "sv-se";
+    if (locale.indexOf("fr") === 0) return "fr-fr";
+    if (locale.indexOf("pl") === 0) return "pl-pl";
+    
+    return "en-us";
 }

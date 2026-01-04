@@ -2,70 +2,65 @@ function Controller() {
     // Enable verbose installer output for debugging
     installer.setValue("verbose", "true");
     
-    // Clean up stale lock files before starting
+    // Clean up stale lock files that cause "cannot initialize cache" errors
     if (installer.isUpdater() || installer.isPackageManager()) {
-        var cacheDir = installer.value("HomeDir") + "/AppData/Local/cache/qt-installer-framework";
-        var lockFile = cacheDir + "/135517b1-2668-3c27-9010-5dab869c084f/cache.lock";
-        
-        if (installer.fileExists(lockFile)) {
-            console.log("Removing stale lock file: " + lockFile);
-            try {
+        try {
+            var homeDir = installer.value("HomeDir");
+            var lockFile = homeDir + "/AppData/Local/cache/qt-installer-framework/135517b1-2668-3c27-9010-5dab869c084f/cache.lock";
+            
+            if (installer.fileExists(lockFile)) {
+                console.log("Removing stale lock file: " + lockFile);
                 installer.execute("cmd", ["/c", "del", "/f", "/q", lockFile.replace(/\//g, "\\")]);
-            } catch(e) {
-                console.log("Could not remove lock file: " + e);
             }
+        } catch(e) {
+            console.log("Could not remove lock file: " + e);
         }
     }
     
     // Check if Traintastic is already installed
-    var existingInstall = "";
-    try {
-        var result = installer.execute("reg", ["query", 
-            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
-            "/v", "InstallLocation"]);
-        if (result && result.length > 0) {
-            var output = result[0];
-            var match = output.match(/InstallLocation\s+REG_SZ\s+(.+)/);
-            if (match && match[1]) {
-                existingInstall = match[1].trim();
-            }
-        }
-    } catch(e) {
-        console.log("No existing installation found");
-    }
-    
-    if (installer.isInstaller() && existingInstall !== "") {
-        console.log("Existing installation detected at: " + existingInstall);
-        
-        // Check if maintenance tool exists
-        var maintenanceTool = existingInstall + "\\TraintasticMaintenanceTool.exe";
-        
-        if (installer.fileExists(maintenanceTool)) {
-            // Launch maintenance tool and exit installer
-            console.log("Launching maintenance tool: " + maintenanceTool);
+    if (installer.isInstaller()) {
+        try {
+            var result = installer.execute("reg", ["query", 
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+                "/v", "InstallLocation"]);
             
-            var button = QMessageBox.question(
-                "existingInstallation",
-                "Traintastic Already Installed",
-                "Traintastic is already installed on this computer.\n\n" +
-                "Click 'Yes' to open the Maintenance Tool where you can:\n" +
-                "• Update to a newer version\n" +
-                "• Modify installed components\n" +
-                "• Repair the installation\n" +
-                "• Uninstall Traintastic\n\n" +
-                "Click 'No' to continue with a new installation (not recommended).",
-                QMessageBox.Yes | QMessageBox.No
-            );
-            
-            if (button === QMessageBox.Yes) {
-                installer.execute(maintenanceTool, []);
-                gui.clickButton(buttons.CancelButton);
-                return;
+            if (result && result.length > 0) {
+                var output = result[0];
+                var match = output.match(/InstallLocation\s+REG_SZ\s+(.+)/);
+                
+                if (match && match[1]) {
+                    var existingInstall = match[1].trim();
+                    var maintenanceTool = existingInstall + "\\TraintasticMaintenanceTool.exe";
+                    
+                    if (installer.fileExists(maintenanceTool)) {
+                        console.log("Existing installation found at: " + existingInstall);
+                        
+                        var button = QMessageBox.question(
+                            "existingInstallation",
+                            "Traintastic Already Installed",
+                            "Traintastic is already installed.\n\n" +
+                            "Click 'Yes' to open the Maintenance Tool to:\n" +
+                            "• Update to a newer version\n" +
+                            "• Modify components\n" +
+                            "• Repair installation\n" +
+                            "• Uninstall\n\n" +
+                            "Click 'No' for new installation (not recommended).",
+                            QMessageBox.Yes | QMessageBox.No
+                        );
+                        
+                        if (button === QMessageBox.Yes) {
+                            installer.execute(maintenanceTool, []);
+                            gui.clickButton(buttons.CancelButton);
+                            return;
+                        }
+                    }
+                }
             }
+        } catch(e) {
+            console.log("No existing installation detected");
         }
     }
     
-    // Check if this is an update/maintenance run
     if (installer.isInstaller()) {
         installer.autoRejectMessageBoxes();
         installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);

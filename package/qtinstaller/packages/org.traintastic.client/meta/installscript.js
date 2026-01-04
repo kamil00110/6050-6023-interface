@@ -1,3 +1,4 @@
+//package/qtinstaller/packages/org.traintastic.client/meta/installscript.js
 function Component() {
     // Constructor
 }

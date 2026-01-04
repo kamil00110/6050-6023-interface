@@ -23,27 +23,28 @@ Component.prototype.createOperations = function() {
         // Move files to ProgramData during install/update
         if (installer.isInstaller() || installer.isUpdater()) {
             
-            // Translations directory
-            var translationsSource = targetDir + "/translations";
-            var translationsDest = dataDir + "/translations";
-            
-            console.log("Moving translations from: " + translationsSource);
-            console.log("Moving translations to: " + translationsDest);
-            
             if (systemInfo.kernelType === "winnt") {
-                // Use robocopy on Windows (exit codes 0-7 are success)
+                // Translations directory
+                var translationsSource = targetDir + "/translations";
+                var translationsDest = dataDir + "/translations";
+                
+                console.log("Moving translations from: " + translationsSource);
+                console.log("Moving translations to: " + translationsDest);
+                
+                // Use robocopy - exit codes 0-7 are success, 8+ are errors
+                // The {0,1,2,3,4,5,6,7} tells Qt IFW that these exit codes are OK
                 component.addElevatedOperation("Execute",
                     "{0,1,2,3,4,5,6,7}",
                     "robocopy",
                     translationsSource.replace(/\//g, "\\"),
                     translationsDest.replace(/\//g, "\\"),
-                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
-                    "ERRORMESSAGE", "Failed to copy translations directory");
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS");
                 
-                // Delete source after successful copy
+                // Delete source after successful copy using cmd
                 component.addOperation("Execute",
+                    "{0}",
                     "cmd", "/c",
-                    "rmdir", "/s", "/q", translationsSource.replace(/\//g, "\\"));
+                    "if exist \"" + translationsSource.replace(/\//g, "\\") + "\" rmdir /s /q \"" + translationsSource.replace(/\//g, "\\") + "\"");
                     
                 // Manual directory
                 var manualSource = targetDir + "/manual";
@@ -57,12 +58,12 @@ Component.prototype.createOperations = function() {
                     "robocopy",
                     manualSource.replace(/\//g, "\\"),
                     manualDest.replace(/\//g, "\\"),
-                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
-                    "ERRORMESSAGE", "Failed to copy manual directory");
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS");
                 
                 component.addOperation("Execute",
+                    "{0}",
                     "cmd", "/c",
-                    "rmdir", "/s", "/q", manualSource.replace(/\//g, "\\"));
+                    "if exist \"" + manualSource.replace(/\//g, "\\") + "\" rmdir /s /q \"" + manualSource.replace(/\//g, "\\") + "\"");
                 
                 // LNCV directory
                 var lncvSource = targetDir + "/lncv";
@@ -76,12 +77,12 @@ Component.prototype.createOperations = function() {
                     "robocopy",
                     lncvSource.replace(/\//g, "\\"),
                     lncvDest.replace(/\//g, "\\"),
-                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
-                    "ERRORMESSAGE", "Failed to copy lncv directory");
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS");
                 
                 component.addOperation("Execute",
+                    "{0}",
                     "cmd", "/c",
-                    "rmdir", "/s", "/q", lncvSource.replace(/\//g, "\\"));
+                    "if exist \"" + lncvSource.replace(/\//g, "\\") + "\" rmdir /s /q \"" + lncvSource.replace(/\//g, "\\") + "\"");
             }
         }
         

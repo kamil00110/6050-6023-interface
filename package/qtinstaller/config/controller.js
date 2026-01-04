@@ -1,9 +1,7 @@
-//package/qtinstaller/config/controller.js
 function Controller() {
-    // Enable verbose installer output for debugging
     installer.setValue("verbose", "true");
     
-    // Clean up stale lock files that cause "cannot initialize cache" errors
+    // Clean up stale lock files
     if (installer.isUpdater() || installer.isPackageManager()) {
         try {
             var homeDir = installer.value("HomeDir");
@@ -18,7 +16,7 @@ function Controller() {
         }
     }
     
-    // Check if Traintastic is already installed
+    // Check for existing installation
     if (installer.isInstaller()) {
         try {
             var result = installer.execute("reg", ["query", 
@@ -99,9 +97,68 @@ Controller.prototype.TargetDirectoryPageCallback = function() {
 }
 
 Controller.prototype.ComponentSelectionPageCallback = function() {
+    // Read saved component selection from registry
+    var savedSelection = "";
+    try {
+        var result = installer.execute("reg", ["query",
+            "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
+            "/v", "Components"]);
+        
+        if (result && result.length > 0) {
+            var match = result[0].match(/Components\s+REG_SZ\s+(.+)/);
+            if (match && match[1]) {
+                savedSelection = match[1].trim();
+                console.log("Saved component selection: " + savedSelection);
+            }
+        }
+    } catch(e) {
+        console.log("No saved component selection found");
+    }
+    
     var widget = gui.currentPageWidget();
+    
     if (widget != null) {
-        widget.selectAll();
+        // Set custom title and description
+        if (widget.CategoryGroupBox) {
+            widget.CategoryGroupBox.title = "Select Installation Type";
+        }
+        
+        var serverComponent = installer.componentByName("org.traintastic.server");
+        var clientComponent = installer.componentByName("org.traintastic.client");
+        
+        // Apply saved selection or default
+        if (savedSelection === "ClientOnly") {
+            if (serverComponent) serverComponent.setValue("Default", "false");
+            if (clientComponent) clientComponent.setValue("Default", "true");
+        } else {
+            // Default to both (ClientAndServer)
+            if (serverComponent) serverComponent.setValue("Default", "true");
+            if (clientComponent) clientComponent.setValue("Default", "true");
+        }
+        
+        // Select defaults
+        widget.selectDefault();
+    }
+}
+
+Controller.prototype.ReadyForInstallationPageCallback = function() {
+    // Save component selection to registry
+    var serverComponent = installer.componentByName("org.traintastic.server");
+    var clientComponent = installer.componentByName("org.traintastic.client");
+    
+    var selection = "";
+    var serverSelected = serverComponent && serverComponent.installationRequested();
+    var clientSelected = clientComponent && clientComponent.installationRequested();
+    
+    if (serverSelected && clientSelected) {
+        selection = "ClientAndServer";
+    } else if (clientSelected) {
+        selection = "ClientOnly";
+    }
+    
+    if (selection) {
+        console.log("Saving component selection: " + selection);
+        installer.setValue("ComponentSelection", selection);
     }
 }
 

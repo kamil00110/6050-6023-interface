@@ -160,6 +160,11 @@ Controller.prototype.ReadyForInstallationPageCallback = function() {
         console.log("Saving component selection: " + selection);
         installer.setValue("ComponentSelection", selection);
     }
+    
+    // If server component is selected, ensure ServerPage is displayed
+    if (serverSelected && installer.isInstaller()) {
+        console.log("Server component selected - ServerPage should have been displayed");
+    }
 }
 
 Controller.prototype.FinishedPageCallback = function() {

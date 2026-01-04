@@ -1,3 +1,4 @@
+//package/qtinstaller/config/controller.js
 function Controller() {
     // Enable verbose installer output for debugging
     installer.setValue("verbose", "true");

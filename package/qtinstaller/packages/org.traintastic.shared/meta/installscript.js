@@ -1,4 +1,3 @@
-//package/qtinstaller/packages/org.traintastic.shared/meta/installscript.js
 function Component() {
     // Constructor
 }
@@ -8,42 +7,82 @@ Component.prototype.createOperations = function() {
         component.createOperations();
         
         var commonAppData = installer.value("CommonAppDataDir");
-        if (!commonAppData) {
+        if (!commonAppData || commonAppData === "") {
             commonAppData = "C:/ProgramData";
         }
         
         var dataDir = commonAppData + "/traintastic";
         var targetDir = installer.value("TargetDir");
         
-        console.log("Moving shared data from: " + targetDir);
-        console.log("Moving shared data to: " + dataDir);
+        console.log("Target directory: " + targetDir);
+        console.log("ProgramData directory: " + dataDir);
         
-        // Only move files during install/update, not during uninstall
+        // Create main data directory
+        component.addOperation("Mkdir", dataDir);
+        
+        // Move files to ProgramData during install/update
         if (installer.isInstaller() || installer.isUpdater()) {
-            component.addOperation("Mkdir", dataDir);
             
-            // Move directories using robocopy
-            // Note: robocopy exit codes 0-7 are success, 8+ are errors
-            component.addElevatedOperation("Execute",
-                "robocopy",
-                targetDir + "\\translations",
-                dataDir + "\\translations",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
-                "ERRORMESSAGE", "Failed to move translations directory");
+            // Translations directory
+            var translationsSource = targetDir + "/translations";
+            var translationsDest = dataDir + "/translations";
             
-            component.addElevatedOperation("Execute",
-                "robocopy",
-                targetDir + "\\manual",
-                dataDir + "\\manual",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
-                "ERRORMESSAGE", "Failed to move manual directory");
+            console.log("Moving translations from: " + translationsSource);
+            console.log("Moving translations to: " + translationsDest);
             
-            component.addElevatedOperation("Execute",
-                "robocopy",
-                targetDir + "\\lncv",
-                dataDir + "\\lncv",
-                "/E", "/MOVE", "/NFL", "/NDL", "/NJH", "/NJS",
-                "ERRORMESSAGE", "Failed to move lncv directory");
+            if (systemInfo.kernelType === "winnt") {
+                // Use robocopy on Windows (exit codes 0-7 are success)
+                component.addElevatedOperation("Execute",
+                    "{0,1,2,3,4,5,6,7}",
+                    "robocopy",
+                    translationsSource.replace(/\//g, "\\"),
+                    translationsDest.replace(/\//g, "\\"),
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
+                    "ERRORMESSAGE", "Failed to copy translations directory");
+                
+                // Delete source after successful copy
+                component.addOperation("Execute",
+                    "cmd", "/c",
+                    "rmdir", "/s", "/q", translationsSource.replace(/\//g, "\\"));
+                    
+                // Manual directory
+                var manualSource = targetDir + "/manual";
+                var manualDest = dataDir + "/manual";
+                
+                console.log("Moving manual from: " + manualSource);
+                console.log("Moving manual to: " + manualDest);
+                
+                component.addElevatedOperation("Execute",
+                    "{0,1,2,3,4,5,6,7}",
+                    "robocopy",
+                    manualSource.replace(/\//g, "\\"),
+                    manualDest.replace(/\//g, "\\"),
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
+                    "ERRORMESSAGE", "Failed to copy manual directory");
+                
+                component.addOperation("Execute",
+                    "cmd", "/c",
+                    "rmdir", "/s", "/q", manualSource.replace(/\//g, "\\"));
+                
+                // LNCV directory
+                var lncvSource = targetDir + "/lncv";
+                var lncvDest = dataDir + "/lncv";
+                
+                console.log("Moving lncv from: " + lncvSource);
+                console.log("Moving lncv to: " + lncvDest);
+                
+                component.addElevatedOperation("Execute",
+                    "{0,1,2,3,4,5,6,7}",
+                    "robocopy",
+                    lncvSource.replace(/\//g, "\\"),
+                    lncvDest.replace(/\//g, "\\"),
+                    "/E", "/IS", "/IT", "/NFL", "/NDL", "/NJH", "/NJS",
+                    "ERRORMESSAGE", "Failed to copy lncv directory");
+                
+                component.addOperation("Execute",
+                    "cmd", "/c",
+                    "rmdir", "/s", "/q", lncvSource.replace(/\//g, "\\"));
+            }
         }
         
         // Migration: delete old translation files
@@ -56,11 +95,12 @@ Component.prototype.createOperations = function() {
         
         for (var i = 0; i < oldTranslations.length; i++) {
             if (installer.fileExists(oldTranslations[i])) {
+                console.log("Deleting old translation: " + oldTranslations[i]);
                 component.addOperation("Delete", oldTranslations[i]);
             }
         }
         
-        // Migration: delete old DLLs
+        // Migration: delete old DLLs from server directory
         var oldDlls = [
             targetDir + "/server/lua53.dll",
             targetDir + "/server/lua54.dll",
@@ -70,6 +110,7 @@ Component.prototype.createOperations = function() {
         
         for (var i = 0; i < oldDlls.length; i++) {
             if (installer.fileExists(oldDlls[i])) {
+                console.log("Deleting old DLL: " + oldDlls[i]);
                 component.addOperation("Delete", oldDlls[i]);
             }
         }

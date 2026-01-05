@@ -5,6 +5,9 @@
     <Title>Traintastic Installer</Title>
     <Publisher>Reinder Feenstra</Publisher>
     <ProductUrl>https://traintastic.org</ProductUrl>
+    <Logo>logo.svg</Logo>
+    <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
+    <InstallerWindowIcon>InstallerLogo.svg</InstallerWindowIcon>
     <StartMenuDir>Traintastic</StartMenuDir>
     <TargetDir>@ApplicationsDir@/Traintastic</TargetDir>
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>

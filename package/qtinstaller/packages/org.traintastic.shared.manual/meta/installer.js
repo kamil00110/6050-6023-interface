@@ -5,9 +5,16 @@ Component.prototype.createOperations = function() {
     
     if (systemInfo.kernelType !== "winnt") return;
     
-    var manualPath = "C:/ProgramData/traintastic/manual/en/index.html";
+    // Get ProgramData directory dynamically
+    var commonAppData = installer.value("CommonAppDataDir");
+    if (!commonAppData || commonAppData === "") {
+        commonAppData = "C:/ProgramData";
+    }
+    
+    var manualPath = commonAppData + "/traintastic/manual/en/index.html";
     
     console.log("Creating manual shortcuts...");
+    console.log("Manual path: " + manualPath);
     
     // Start menu shortcut
     component.addOperation("CreateShortcut",

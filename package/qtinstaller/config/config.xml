@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Installer>
-    <Name>Traintastic</Name>
+    <n>Traintastic</n>
     <Version>1.0.0</Version>
     <Title>Traintastic Installer</Title>
     <Publisher>Reinder Feenstra</Publisher>
@@ -10,7 +10,14 @@
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
     <RemoteRepositories>
         <Repository>
-            <Url>https://traintastic.org/repository</Url>
+            <Url>https://traintastic.org/repository/release</Url>
+            <DisplayName>Release Builds</DisplayName>
+            <Enabled>1</Enabled>
+        </Repository>
+        <Repository>
+            <Url>https://traintastic.org/repository/developer</Url>
+            <DisplayName>Developer Builds</DisplayName>
+            <Enabled>0</Enabled>
         </Repository>
     </RemoteRepositories>
     <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
@@ -20,6 +27,7 @@
     <RunProgram>@TargetDir@/client/traintastic-client.exe</RunProgram>
     <RunProgramDescription>Launch Traintastic Client</RunProgramDescription>
     <MaintenanceToolName>TraintasticMaintenanceTool</MaintenanceToolName>
+    <CreateLocalRepository>true</CreateLocalRepository>
     <Translations>
         <Translation>en_US</Translation>
         <Translation>nl_NL</Translation>
@@ -30,6 +38,6 @@
         <Translation>pl_PL</Translation>
     </Translations>
     <ControlScript>controller.js</ControlScript>
-    <WizardDefaultWidth>600</WizardDefaultWidth>
+    <WizardDefaultWidth>700</WizardDefaultWidth>
     <WizardDefaultHeight>550</WizardDefaultHeight>
 </Installer>

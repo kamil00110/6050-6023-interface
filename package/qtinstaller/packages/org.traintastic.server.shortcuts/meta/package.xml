@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Desktop Shortcut</DisplayName>
+    <Description>Create desktop shortcut for Traintastic Server</Description>
+    <Version>1.0.0</Version>
+    <ReleaseDate>2025-01-01</ReleaseDate>
+    <n>org.traintastic.server.shortcuts</n>
+    <Dependencies>org.traintastic.server</Dependencies>
+    <Default>false</Default>
+    <Script>installscript.js</Script>
+    <SortingPriority>85</SortingPriority>
+</Package>

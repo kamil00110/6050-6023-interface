@@ -141,6 +141,121 @@ Controller.prototype.ComponentSelectionPageCallback = function() {
     }
 }
 
+// NEW: Server Options Page - appears after component selection
+Controller.prototype.ServerOptionsPageCallback = function() {
+    console.log("ServerOptionsPage callback triggered");
+    
+    var widget = gui.currentPageWidget();
+    if (!widget) {
+        console.log("ERROR: No widget for ServerOptionsPage");
+        return;
+    }
+    
+    // Check if server component is selected
+    var serverComponent = installer.componentByName("org.traintastic.server");
+    var serverSelected = serverComponent && serverComponent.installationRequested();
+    
+    console.log("Server component selected: " + serverSelected);
+    
+    if (!serverSelected) {
+        // Skip this page if server is not selected
+        console.log("Server not selected, skipping options page");
+        gui.clickButton(buttons.NextButton);
+        return;
+    }
+    
+    console.log("Creating ServerOptions UI...");
+    
+    // Set page title
+    widget.setTitle("Server Installation Options");
+    widget.setSubTitle("Select additional options for Traintastic Server installation");
+    
+    // Create main layout
+    var layout = new QVBoxLayout(widget);
+    
+    // Add description
+    var descLabel = new QLabel(widget);
+    descLabel.text = "Choose which additional features you want to install:";
+    descLabel.wordWrap = true;
+    layout.addWidget(descLabel);
+    
+    layout.addSpacing(20);
+    
+    // Shortcuts group
+    var shortcutsGroup = new QGroupBox(widget);
+    shortcutsGroup.title = "Shortcuts";
+    var shortcutsLayout = new QVBoxLayout(shortcutsGroup);
+    
+    var cbDesktop = new QCheckBox(shortcutsGroup);
+    cbDesktop.objectName = "desktopShortcut";
+    cbDesktop.text = "Create desktop shortcuts for Server and Client";
+    cbDesktop.checked = false;
+    shortcutsLayout.addWidget(cbDesktop);
+    
+    var cbTaskbar = new QCheckBox(shortcutsGroup);
+    cbTaskbar.objectName = "taskbarShortcut";
+    cbTaskbar.text = "Pin Traintastic Server to taskbar";
+    cbTaskbar.checked = false;
+    shortcutsLayout.addWidget(cbTaskbar);
+    
+    var cbManual = new QCheckBox(shortcutsGroup);
+    cbManual.objectName = "manualShortcut";
+    cbManual.text = "Create shortcut to Traintastic Manual";
+    cbManual.checked = false;
+    shortcutsLayout.addWidget(cbManual);
+    
+    layout.addWidget(shortcutsGroup);
+    layout.addSpacing(15);
+    
+    // Startup group
+    var startupGroup = new QGroupBox(widget);
+    startupGroup.title = "Startup";
+    var startupLayout = new QVBoxLayout(startupGroup);
+    
+    var cbStartup = new QCheckBox(startupGroup);
+    cbStartup.objectName = "startOnStartup";
+    cbStartup.text = "Start Traintastic Server automatically when Windows starts";
+    cbStartup.checked = false;
+    startupLayout.addWidget(cbStartup);
+    
+    layout.addWidget(startupGroup);
+    layout.addSpacing(15);
+    
+    // Windows Firewall group
+    var firewallGroup = new QGroupBox(widget);
+    firewallGroup.title = "Windows Firewall";
+    var firewallLayout = new QVBoxLayout(firewallGroup);
+    
+    var cbFirewall = new QCheckBox(firewallGroup);
+    cbFirewall.objectName = "firewallTraintastic";
+    cbFirewall.text = "Allow Traintastic client connections (TCP/UDP port 5740)";
+    cbFirewall.checked = false;
+    firewallLayout.addWidget(cbFirewall);
+    
+    var cbWLAN = new QCheckBox(firewallGroup);
+    cbWLAN.objectName = "firewallWLANmaus";
+    cbWLAN.text = "Allow WLANmaus/Z21 protocol (UDP port 21105)";
+    cbWLAN.checked = false;
+    firewallLayout.addWidget(cbWLAN);
+    
+    layout.addWidget(firewallGroup);
+    
+    // Add stretch
+    layout.addStretch();
+    
+    widget.setLayout(layout);
+    
+    // Store checkbox references for later
+    installer.setValue("ServerOptions_desktopShortcut", cbDesktop.objectName);
+    installer.setValue("ServerOptions_taskbarShortcut", cbTaskbar.objectName);
+    installer.setValue("ServerOptions_manualShortcut", cbManual.objectName);
+    installer.setValue("ServerOptions_startOnStartup", cbStartup.objectName);
+    installer.setValue("ServerOptions_firewallTraintastic", cbFirewall.objectName);
+    installer.setValue("ServerOptions_firewallWLANmaus", cbWLAN.objectName);
+    
+    console.log("ServerOptions UI created successfully");
+}
+
 Controller.prototype.ReadyForInstallationPageCallback = function() {
     // Save component selection to registry
     var serverComponent = installer.componentByName("org.traintastic.server");
@@ -161,9 +276,47 @@ Controller.prototype.ReadyForInstallationPageCallback = function() {
         installer.setValue("ComponentSelection", selection);
     }
     
-    // If server component is selected, ensure ServerPage is displayed
+    // Read and save server options checkbox states
     if (serverSelected && installer.isInstaller()) {
-        console.log("Server component selected - ServerPage should have been displayed");
+        console.log("Reading ServerOptions checkbox states...");
+        
+        var serverOptionsPage = gui.pageWidgetByObjectName("ServerOptionsPage");
+        if (serverOptionsPage) {
+            var cbDesktop = serverOptionsPage.findChild("desktopShortcut");
+            var cbTaskbar = serverOptionsPage.findChild("taskbarShortcut");
+            var cbManual = serverOptionsPage.findChild("manualShortcut");
+            var cbStartup = serverOptionsPage.findChild("startOnStartup");
+            var cbFirewall = serverOptionsPage.findChild("firewallTraintastic");
+            var cbWLAN = serverOptionsPage.findChild("firewallWLANmaus");
+            
+            // Save checkbox states to installer values
+            if (cbDesktop) {
+                installer.setValue("ServerOptions_desktopShortcut_checked", cbDesktop.checked ? "true" : "false");
+                console.log("  Desktop shortcut: " + cbDesktop.checked);
+            }
+            if (cbTaskbar) {
+                installer.setValue("ServerOptions_taskbarShortcut_checked", cbTaskbar.checked ? "true" : "false");
+                console.log("  Taskbar shortcut: " + cbTaskbar.checked);
+            }
+            if (cbManual) {
+                installer.setValue("ServerOptions_manualShortcut_checked", cbManual.checked ? "true" : "false");
+                console.log("  Manual shortcut: " + cbManual.checked);
+            }
+            if (cbStartup) {
+                installer.setValue("ServerOptions_startOnStartup_checked", cbStartup.checked ? "true" : "false");
+                console.log("  Start on startup: " + cbStartup.checked);
+            }
+            if (cbFirewall) {
+                installer.setValue("ServerOptions_firewallTraintastic_checked", cbFirewall.checked ? "true" : "false");
+                console.log("  Firewall Traintastic: " + cbFirewall.checked);
+            }
+            if (cbWLAN) {
+                installer.setValue("ServerOptions_firewallWLANmaus_checked", cbWLAN.checked ? "true" : "false");
+                console.log("  Firewall WLANmaus: " + cbWLAN.checked);
+            }
+        } else {
+            console.log("WARNING: Could not find ServerOptionsPage");
+        }
     }
 }
 

@@ -1,14 +1,169 @@
 function Component() {
     console.log("Server component constructor called");
+    
+    // Store checkbox states as component variables
+    component.desktopShortcut = false;
+    component.taskbarShortcut = false;
+    component.manualShortcut = false;
+    component.startOnStartup = false;
+    component.firewallTraintastic = false;
+    component.firewallWLANmaus = false;
 }
 
-// CRITICAL: This makes the ServerPage appear in the installer wizard
+// Add custom wizard page
 Component.prototype.loaded = function() {
     if (installer.isInstaller()) {
-        console.log("Adding ServerPage to installer wizard");
-        // Add the page before the "Ready for Installation" page
-        installer.addWizardPage(component, "ServerPage", QInstaller.ReadyForInstallation);
+        console.log("Server component loaded, will create custom page");
     }
+}
+
+// Create the custom page dynamically
+Component.prototype.createOperationsForPath = function(path) {
+    component.createOperationsForPath(path);
+}
+
+// This gets called when the component selection changes
+Component.prototype.componentSelectionPageEntered = function() {
+    if (installer.isInstaller()) {
+        var serverSelected = component.installationRequested();
+        console.log("Server component selected: " + serverSelected);
+        
+        if (serverSelected) {
+            // Add our custom page after component selection
+            try {
+                if (!installer.value("ServerOptionsPageAdded")) {
+                    console.log("Adding ServerOptionsPage to wizard");
+                    installer.addWizardPage(component, "ServerOptionsPage", QInstaller.ReadyForInstallation);
+                    installer.setValue("ServerOptionsPageAdded", "true");
+                }
+            } catch(e) {
+                console.log("Error adding page: " + e);
+            }
+        }
+    }
+}
+
+// Custom page callback - creates the UI dynamically
+Component.prototype.ServerOptionsPageCallback = function() {
+    console.log("ServerOptionsPage callback triggered");
+    
+    var widget = gui.currentPageWidget();
+    if (!widget) {
+        console.log("ERROR: No current page widget");
+        return;
+    }
+    
+    console.log("Creating ServerOptions UI...");
+    
+    // Set page title
+    widget.title = "Server Installation Options";
+    
+    // Create main layout
+    var layout = new QVBoxLayout(widget);
+    widget.setLayout(layout);
+    
+    // Add description
+    var descLabel = new QLabel(widget);
+    descLabel.text = "Select additional options for Traintastic Server installation:";
+    descLabel.wordWrap = true;
+    var font = descLabel.font;
+    font.pointSize = 10;
+    descLabel.font = font;
+    layout.addWidget(descLabel);
+    
+    // Add spacer
+    layout.addSpacing(20);
+    
+    // Shortcuts group
+    var shortcutsGroup = new QGroupBox(widget);
+    shortcutsGroup.title = "Shortcuts";
+    var shortcutsLayout = new QVBoxLayout(shortcutsGroup);
+    shortcutsGroup.setLayout(shortcutsLayout);
+    
+    var cb1 = new QCheckBox(shortcutsGroup);
+    cb1.objectName = "desktopShortcut";
+    cb1.text = "Create desktop shortcuts for Server and Client";
+    cb1.checked = false;
+    cb1.toggled.connect(function(checked) {
+        component.desktopShortcut = checked;
+        console.log("Desktop shortcut: " + checked);
+    });
+    shortcutsLayout.addWidget(cb1);
+    
+    var cb2 = new QCheckBox(shortcutsGroup);
+    cb2.objectName = "taskbarShortcut";
+    cb2.text = "Pin Traintastic Server to taskbar";
+    cb2.checked = false;
+    cb2.toggled.connect(function(checked) {
+        component.taskbarShortcut = checked;
+        console.log("Taskbar shortcut: " + checked);
+    });
+    shortcutsLayout.addWidget(cb2);
+    
+    var cb3 = new QCheckBox(shortcutsGroup);
+    cb3.objectName = "manualShortcut";
+    cb3.text = "Create shortcut to Traintastic Manual";
+    cb3.checked = false;
+    cb3.toggled.connect(function(checked) {
+        component.manualShortcut = checked;
+        console.log("Manual shortcut: " + checked);
+    });
+    shortcutsLayout.addWidget(cb3);
+    
+    layout.addWidget(shortcutsGroup);
+    layout.addSpacing(15);
+    
+    // Startup group
+    var startupGroup = new QGroupBox(widget);
+    startupGroup.title = "Startup";
+    var startupLayout = new QVBoxLayout(startupGroup);
+    startupGroup.setLayout(startupLayout);
+    
+    var cb4 = new QCheckBox(startupGroup);
+    cb4.objectName = "startOnStartup";
+    cb4.text = "Start Traintastic Server automatically when Windows starts";
+    cb4.checked = false;
+    cb4.toggled.connect(function(checked) {
+        component.startOnStartup = checked;
+        console.log("Start on startup: " + checked);
+    });
+    startupLayout.addWidget(cb4);
+    
+    layout.addWidget(startupGroup);
+    layout.addSpacing(15);
+    
+    // Windows Firewall group
+    var firewallGroup = new QGroupBox(widget);
+    firewallGroup.title = "Windows Firewall";
+    var firewallLayout = new QVBoxLayout(firewallGroup);
+    firewallGroup.setLayout(firewallLayout);
+    
+    var cb5 = new QCheckBox(firewallGroup);
+    cb5.objectName = "firewallTraintastic";
+    cb5.text = "Allow Traintastic client connections (TCP/UDP port 5740)";
+    cb5.checked = false;
+    cb5.toggled.connect(function(checked) {
+        component.firewallTraintastic = checked;
+        console.log("Firewall Traintastic: " + checked);
+    });
+    firewallLayout.addWidget(cb5);
+    
+    var cb6 = new QCheckBox(firewallGroup);
+    cb6.objectName = "firewallWLANmaus";
+    cb6.text = "Allow WLANmaus/Z21 protocol (UDP port 21105)";
+    cb6.checked = false;
+    cb6.toggled.connect(function(checked) {
+        component.firewallWLANmaus = checked;
+        console.log("Firewall WLANmaus: " + checked);
+    });
+    firewallLayout.addWidget(cb6);
+    
+    layout.addWidget(firewallGroup);
+    
+    // Add stretch at the end
+    layout.addStretch();
+    
+    console.log("ServerOptions UI created successfully");
 }
 
 Component.prototype.createOperations = function() {
@@ -21,7 +176,9 @@ Component.prototype.createOperations = function() {
         
         var targetDir = installer.value("TargetDir");
         var serverExe = targetDir + "/server/traintastic-server.exe";
+        var clientExe = targetDir + "/client/traintastic-client.exe";
         var maintenanceTool = targetDir + "/TraintasticMaintenanceTool.exe";
+        var manualPath = "C:/ProgramData/traintastic/manual/en/index.html";
         
         // VC++ Redistributable (only on initial install)
         if (installer.isInstaller() && needsVCRedist()) {
@@ -33,8 +190,6 @@ Component.prototype.createOperations = function() {
                     vcRedistExe, 
                     "/quiet", 
                     "/norestart");
-            } else {
-                console.log("WARNING: vc_redist.x64.exe not found");
             }
         }
         
@@ -72,7 +227,7 @@ Component.prototype.createOperations = function() {
         component.addOperation("GlobalConfig", uninstallKey, "NoModify", "0");
         component.addOperation("GlobalConfig", uninstallKey, "NoRepair", "1");
         
-        // Start menu shortcuts
+        // Start menu shortcuts (always created)
         component.addOperation("CreateShortcut",
             serverExe,
             "@StartMenuDir@/Traintastic Server.lnk",
@@ -89,99 +244,138 @@ Component.prototype.createOperations = function() {
             "iconId=0",
             "description=Modify, update, repair or uninstall Traintastic");
         
-        // Process user selections from ServerPage (only on initial install)
+        // Process user selections (only on initial install)
         if (installer.isInstaller()) {
-            console.log("Processing ServerPage user selections...");
-            var page = component.userInterface("ServerPage");
+            console.log("Processing user selections...");
+            console.log("  Desktop shortcuts: " + component.desktopShortcut);
+            console.log("  Taskbar pin: " + component.taskbarShortcut);
+            console.log("  Manual shortcut: " + component.manualShortcut);
+            console.log("  Start on startup: " + component.startOnStartup);
+            console.log("  Firewall (Traintastic): " + component.firewallTraintastic);
+            console.log("  Firewall (WLANmaus): " + component.firewallWLANmaus);
             
-            if (page) {
-                console.log("ServerPage UI accessed successfully");
+            // Desktop shortcuts
+            if (component.desktopShortcut) {
+                console.log("Creating desktop shortcuts...");
                 
-                // Log checkbox states
-                var allowTraintastic = page.allowTraintastic && page.allowTraintastic.checked;
-                var allowWLANmaus = page.allowWLANmaus && page.allowWLANmaus.checked;
-                var createDesktopIcon = page.createDesktopIcon && page.createDesktopIcon.checked;
-                var startServerOnStartup = page.startServerOnStartup && page.startServerOnStartup.checked;
+                component.addOperation("CreateShortcut",
+                    serverExe,
+                    "@DesktopDir@/Traintastic Server.lnk",
+                    "workingDirectory=" + targetDir + "/server",
+                    "iconPath=" + serverExe,
+                    "iconId=0",
+                    "description=Start Traintastic Server");
                 
-                console.log("  allowTraintastic: " + allowTraintastic);
-                console.log("  allowWLANmaus: " + allowWLANmaus);
-                console.log("  createDesktopIcon: " + createDesktopIcon);
-                console.log("  startServerOnStartup: " + startServerOnStartup);
-                
-                // Firewall rules for Traintastic client (TCP/UDP port 5740)
-                if (allowTraintastic) {
-                    console.log("Adding firewall rules for Traintastic client...");
-                    
-                    component.addElevatedOperation("Execute",
-                        "{0,1}",
-                        "netsh", "advfirewall", "firewall", "add", "rule",
-                        "name=Traintastic server (TCP)",
-                        "dir=in",
-                        "program=" + serverExe,
-                        "protocol=TCP",
-                        "localport=5740",
-                        "action=allow",
-                        "UNDOEXECUTE",
-                        "netsh", "advfirewall", "firewall", "delete", "rule",
-                        "name=Traintastic server (TCP)");
-                        
-                    component.addElevatedOperation("Execute",
-                        "{0,1}",
-                        "netsh", "advfirewall", "firewall", "add", "rule",
-                        "name=Traintastic server (UDP)",
-                        "dir=in",
-                        "program=" + serverExe,
-                        "protocol=UDP",
-                        "localport=5740",
-                        "action=allow",
-                        "UNDOEXECUTE",
-                        "netsh", "advfirewall", "firewall", "delete", "rule",
-                        "name=Traintastic server (UDP)");
-                }
-                
-                // Firewall rules for WLANmaus/Z21 (UDP port 21105)
-                if (allowWLANmaus) {
-                    console.log("Adding firewall rule for WLANmaus/Z21...");
-                    
-                    component.addElevatedOperation("Execute",
-                        "{0,1}",
-                        "netsh", "advfirewall", "firewall", "add", "rule",
-                        "name=Traintastic server (WLANmaus/Z21)",
-                        "dir=in",
-                        "program=" + serverExe,
-                        "protocol=UDP",
-                        "localport=21105",
-                        "action=allow",
-                        "UNDOEXECUTE",
-                        "netsh", "advfirewall", "firewall", "delete", "rule",
-                        "name=Traintastic server (WLANmaus/Z21)");
-                }
-                
-                // Desktop shortcuts
-                if (createDesktopIcon) {
-                    console.log("Creating desktop shortcut for server...");
-                    
+                // Check if client component is also being installed
+                var clientComponent = installer.componentByName("org.traintastic.client");
+                if (clientComponent && clientComponent.installationRequested()) {
                     component.addOperation("CreateShortcut",
-                        serverExe,
-                        "@DesktopDir@/Traintastic Server.lnk",
-                        "workingDirectory=" + targetDir + "/server",
-                        "iconPath=" + serverExe,
+                        clientExe,
+                        "@DesktopDir@/Traintastic Client.lnk",
+                        "workingDirectory=" + targetDir + "/client",
+                        "iconPath=" + clientExe,
                         "iconId=0",
-                        "description=Start Traintastic Server");
+                        "description=Start Traintastic Client");
                 }
+            }
+            
+            // Taskbar shortcut
+            if (component.taskbarShortcut) {
+                console.log("Pinning server to taskbar...");
                 
-                // Auto-startup with Windows
-                if (startServerOnStartup) {
-                    console.log("Adding server to Windows startup...");
+                // Use PowerShell to pin to taskbar (works better than VBS)
+                var psCommand = '$shell = New-Object -ComObject Shell.Application; ' +
+                               '$folder = $shell.Namespace(\\"' + targetDir.replace(/\//g, "\\\\") + '\\\\server\\"); ' +
+                               '$item = $folder.ParseName(\\"traintastic-server.exe\\"); ' +
+                               '$verb = $item.Verbs() | Where-Object {$_.Name -match \\"Pin to taskbar\\" -or $_.Name -match \\"An Taskleiste\\"}; ' +
+                               'if($verb) { $verb.DoIt() }';
+                
+                component.addOperation("Execute",
+                    "{0,1}",
+                    "powershell",
+                    "-NoProfile",
+                    "-ExecutionPolicy", "Bypass",
+                    "-Command", psCommand);
+            }
+            
+            // Manual shortcut
+            if (component.manualShortcut) {
+                console.log("Creating manual shortcuts...");
+                
+                component.addOperation("CreateShortcut",
+                    manualPath,
+                    "@StartMenuDir@/Traintastic Manual.lnk",
+                    "iconPath=%SystemRoot%\\System32\\shell32.dll",
+                    "iconId=23",
+                    "description=Open Traintastic Manual");
+                
+                if (component.desktopShortcut) {
+                    component.addOperation("CreateShortcut",
+                        manualPath,
+                        "@DesktopDir@/Traintastic Manual.lnk",
+                        "iconPath=%SystemRoot%\\System32\\shell32.dll",
+                        "iconId=23",
+                        "description=Open Traintastic Manual");
+                }
+            }
+            
+            // Auto-startup
+            if (component.startOnStartup) {
+                console.log("Adding server to Windows startup...");
+                
+                component.addOperation("GlobalConfig",
+                    "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+                    "Traintastic Server",
+                    '"' + serverExe + '" --tray');
+            }
+            
+            // Firewall - Traintastic client
+            if (component.firewallTraintastic) {
+                console.log("Adding firewall rules for Traintastic client...");
+                
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=Traintastic server (TCP)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=TCP",
+                    "localport=5740",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=Traintastic server (TCP)");
                     
-                    component.addOperation("GlobalConfig",
-                        "HKEY_CURRENT_USER\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
-                        "Traintastic Server",
-                        '"' + serverExe + '" --tray');
-                }
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=Traintastic server (UDP)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=UDP",
+                    "localport=5740",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=Traintastic server (UDP)");
+            }
+            
+            // Firewall - WLANmaus/Z21
+            if (component.firewallWLANmaus) {
+                console.log("Adding firewall rule for WLANmaus/Z21...");
                 
-            } else {
-                console.log("WARNING: Could not access ServerPage UI");
+                component.addElevatedOperation("Execute",
+                    "{0,1}",
+                    "netsh", "advfirewall", "firewall", "add", "rule",
+                    "name=Traintastic server (WLANmaus/Z21)",
+                    "dir=in",
+                    "program=" + serverExe,
+                    "protocol=UDP",
+                    "localport=21105",
+                    "action=allow",
+                    "UNDOEXECUTE",
+                    "netsh", "advfirewall", "firewall", "delete", "rule",
+                    "name=Traintastic server (WLANmaus/Z21)");
             }
             
             // Create initial server settings file with language
@@ -234,23 +428,17 @@ function needsVCRedist() {
             "/v", "Version"]);
         
         if (!result || result.length === 0) {
-            console.log("VC++ Redistributable not found");
             return true;
         }
         
         var version = result[0];
-        console.log("VC++ Redistributable version: " + version);
-        
         if (version.indexOf("v14.2") === -1 || version < "v14.24") {
-            console.log("VC++ Redistributable version too old (need v14.24+)");
             return true;
         }
         
-        console.log("VC++ Redistributable is up to date");
         return false;
         
     } catch (e) {
-        console.log("Error checking VC++ Redistributable: " + e);
         return true;
     }
 }

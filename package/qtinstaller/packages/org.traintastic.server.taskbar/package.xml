@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Pin to Taskbar</DisplayName>
+    <Description>Pin Traintastic Server to Windows taskbar</Description>
+    <Version>1.0.0</Version>
+    <ReleaseDate>2025-01-01</ReleaseDate>
+    <n>org.traintastic.server.taskbar</n>
+    <Dependencies>org.traintastic.server</Dependencies>
+    <Default>false</Default>
+    <Script>installscript.js</Script>
+    <SortingPriority>84</SortingPriority>
+</Package>

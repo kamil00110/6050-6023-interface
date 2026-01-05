@@ -64,6 +64,10 @@ function Controller() {
         installer.autoRejectMessageBoxes();
         installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);
         installer.setMessageBoxAutomaticAnswer("stopProcessesForUpdates", QMessageBox.Ignore);
+        
+        // Add custom ServerOptions page dynamically
+        console.log("Adding ServerOptionsPage to installer");
+        installer.addWizardPageItem(null, "ServerOptionsPage", QInstaller.ComponentSelection);
     }
 }
 
@@ -166,12 +170,12 @@ Controller.prototype.ServerOptionsPageCallback = function() {
     
     console.log("Creating ServerOptions UI...");
     
-    // Set page title
+    // Set page title using the widget's properties
     widget.setTitle("Server Installation Options");
     widget.setSubTitle("Select additional options for Traintastic Server installation");
     
     // Create main layout
-    var layout = new QVBoxLayout(widget);
+    var layout = new QVBoxLayout();
     
     // Add description
     var descLabel = new QLabel(widget);
@@ -184,7 +188,7 @@ Controller.prototype.ServerOptionsPageCallback = function() {
     // Shortcuts group
     var shortcutsGroup = new QGroupBox(widget);
     shortcutsGroup.title = "Shortcuts";
-    var shortcutsLayout = new QVBoxLayout(shortcutsGroup);
+    var shortcutsLayout = new QVBoxLayout();
     
     var cbDesktop = new QCheckBox(shortcutsGroup);
     cbDesktop.objectName = "desktopShortcut";
@@ -204,13 +208,14 @@ Controller.prototype.ServerOptionsPageCallback = function() {
     cbManual.checked = false;
     shortcutsLayout.addWidget(cbManual);
     
+    shortcutsGroup.setLayout(shortcutsLayout);
     layout.addWidget(shortcutsGroup);
     layout.addSpacing(15);
     
     // Startup group
     var startupGroup = new QGroupBox(widget);
     startupGroup.title = "Startup";
-    var startupLayout = new QVBoxLayout(startupGroup);
+    var startupLayout = new QVBoxLayout();
     
     var cbStartup = new QCheckBox(startupGroup);
     cbStartup.objectName = "startOnStartup";
@@ -218,13 +223,14 @@ Controller.prototype.ServerOptionsPageCallback = function() {
     cbStartup.checked = false;
     startupLayout.addWidget(cbStartup);
     
+    startupGroup.setLayout(startupLayout);
     layout.addWidget(startupGroup);
     layout.addSpacing(15);
     
     // Windows Firewall group
     var firewallGroup = new QGroupBox(widget);
     firewallGroup.title = "Windows Firewall";
-    var firewallLayout = new QVBoxLayout(firewallGroup);
+    var firewallLayout = new QVBoxLayout();
     
     var cbFirewall = new QCheckBox(firewallGroup);
     cbFirewall.objectName = "firewallTraintastic";
@@ -238,20 +244,13 @@ Controller.prototype.ServerOptionsPageCallback = function() {
     cbWLAN.checked = false;
     firewallLayout.addWidget(cbWLAN);
     
+    firewallGroup.setLayout(firewallLayout);
     layout.addWidget(firewallGroup);
     
     // Add stretch
     layout.addStretch();
     
     widget.setLayout(layout);
-    
-    // Store checkbox references for later
-    installer.setValue("ServerOptions_desktopShortcut", cbDesktop.objectName);
-    installer.setValue("ServerOptions_taskbarShortcut", cbTaskbar.objectName);
-    installer.setValue("ServerOptions_manualShortcut", cbManual.objectName);
-    installer.setValue("ServerOptions_startOnStartup", cbStartup.objectName);
-    installer.setValue("ServerOptions_firewallTraintastic", cbFirewall.objectName);
-    installer.setValue("ServerOptions_firewallWLANmaus", cbWLAN.objectName);
     
     console.log("ServerOptions UI created successfully");
 }

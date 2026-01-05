@@ -8,9 +8,6 @@
     <StartMenuDir>Traintastic</StartMenuDir>
     <TargetDir>@ApplicationsDir@/Traintastic</TargetDir>
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
-    <Logo>logo.svg</Logo>
-    <InstallerApplicationIcon>installer-icon</InstallerApplicationIcon>
-    <InstallerWindowIcon>InstallerLogo.svg</InstallerWindowIcon>
     <RemoteRepositories>
         <Repository>
             <Url>https://traintastic.org/repository</Url>
@@ -19,7 +16,6 @@
     <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
     <AllowSpaceInPath>true</AllowSpaceInPath>
     <WizardStyle>Modern</WizardStyle>
-    <StyleSheet>installer.qss</StyleSheet>
     <TitleColor>#FFFFFF</TitleColor>
     <RunProgram>@TargetDir@/client/traintastic-client.exe</RunProgram>
     <RunProgramDescription>Launch Traintastic Client</RunProgramDescription>
@@ -35,8 +31,5 @@
     </Translations>
     <ControlScript>controller.js</ControlScript>
     <WizardDefaultWidth>600</WizardDefaultWidth>
-    <WizardDefaultHeight>500</WizardDefaultHeight>
-    <Pages>
-        <Page name="ServerOptionsPage" />
-    </Pages>
+    <WizardDefaultHeight>550</WizardDefaultHeight>
 </Installer>

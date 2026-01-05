@@ -34,4 +34,9 @@
         <Translation>pl_PL</Translation>
     </Translations>
     <ControlScript>controller.js</ControlScript>
+    <WizardDefaultWidth>600</WizardDefaultWidth>
+    <WizardDefaultHeight>500</WizardDefaultHeight>
+    <Pages>
+        <Page name="ServerOptionsPage" />
+    </Pages>
 </Installer>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Package>
+    <DisplayName>Firewall Rule (Client Connections)</DisplayName>
+    <Description>Allow Traintastic client connections through Windows Firewall (TCP/UDP port 5740)</Description>
+    <Version>1.0.0</Version>
+    <ReleaseDate>2025-01-01</ReleaseDate>
+    <n>org.traintastic.server.firewall</n>
+    <Dependencies>org.traintastic.server</Dependencies>
+    <Default>false</Default>
+    <Script>installscript.js</Script>
+    <SortingPriority>82</SortingPriority>
+</Package>

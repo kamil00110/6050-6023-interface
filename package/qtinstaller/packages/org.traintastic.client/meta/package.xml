@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Package>
     <DisplayName>Traintastic Client</DisplayName>
-    <Description>Client component for operating the model railway layout.</Description>
+    <Description>Client component for operating the model railway layout</Description>
     <Version>1.0.0</Version>
     <ReleaseDate>2025-01-01</ReleaseDate>
     <n>org.traintastic.client</n>
+    <Dependencies>org.traintastic.shared</Dependencies>
     <Default>true</Default>
     <Script>installscript.js</Script>
     <Licenses>
         <License name="TraintasticLicense" file="license.txt" />
     </Licenses>
+    <SortingPriority>75</SortingPriority>
 </Package>

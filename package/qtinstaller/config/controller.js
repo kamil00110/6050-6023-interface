@@ -64,10 +64,6 @@ function Controller() {
         installer.autoRejectMessageBoxes();
         installer.setMessageBoxAutomaticAnswer("OverwriteTargetDirectory", QMessageBox.Yes);
         installer.setMessageBoxAutomaticAnswer("stopProcessesForUpdates", QMessageBox.Ignore);
-        
-        // Add custom ServerOptions page dynamically
-        console.log("Adding ServerOptionsPage to installer");
-        installer.addWizardPageItem(null, "ServerOptionsPage", QInstaller.ComponentSelection);
     }
 }
 
@@ -145,114 +141,145 @@ Controller.prototype.ComponentSelectionPageCallback = function() {
     }
 }
 
-// NEW: Server Options Page - appears after component selection
-Controller.prototype.ServerOptionsPageCallback = function() {
-    console.log("ServerOptionsPage callback triggered");
+// This intercepts when user clicks Next on component selection page
+Controller.prototype.ComponentSelectionPageEntered = function() {
+    console.log("Component selection page entered");
+}
+
+Controller.prototype.ComponentSelectionPageLeft = function() {
+    console.log("Component selection page left, checking server selection...");
     
-    var widget = gui.currentPageWidget();
-    if (!widget) {
-        console.log("ERROR: No widget for ServerOptionsPage");
-        return;
-    }
-    
-    // Check if server component is selected
     var serverComponent = installer.componentByName("org.traintastic.server");
     var serverSelected = serverComponent && serverComponent.installationRequested();
     
-    console.log("Server component selected: " + serverSelected);
+    console.log("Server selected: " + serverSelected);
     
-    if (!serverSelected) {
-        // Skip this page if server is not selected
-        console.log("Server not selected, skipping options page");
-        gui.clickButton(buttons.NextButton);
-        return;
+    // Store whether to show the options page
+    installer.setValue("ShowServerOptions", serverSelected ? "true" : "false");
+    
+    if (serverSelected && installer.isInstaller()) {
+        console.log("Server selected - will show options dialog");
+        
+        // Show dialog with server options
+        var dialog = new QDialog(gui.currentPageWidget());
+        dialog.windowTitle = "Server Installation Options";
+        dialog.modal = true;
+        
+        var layout = new QVBoxLayout(dialog);
+        
+        // Title label
+        var titleLabel = new QLabel(dialog);
+        titleLabel.text = "<h2>Server Installation Options</h2>";
+        layout.addWidget(titleLabel);
+        
+        // Description
+        var descLabel = new QLabel(dialog);
+        descLabel.text = "Select additional options for Traintastic Server installation:";
+        descLabel.wordWrap = true;
+        layout.addWidget(descLabel);
+        
+        layout.addSpacing(15);
+        
+        // Shortcuts group
+        var shortcutsGroup = new QGroupBox(dialog);
+        shortcutsGroup.title = "Shortcuts";
+        var shortcutsLayout = new QVBoxLayout();
+        
+        var cbDesktop = new QCheckBox(shortcutsGroup);
+        cbDesktop.objectName = "desktopShortcut";
+        cbDesktop.text = "Create desktop shortcuts for Server and Client";
+        cbDesktop.checked = false;
+        shortcutsLayout.addWidget(cbDesktop);
+        
+        var cbTaskbar = new QCheckBox(shortcutsGroup);
+        cbTaskbar.objectName = "taskbarShortcut";
+        cbTaskbar.text = "Pin Traintastic Server to taskbar";
+        cbTaskbar.checked = false;
+        shortcutsLayout.addWidget(cbTaskbar);
+        
+        var cbManual = new QCheckBox(shortcutsGroup);
+        cbManual.objectName = "manualShortcut";
+        cbManual.text = "Create shortcut to Traintastic Manual";
+        cbManual.checked = false;
+        shortcutsLayout.addWidget(cbManual);
+        
+        shortcutsGroup.setLayout(shortcutsLayout);
+        layout.addWidget(shortcutsGroup);
+        
+        // Startup group
+        var startupGroup = new QGroupBox(dialog);
+        startupGroup.title = "Startup";
+        var startupLayout = new QVBoxLayout();
+        
+        var cbStartup = new QCheckBox(startupGroup);
+        cbStartup.objectName = "startOnStartup";
+        cbStartup.text = "Start Traintastic Server automatically when Windows starts";
+        cbStartup.checked = false;
+        startupLayout.addWidget(cbStartup);
+        
+        startupGroup.setLayout(startupLayout);
+        layout.addWidget(startupGroup);
+        
+        // Firewall group
+        var firewallGroup = new QGroupBox(dialog);
+        firewallGroup.title = "Windows Firewall";
+        var firewallLayout = new QVBoxLayout();
+        
+        var cbFirewall = new QCheckBox(firewallGroup);
+        cbFirewall.objectName = "firewallTraintastic";
+        cbFirewall.text = "Allow Traintastic client connections (TCP/UDP port 5740)";
+        cbFirewall.checked = false;
+        firewallLayout.addWidget(cbFirewall);
+        
+        var cbWLAN = new QCheckBox(firewallGroup);
+        cbWLAN.objectName = "firewallWLANmaus";
+        cbWLAN.text = "Allow WLANmaus/Z21 protocol (UDP port 21105)";
+        cbWLAN.checked = false;
+        firewallLayout.addWidget(cbWLAN);
+        
+        firewallGroup.setLayout(firewallLayout);
+        layout.addWidget(firewallGroup);
+        
+        // Buttons
+        var buttonBox = new QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, dialog);
+        buttonBox.accepted.connect(dialog, "accept");
+        buttonBox.rejected.connect(dialog, "reject");
+        layout.addWidget(buttonBox);
+        
+        dialog.setLayout(layout);
+        
+        // Show dialog and get result
+        var result = dialog.exec();
+        
+        if (result === QDialog.Accepted) {
+            console.log("User accepted server options");
+            
+            // Save checkbox states
+            installer.setValue("ServerOptions_desktopShortcut_checked", cbDesktop.checked ? "true" : "false");
+            installer.setValue("ServerOptions_taskbarShortcut_checked", cbTaskbar.checked ? "true" : "false");
+            installer.setValue("ServerOptions_manualShortcut_checked", cbManual.checked ? "true" : "false");
+            installer.setValue("ServerOptions_startOnStartup_checked", cbStartup.checked ? "true" : "false");
+            installer.setValue("ServerOptions_firewallTraintastic_checked", cbFirewall.checked ? "true" : "false");
+            installer.setValue("ServerOptions_firewallWLANmaus_checked", cbWLAN.checked ? "true" : "false");
+            
+            console.log("  Desktop shortcuts: " + cbDesktop.checked);
+            console.log("  Taskbar pin: " + cbTaskbar.checked);
+            console.log("  Manual shortcut: " + cbManual.checked);
+            console.log("  Start on startup: " + cbStartup.checked);
+            console.log("  Firewall (Traintastic): " + cbFirewall.checked);
+            console.log("  Firewall (WLANmaus): " + cbWLAN.checked);
+        } else {
+            console.log("User cancelled server options - using defaults (all false)");
+            
+            // Set all to false
+            installer.setValue("ServerOptions_desktopShortcut_checked", "false");
+            installer.setValue("ServerOptions_taskbarShortcut_checked", "false");
+            installer.setValue("ServerOptions_manualShortcut_checked", "false");
+            installer.setValue("ServerOptions_startOnStartup_checked", "false");
+            installer.setValue("ServerOptions_firewallTraintastic_checked", "false");
+            installer.setValue("ServerOptions_firewallWLANmaus_checked", "false");
+        }
     }
-    
-    console.log("Creating ServerOptions UI...");
-    
-    // Set page title using the widget's properties
-    widget.setTitle("Server Installation Options");
-    widget.setSubTitle("Select additional options for Traintastic Server installation");
-    
-    // Create main layout
-    var layout = new QVBoxLayout();
-    
-    // Add description
-    var descLabel = new QLabel(widget);
-    descLabel.text = "Choose which additional features you want to install:";
-    descLabel.wordWrap = true;
-    layout.addWidget(descLabel);
-    
-    layout.addSpacing(20);
-    
-    // Shortcuts group
-    var shortcutsGroup = new QGroupBox(widget);
-    shortcutsGroup.title = "Shortcuts";
-    var shortcutsLayout = new QVBoxLayout();
-    
-    var cbDesktop = new QCheckBox(shortcutsGroup);
-    cbDesktop.objectName = "desktopShortcut";
-    cbDesktop.text = "Create desktop shortcuts for Server and Client";
-    cbDesktop.checked = false;
-    shortcutsLayout.addWidget(cbDesktop);
-    
-    var cbTaskbar = new QCheckBox(shortcutsGroup);
-    cbTaskbar.objectName = "taskbarShortcut";
-    cbTaskbar.text = "Pin Traintastic Server to taskbar";
-    cbTaskbar.checked = false;
-    shortcutsLayout.addWidget(cbTaskbar);
-    
-    var cbManual = new QCheckBox(shortcutsGroup);
-    cbManual.objectName = "manualShortcut";
-    cbManual.text = "Create shortcut to Traintastic Manual";
-    cbManual.checked = false;
-    shortcutsLayout.addWidget(cbManual);
-    
-    shortcutsGroup.setLayout(shortcutsLayout);
-    layout.addWidget(shortcutsGroup);
-    layout.addSpacing(15);
-    
-    // Startup group
-    var startupGroup = new QGroupBox(widget);
-    startupGroup.title = "Startup";
-    var startupLayout = new QVBoxLayout();
-    
-    var cbStartup = new QCheckBox(startupGroup);
-    cbStartup.objectName = "startOnStartup";
-    cbStartup.text = "Start Traintastic Server automatically when Windows starts";
-    cbStartup.checked = false;
-    startupLayout.addWidget(cbStartup);
-    
-    startupGroup.setLayout(startupLayout);
-    layout.addWidget(startupGroup);
-    layout.addSpacing(15);
-    
-    // Windows Firewall group
-    var firewallGroup = new QGroupBox(widget);
-    firewallGroup.title = "Windows Firewall";
-    var firewallLayout = new QVBoxLayout();
-    
-    var cbFirewall = new QCheckBox(firewallGroup);
-    cbFirewall.objectName = "firewallTraintastic";
-    cbFirewall.text = "Allow Traintastic client connections (TCP/UDP port 5740)";
-    cbFirewall.checked = false;
-    firewallLayout.addWidget(cbFirewall);
-    
-    var cbWLAN = new QCheckBox(firewallGroup);
-    cbWLAN.objectName = "firewallWLANmaus";
-    cbWLAN.text = "Allow WLANmaus/Z21 protocol (UDP port 21105)";
-    cbWLAN.checked = false;
-    firewallLayout.addWidget(cbWLAN);
-    
-    firewallGroup.setLayout(firewallLayout);
-    layout.addWidget(firewallGroup);
-    
-    // Add stretch
-    layout.addStretch();
-    
-    widget.setLayout(layout);
-    
-    console.log("ServerOptions UI created successfully");
 }
 
 Controller.prototype.ReadyForInstallationPageCallback = function() {
@@ -273,49 +300,6 @@ Controller.prototype.ReadyForInstallationPageCallback = function() {
     if (selection) {
         console.log("Saving component selection: " + selection);
         installer.setValue("ComponentSelection", selection);
-    }
-    
-    // Read and save server options checkbox states
-    if (serverSelected && installer.isInstaller()) {
-        console.log("Reading ServerOptions checkbox states...");
-        
-        var serverOptionsPage = gui.pageWidgetByObjectName("ServerOptionsPage");
-        if (serverOptionsPage) {
-            var cbDesktop = serverOptionsPage.findChild("desktopShortcut");
-            var cbTaskbar = serverOptionsPage.findChild("taskbarShortcut");
-            var cbManual = serverOptionsPage.findChild("manualShortcut");
-            var cbStartup = serverOptionsPage.findChild("startOnStartup");
-            var cbFirewall = serverOptionsPage.findChild("firewallTraintastic");
-            var cbWLAN = serverOptionsPage.findChild("firewallWLANmaus");
-            
-            // Save checkbox states to installer values
-            if (cbDesktop) {
-                installer.setValue("ServerOptions_desktopShortcut_checked", cbDesktop.checked ? "true" : "false");
-                console.log("  Desktop shortcut: " + cbDesktop.checked);
-            }
-            if (cbTaskbar) {
-                installer.setValue("ServerOptions_taskbarShortcut_checked", cbTaskbar.checked ? "true" : "false");
-                console.log("  Taskbar shortcut: " + cbTaskbar.checked);
-            }
-            if (cbManual) {
-                installer.setValue("ServerOptions_manualShortcut_checked", cbManual.checked ? "true" : "false");
-                console.log("  Manual shortcut: " + cbManual.checked);
-            }
-            if (cbStartup) {
-                installer.setValue("ServerOptions_startOnStartup_checked", cbStartup.checked ? "true" : "false");
-                console.log("  Start on startup: " + cbStartup.checked);
-            }
-            if (cbFirewall) {
-                installer.setValue("ServerOptions_firewallTraintastic_checked", cbFirewall.checked ? "true" : "false");
-                console.log("  Firewall Traintastic: " + cbFirewall.checked);
-            }
-            if (cbWLAN) {
-                installer.setValue("ServerOptions_firewallWLANmaus_checked", cbWLAN.checked ? "true" : "false");
-                console.log("  Firewall WLANmaus: " + cbWLAN.checked);
-            }
-        } else {
-            console.log("WARNING: Could not find ServerOptionsPage");
-        }
     }
 }
 

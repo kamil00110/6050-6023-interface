@@ -534,23 +534,45 @@ jobs:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   generate-repo-metadata:
+    name: Generate repository metadata
     runs-on: ubuntu-latest
+    needs: [package-qtinstaller]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
       
-      - name: Generate Updates.xml for releases
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Create scripts directory
+        run: mkdir -p scripts
+      
+      - name: Download generate-updates-xml.py
         run: |
-          python scripts/generate-updates-xml.py \
-            --type release \
-            --output repository/release/Updates.xml
+          # The script should be in your repo at scripts/generate-updates-xml.py
+          # If it doesn't exist yet, this will fail - add the script first
+          ls -la scripts/
       
       - name: Generate Updates.xml for dev builds
-        if: github.event_name == 'workflow_run'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          python scripts/generate-updates-xml.py \
+          python3 scripts/generate-updates-xml.py \
             --type dev \
-            --run-id ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }} \
             --output repository/developer/Updates.xml
+      
+      - name: Generate Updates.xml for releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 scripts/generate-updates-xml.py \
+            --type release \
+            --repo ${{ github.repository }} \
+            --output repository/release/Updates.xml
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -558,3 +580,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./repository
           destination_dir: repository
+          keep_files: false

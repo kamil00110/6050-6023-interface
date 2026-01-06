@@ -1,42 +1,24 @@
 function Controller() {
     installer.setValue("verbose", "true");
     
-    // CRITICAL: Clean up lock files more aggressively
-    if (installer.isUpdater() || installer.isPackageManager() || installer.isUninstaller()) {
+    // CRITICAL: Only clean lock files during INSTALL, not during maintenance/update
+    if (installer.isInstaller() && !installer.isUpdater() && !installer.isPackageManager()) {
         try {
             var homeDir = installer.value("HomeDir");
             var cacheBase = homeDir + "/AppData/Local/cache/qt-installer-framework";
             var lockFile = cacheBase + "/135517b1-2668-3c27-9010-5dab869c084f/cache.lock";
             
-            console.log("Checking for lock file: " + lockFile);
-            
             if (installer.fileExists(lockFile)) {
                 console.log("Removing stale lock file: " + lockFile);
-                
-                // Try multiple methods to remove the lock file
-                // Method 1: Direct delete
                 installer.execute("cmd", ["/c", "del", "/f", "/q", lockFile.replace(/\//g, "\\")]);
-                
-                // Method 2: If still exists, try taskkill on any Qt IFW processes
-                if (installer.fileExists(lockFile)) {
-                    console.log("Lock file still exists, killing any running installer processes...");
-                    installer.execute("cmd", ["/c", "taskkill", "/F", "/IM", "TraintasticMaintenanceTool.exe", "/T"]);
-                    installer.execute("cmd", ["/c", "taskkill", "/F", "/IM", "traintastic-setup*.exe", "/T"]);
-                    
-                    // Wait a bit
-                    installer.execute("cmd", ["/c", "timeout", "/t", "2", "/nobreak"]);
-                    
-                    // Try delete again
-                    installer.execute("cmd", ["/c", "del", "/f", "/q", lockFile.replace(/\//g, "\\")]);
-                }
             }
         } catch(e) {
             console.log("Could not remove lock file: " + e);
         }
     }
     
-    // Check for existing installation
-    if (installer.isInstaller()) {
+    // Check for existing installation (only during initial install)
+    if (installer.isInstaller() && !installer.isUpdater()) {
         try {
             var result = installer.execute("reg", ["query", 
                 "HKEY_LOCAL_MACHINE\\SOFTWARE\\traintastic.org\\Traintastic",
@@ -163,18 +145,6 @@ Controller.prototype.ComponentSelectionPageCallback = function() {
 
 Controller.prototype.ReadyForInstallationPageCallback = function() {
     console.log("Ready for installation");
-}
-
-// Allow cancellation on all pages
-Controller.prototype.onCurrentPageChanged = function(newPageId) {
-    var widget = gui.currentPageWidget();
-    if (widget && gui.findChild(widget, "CancelButton")) {
-        var cancelButton = gui.findChild(widget, "CancelButton");
-        if (cancelButton) {
-            cancelButton.setEnabled(true);
-            cancelButton.setVisible(true);
-        }
-    }
 }
 
 Controller.prototype.FinishedPageCallback = function() {

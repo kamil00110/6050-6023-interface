@@ -1,0 +1,35 @@
+name: Generate Repository Metadata
+
+on:
+  release:
+    types: [published]
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+jobs:
+  generate-repo-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Generate Updates.xml for releases
+        run: |
+          python scripts/generate-updates-xml.py \
+            --type release \
+            --output repository/release/Updates.xml
+      
+      - name: Generate Updates.xml for dev builds
+        if: github.event_name == 'workflow_run'
+        run: |
+          python scripts/generate-updates-xml.py \
+            --type dev \
+            --run-id ${{ github.event.workflow_run.id }} \
+            --output repository/developer/Updates.xml
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repository
+          destination_dir: repository

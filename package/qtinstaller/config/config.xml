@@ -12,16 +12,18 @@
     <TargetDir>@ApplicationsDir@/Traintastic</TargetDir>
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
     <RemoteRepositories>
-        <Repository>
-            <Url>https://traintastic.org/repository/release</Url>
-            <DisplayName>Release Builds</DisplayName>
-            <Enabled>1</Enabled>
-        </Repository>
-        <Repository>
-            <Url>https://traintastic.org/repository/developer</Url>
-            <DisplayName>Developer Builds</DisplayName>
-            <Enabled>0</Enabled>
-        </Repository>
+    <Repository>
+        <Url>https://kamil00110.github.io/6050-6023-interface/repository/release</Url>
+        <DisplayName>Release Builds (Stable)</DisplayName>
+        <Enabled>1</Enabled>
+        <Required>false</Required>
+    </Repository>
+    <Repository>
+        <Url>https://kamil00110.github.io/6050-6023-interface/repository/developer</Url>
+        <DisplayName>Developer Builds (Latest)</DisplayName>
+        <Enabled>0</Enabled>
+        <Required>false</Required>
+    </Repository>
     </RemoteRepositories>
     <AllowNonAsciiCharacters>true</AllowNonAsciiCharacters>
     <AllowSpaceInPath>true</AllowSpaceInPath>

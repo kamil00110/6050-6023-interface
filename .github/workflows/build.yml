@@ -537,7 +537,7 @@ jobs:
     name: Generate repository metadata
     runs-on: ubuntu-latest
     needs: [package-qtinstaller]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    # Always run after installer is built
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -547,32 +547,52 @@ jobs:
         with:
           python-version: '3.x'
       
-      - name: Create scripts directory
-        run: mkdir -p scripts
-      
-      - name: Download generate-updates-xml.py
+      - name: Create repository directories
         run: |
-          # The script should be in your repo at scripts/generate-updates-xml.py
-          # If it doesn't exist yet, this will fail - add the script first
-          ls -la scripts/
+          mkdir -p repository/release
+          mkdir -p repository/developer
       
-      - name: Generate Updates.xml for dev builds
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check if script exists
         run: |
-          python3 scripts/generate-updates-xml.py \
-            --type dev \
-            --repo ${{ github.repository }} \
-            --output repository/developer/Updates.xml
+          if [ -f "scripts/generate-updates-xml.py" ]; then
+            echo "Script found"
+            ls -la scripts/generate-updates-xml.py
+          else
+            echo "ERROR: scripts/generate-updates-xml.py not found!"
+            echo "Please add the script to your repository"
+            exit 1
+          fi
       
       - name: Generate Updates.xml for releases
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          echo "Generating release Updates.xml..."
           python3 scripts/generate-updates-xml.py \
             --type release \
             --repo ${{ github.repository }} \
             --output repository/release/Updates.xml
+      
+      - name: Generate Updates.xml for dev builds
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Generating dev Updates.xml..."
+          python3 scripts/generate-updates-xml.py \
+            --type dev \
+            --repo ${{ github.repository }} \
+            --output repository/developer/Updates.xml
+      
+      - name: List generated files
+        run: |
+          echo "=== Repository structure ==="
+          tree repository/ || ls -laR repository/
+          echo ""
+          echo "=== Release Updates.xml ==="
+          cat repository/release/Updates.xml
+          echo ""
+          echo "=== Developer Updates.xml ==="
+          cat repository/developer/Updates.xml
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -581,3 +601,5 @@ jobs:
           publish_dir: ./repository
           destination_dir: repository
           keep_files: false
+          enable_jekyll: false
+          force_orphan: true

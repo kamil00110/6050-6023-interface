@@ -8,11 +8,20 @@ Component.prototype.createOperations = function() {
     var targetDir = installer.value("TargetDir");
     var clientExe = targetDir + "/client/traintastic-client.exe";
     
-    console.log("Pinning client to taskbar...");
+    console.log("Creating taskbar shortcut for client...");
     
-    // Windows 10/11: Copy shortcut to taskbar folder
-    var appData = installer.value("UserProfile") + "/AppData/Roaming";
-    var taskbarDir = appData + "/Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar";
+    // Get actual user profile path
+    var userProfile = installer.value("UserProfile");
+    if (!userProfile || userProfile === "") {
+        userProfile = installer.value("HomeDir");
+    }
+    
+    var taskbarDir = userProfile + "/AppData/Roaming/Microsoft/Internet Explorer/Quick Launch/User Pinned/TaskBar";
+    
+    console.log("Taskbar directory: " + taskbarDir);
+    
+    // Ensure taskbar directory exists
+    component.addOperation("Mkdir", taskbarDir);
     
     // Create the shortcut in taskbar folder
     component.addOperation("CreateShortcut",

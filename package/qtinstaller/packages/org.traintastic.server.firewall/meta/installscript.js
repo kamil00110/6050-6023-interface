@@ -21,8 +21,8 @@ Component.prototype.createOperations = function() {
         "localport=5740",
         "action=allow",
         "UNDOEXECUTE",
-        "netsh", "advfirewall", "firewall", "delete", "rule",
-        "name=Traintastic server (TCP)");
+        "cmd", "/c",
+        "netsh advfirewall firewall delete rule \"name=Traintastic server (TCP)\" >nul 2>&1 || exit 0");
     
     // UDP rule
     component.addElevatedOperation("Execute",
@@ -35,6 +35,6 @@ Component.prototype.createOperations = function() {
         "localport=5740",
         "action=allow",
         "UNDOEXECUTE",
-        "netsh", "advfirewall", "firewall", "delete", "rule",
-        "name=Traintastic server (UDP)");
+        "cmd", "/c",
+        "netsh advfirewall firewall delete rule \"name=Traintastic server (UDP)\" >nul 2>&1 || exit 0");
 }

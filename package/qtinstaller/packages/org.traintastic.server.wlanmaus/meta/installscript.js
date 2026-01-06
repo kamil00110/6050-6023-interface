@@ -20,6 +20,6 @@ Component.prototype.createOperations = function() {
         "localport=21105",
         "action=allow",
         "UNDOEXECUTE",
-        "netsh", "advfirewall", "firewall", "delete", "rule",
-        "name=Traintastic server (WLANmaus/Z21)");
+        "cmd", "/c",
+        "netsh advfirewall firewall delete rule \"name=Traintastic server (WLANmaus/Z21)\" >nul 2>&1 || exit 0");
 }

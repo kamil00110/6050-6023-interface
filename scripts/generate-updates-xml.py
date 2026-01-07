@@ -29,8 +29,8 @@ def get_github_releases(repo, token=None):
         return []
 
 def get_workflow_runs(repo, token=None, limit=10):
-    """Fetch recent workflow runs from GitHub Actions"""
-    url = f"https://api.github.com/repos/{repo}/actions/runs?per_page={limit}"
+    """Fetch recent successful workflow runs from GitHub Actions"""
+    url = f"https://api.github.com/repos/{repo}/actions/runs?per_page=50&status=success"
     headers = {}
     if token:
         headers["Authorization"] = f"token {token}"
@@ -39,9 +39,14 @@ def get_workflow_runs(repo, token=None, limit=10):
         req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req) as response:
             data = json.loads(response.read().decode())
-            # Filter for successful builds only
-            return [run for run in data.get('workflow_runs', []) 
-                   if run['conclusion'] == 'success' and run['name'] == 'Build']
+            # Filter for successful 'Build' workflow runs with artifacts
+            successful_runs = []
+            for run in data.get('workflow_runs', []):
+                if (run['conclusion'] == 'success' and 
+                    run['name'] == 'Build' and 
+                    len(successful_runs) < limit):
+                    successful_runs.append(run)
+            return successful_runs
     except urllib.error.URLError as e:
         print(f"Error fetching workflow runs: {e}", file=sys.stderr)
         return []
@@ -58,7 +63,7 @@ def get_run_artifacts(repo, run_id, token=None):
         with urllib.request.urlopen(req) as response:
             return json.loads(response.read().decode()).get('artifacts', [])
     except urllib.error.URLError as e:
-        print(f"Error fetching artifacts: {e}", file=sys.stderr)
+        print(f"Error fetching artifacts for run {run_id}: {e}", file=sys.stderr)
         return []
 
 def process_releases(releases, repo):
@@ -73,19 +78,24 @@ def process_releases(releases, repo):
         
         # Find Windows installer in assets
         installer_url = None
+        installer_size = 0
         for asset in release.get('assets', []):
-            if asset['name'].endswith('.exe') and 'setup' in asset['name'].lower():
+            name_lower = asset['name'].lower()
+            if (name_lower.endswith('.exe') and 
+                ('setup' in name_lower or 'installer' in name_lower or 'traintastic' in name_lower)):
                 installer_url = asset['browser_download_url']
+                installer_size = asset.get('size', 0)
                 break
         
         if not installer_url:
+            print(f"Warning: No installer found for release {version}", file=sys.stderr)
             continue
             
         builds.append({
             'version': version,
             'date': release['published_at'][:10],
             'installer_url': installer_url,
-            'installer_size': 0,  # Would need to fetch asset info
+            'installer_size': installer_size,
             'type': 'release'
         })
     
@@ -107,21 +117,27 @@ def process_dev_builds(repo, token=None):
         # Find Windows installer artifact
         installer_artifact = None
         for artifact in artifacts:
-            if 'qtinstaller' in artifact['name'].lower() or 'installer' in artifact['name'].lower():
+            name_lower = artifact['name'].lower()
+            if 'qtinstaller' in name_lower or 'package-qtinstaller' in name_lower:
                 installer_artifact = artifact
                 break
         
         if not installer_artifact:
+            print(f"Warning: No installer artifact found for run {run_id}", file=sys.stderr)
             continue
         
-        # Note: Artifacts require authentication to download
-        # The installer will need to handle this or artifacts need to be published
+        # GitHub artifact download URL (requires authentication)
+        # NOTE: These URLs require a GitHub token to download
+        # The maintenance tool would need to handle this authentication
+        artifact_download_url = f"https://github.com/{repo}/actions/runs/{run_id}/artifacts/{installer_artifact['id']}"
+        
         builds.append({
             'version': version,
             'date': run['created_at'][:10],
-            'installer_url': f"https://github.com/{repo}/actions/runs/{run_id}",
-            'installer_size': artifact.get('size_in_bytes', 0),
+            'installer_url': artifact_download_url,
+            'installer_size': installer_artifact.get('size_in_bytes', 0),
             'run_id': run_id,
+            'artifact_id': installer_artifact['id'],
             'commit': commit_sha,
             'type': 'dev'
         })
@@ -133,7 +149,8 @@ def generate_updates_xml(builds, output_file, app_name="Traintastic"):
     
     if not builds:
         print("No builds to process", file=sys.stderr)
-        return
+        # Create empty but valid Updates.xml
+        builds = []
     
     root = Element('Updates')
     
@@ -148,18 +165,20 @@ def generate_updates_xml(builds, output_file, app_name="Traintastic"):
     checksum.text = 'false'
     
     for build in builds:
-        # Create a simple package update pointing to the full installer
         pkg = SubElement(root, 'PackageUpdate')
         
         name = SubElement(pkg, 'Name')
         name.text = 'org.traintastic.installer'
         
         display_name = SubElement(pkg, 'DisplayName')
-        display_name.text = f"{app_name} {build['version']}"
+        if build['type'] == 'dev':
+            display_name.text = f"{app_name} {build['version']}"
+        else:
+            display_name.text = f"{app_name} {build['version']}"
         
         desc = SubElement(pkg, 'Description')
         if build['type'] == 'dev':
-            desc.text = f"Development build from commit {build.get('commit', 'unknown')}"
+            desc.text = f"Development build from commit {build.get('commit', 'unknown')} - Run ID: {build.get('run_id', 'N/A')}"
         else:
             desc.text = f"Release version {build['version']}"
         
@@ -169,13 +188,16 @@ def generate_updates_xml(builds, output_file, app_name="Traintastic"):
         release_date = SubElement(pkg, 'ReleaseDate')
         release_date.text = build['date']
         
-        # For now, we just provide download info
-        # Full component updates would need individual component archives
         update_file = SubElement(pkg, 'UpdateFile', {
             'UncompressedSize': str(build.get('installer_size', 0)),
             'OS': 'win'
         })
         update_file.text = build['installer_url']
+        
+        # Add download instructions for dev builds
+        if build['type'] == 'dev':
+            instructions = SubElement(pkg, 'DownloadInstructions')
+            instructions.text = f"Download from GitHub Actions: https://github.com/{build.get('repo', '')}/actions/runs/{build.get('run_id', '')}"
     
     # Pretty print XML
     rough_string = tostring(root, 'utf-8')
@@ -210,12 +232,13 @@ def main():
         app_name = "Traintastic"
     else:
         builds = process_dev_builds(args.repo, args.token)
+        # Add repo to builds for download instructions
+        for build in builds:
+            build['repo'] = args.repo
         app_name = "Traintastic (Developer)"
     
     if not builds:
         print("WARNING: No builds found!", file=sys.stderr)
-        # Create empty Updates.xml
-        builds = []
     
     generate_updates_xml(builds, args.output, app_name)
     print("Done!")

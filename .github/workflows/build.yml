@@ -537,10 +537,12 @@ jobs:
     name: Generate repository metadata
     runs-on: ubuntu-latest
     needs: [package-qtinstaller]
-    # Always run after installer is built
+    # Run on ALL branches after installer is built
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -551,14 +553,16 @@ jobs:
         run: |
           mkdir -p repository/release
           mkdir -p repository/developer
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Repository: ${{ github.repository }}"
       
       - name: Check if script exists
         run: |
           if [ -f "scripts/generate-updates-xml.py" ]; then
-            echo "Script found"
+            echo "✅ Script found"
             ls -la scripts/generate-updates-xml.py
           else
-            echo "ERROR: scripts/generate-updates-xml.py not found!"
+            echo "❌ ERROR: scripts/generate-updates-xml.py not found!"
             echo "Please add the script to your repository"
             exit 1
           fi
@@ -567,32 +571,78 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Generating release Updates.xml..."
+          echo "📦 Generating release Updates.xml..."
           python3 scripts/generate-updates-xml.py \
             --type release \
             --repo ${{ github.repository }} \
             --output repository/release/Updates.xml
+          
+          echo "✅ Release Updates.xml generated"
       
       - name: Generate Updates.xml for dev builds
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Generating dev Updates.xml..."
+          echo "🔧 Generating dev Updates.xml..."
           python3 scripts/generate-updates-xml.py \
             --type dev \
             --repo ${{ github.repository }} \
             --output repository/developer/Updates.xml
+          
+          echo "✅ Dev Updates.xml generated"
+      
+      - name: Add README to repository
+        run: |
+          cat > repository/README.md << 'EOF'
+          # Traintastic Update Repository
+          
+          This directory contains update metadata for the Traintastic Qt Installer Framework.
+          
+          ## Channels
+          
+          - **Release** (`release/Updates.xml`): Stable releases from GitHub Releases
+          - **Developer** (`developer/Updates.xml`): Latest development builds from GitHub Actions
+          
+          ## Usage
+          
+          Update your `config.xml` with:
+          
+          ```xml
+          <RemoteRepositories>
+              <Repository>
+                  <Url>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/repository/release</Url>
+                  <DisplayName>Release Builds (Stable)</DisplayName>
+                  <Enabled>1</Enabled>
+              </Repository>
+              <Repository>
+                  <Url>https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/repository/developer</Url>
+                  <DisplayName>Developer Builds (Latest)</DisplayName>
+                  <Enabled>0</Enabled>
+              </Repository>
+          </RemoteRepositories>
+          ```
+          
+          ## Note on Developer Builds
+          
+          Developer build downloads require GitHub authentication as they come from Actions artifacts.
+          Users should download installers manually from the Actions tab or enable authentication in the maintenance tool.
+          
+          ---
+          Generated on: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Branch: ${{ github.ref_name }}
+          Commit: ${{ github.sha }}
+          EOF
       
       - name: List generated files
         run: |
           echo "=== Repository structure ==="
           tree repository/ || ls -laR repository/
           echo ""
-          echo "=== Release Updates.xml ==="
-          cat repository/release/Updates.xml
+          echo "=== Release Updates.xml (first 30 lines) ==="
+          head -30 repository/release/Updates.xml
           echo ""
-          echo "=== Developer Updates.xml ==="
-          cat repository/developer/Updates.xml
+          echo "=== Developer Updates.xml (first 30 lines) ==="
+          head -30 repository/developer/Updates.xml
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -603,3 +653,4 @@ jobs:
           keep_files: false
           enable_jekyll: false
           force_orphan: true
+          commit_message: "Update repository metadata from ${{ github.ref_name }} [${{ github.sha }}]"

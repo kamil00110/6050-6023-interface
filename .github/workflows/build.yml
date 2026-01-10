@@ -649,7 +649,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./repository
-          destination_dir: .
           keep_files: false
           enable_jekyll: false
           force_orphan: true

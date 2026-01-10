@@ -649,8 +649,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./repository
-          destination_dir: repository
           keep_files: false
           enable_jekyll: false
           force_orphan: true
-          commit_message: "Update repository metadata from ${{ github.ref_name }} [${{ github.sha }}]"
+

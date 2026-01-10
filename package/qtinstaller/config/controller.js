@@ -68,6 +68,27 @@ function Controller() {
     }
 }
 
+Controller.prototype.addVersionPage = function () {
+    if (!installer.isInstaller()) return;
+
+    var page = gui.addWizardPage();
+    page.title = "Select Version";
+    page.subTitle = "Choose which Traintastic installer to run";
+
+    var layout = page.layout();
+
+    page.releaseRadio = new QRadioButton("Stable (1.0.6)");
+    page.devRadio = new QRadioButton("Developer (latest)");
+
+    page.releaseRadio.checked = true;
+
+    layout.addWidget(page.releaseRadio);
+    layout.addWidget(page.devRadio);
+
+    this.versionPage = page;
+};
+
+
 Controller.prototype.IntroductionPageCallback = function() {
     var widget = gui.currentPageWidget();
     if (widget != null) {

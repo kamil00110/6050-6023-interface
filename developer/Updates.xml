@@ -1,0 +1,96 @@
+<?xml version="1.0" ?>
+<Updates>
+  <ApplicationName>Traintastic (Developer)</ApplicationName>
+  <ApplicationVersion>0.3.0-dev-20883588314-e5346045</ApplicationVersion>
+  <Checksum>false</Checksum>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20883588314-e5346045</DisplayName>
+    <Description>Development build from commit e5346045 - Run ID: 20883588314</Description>
+    <Version>0.3.0-dev-20883588314-e5346045</Version>
+    <ReleaseDate>2026-01-10</ReleaseDate>
+    <UpdateFile UncompressedSize="51951657" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20883588314/artifacts/5086437751</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20883588314</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20882262875-43443140</DisplayName>
+    <Description>Development build from commit 43443140 - Run ID: 20882262875</Description>
+    <Version>0.3.0-dev-20882262875-43443140</Version>
+    <ReleaseDate>2026-01-10</ReleaseDate>
+    <UpdateFile UncompressedSize="51952960" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20882262875/artifacts/5086106170</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20882262875</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20880812513-1f5de3c5</DisplayName>
+    <Description>Development build from commit 1f5de3c5 - Run ID: 20880812513</Description>
+    <Version>0.3.0-dev-20880812513-1f5de3c5</Version>
+    <ReleaseDate>2026-01-10</ReleaseDate>
+    <UpdateFile UncompressedSize="51958234" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20880812513/artifacts/5085742709</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20880812513</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20880128094-f9a48bf2</DisplayName>
+    <Description>Development build from commit f9a48bf2 - Run ID: 20880128094</Description>
+    <Version>0.3.0-dev-20880128094-f9a48bf2</Version>
+    <ReleaseDate>2026-01-10</ReleaseDate>
+    <UpdateFile UncompressedSize="51950703" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20880128094/artifacts/5085553496</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20880128094</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20879548481-d2ec0660</DisplayName>
+    <Description>Development build from commit d2ec0660 - Run ID: 20879548481</Description>
+    <Version>0.3.0-dev-20879548481-d2ec0660</Version>
+    <ReleaseDate>2026-01-10</ReleaseDate>
+    <UpdateFile UncompressedSize="51949891" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20879548481/artifacts/5085419323</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20879548481</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20769313890-f2fd5322</DisplayName>
+    <Description>Development build from commit f2fd5322 - Run ID: 20769313890</Description>
+    <Version>0.3.0-dev-20769313890-f2fd5322</Version>
+    <ReleaseDate>2026-01-07</ReleaseDate>
+    <UpdateFile UncompressedSize="51949059" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20769313890/artifacts/5045001604</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20769313890</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20766243376-a4c86c1b</DisplayName>
+    <Description>Development build from commit a4c86c1b - Run ID: 20766243376</Description>
+    <Version>0.3.0-dev-20766243376-a4c86c1b</Version>
+    <ReleaseDate>2026-01-07</ReleaseDate>
+    <UpdateFile UncompressedSize="51949265" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20766243376/artifacts/5043988655</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20766243376</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20764643253-f14fdadf</DisplayName>
+    <Description>Development build from commit f14fdadf - Run ID: 20764643253</Description>
+    <Version>0.3.0-dev-20764643253-f14fdadf</Version>
+    <ReleaseDate>2026-01-06</ReleaseDate>
+    <UpdateFile UncompressedSize="51948918" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20764643253/artifacts/5043428323</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20764643253</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20763641250-322ecdfa</DisplayName>
+    <Description>Development build from commit 322ecdfa - Run ID: 20763641250</Description>
+    <Version>0.3.0-dev-20763641250-322ecdfa</Version>
+    <ReleaseDate>2026-01-06</ReleaseDate>
+    <UpdateFile UncompressedSize="51956047" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20763641250/artifacts/5043099198</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20763641250</DownloadInstructions>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic (Developer) 0.3.0-dev-20759056064-944b1e73</DisplayName>
+    <Description>Development build from commit 944b1e73 - Run ID: 20759056064</Description>
+    <Version>0.3.0-dev-20759056064-944b1e73</Version>
+    <ReleaseDate>2026-01-06</ReleaseDate>
+    <UpdateFile UncompressedSize="51947987" OS="win">https://github.com/kamil00110/6050-6023-interface/actions/runs/20759056064/artifacts/5041305013</UpdateFile>
+    <DownloadInstructions>Download from GitHub Actions: https://github.com/kamil00110/6050-6023-interface/actions/runs/20759056064</DownloadInstructions>
+  </PackageUpdate>
+</Updates>

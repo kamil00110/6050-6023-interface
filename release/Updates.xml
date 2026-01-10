@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+<Updates>
+  <ApplicationName>Traintastic</ApplicationName>
+  <ApplicationVersion>1.0.6</ApplicationVersion>
+  <Checksum>false</Checksum>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic 1.0.6</DisplayName>
+    <Description>Release version 1.0.6</Description>
+    <Version>1.0.6</Version>
+    <ReleaseDate>2025-12-07</ReleaseDate>
+    <UpdateFile UncompressedSize="36809017" OS="win">https://github.com/kamil00110/6050-6023-interface/releases/download/v1.0.6/traintastic-setup-v0.3.0-master-340-57f46f85.exe</UpdateFile>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic 1.0.5</DisplayName>
+    <Description>Release version 1.0.5</Description>
+    <Version>1.0.5</Version>
+    <ReleaseDate>2025-11-20</ReleaseDate>
+    <UpdateFile UncompressedSize="36786108" OS="win">https://github.com/kamil00110/6050-6023-interface/releases/download/v1.0.5/traintastic-setup-v0.3.0-master-261-2ba51e82.exe</UpdateFile>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic 1.0.4</DisplayName>
+    <Description>Release version 1.0.4</Description>
+    <Version>1.0.4</Version>
+    <ReleaseDate>2025-11-20</ReleaseDate>
+    <UpdateFile UncompressedSize="36793572" OS="win">https://github.com/kamil00110/6050-6023-interface/releases/download/v1.0.4/traintastic-setup-v0.3.0-master-256-2078b91e.exe</UpdateFile>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic 1.0.3</DisplayName>
+    <Description>Release version 1.0.3</Description>
+    <Version>1.0.3</Version>
+    <ReleaseDate>2025-11-17</ReleaseDate>
+    <UpdateFile UncompressedSize="36789473" OS="win">https://github.com/kamil00110/6050-6023-interface/releases/download/v1.0.3/traintastic-setup-v0.3.0-master-153-8e1a6e2b.exe</UpdateFile>
+  </PackageUpdate>
+  <PackageUpdate>
+    <Name>org.traintastic.installer</Name>
+    <DisplayName>Traintastic 1.0.2</DisplayName>
+    <Description>Release version 1.0.2</Description>
+    <Version>1.0.2</Version>
+    <ReleaseDate>2025-11-16</ReleaseDate>
+    <UpdateFile UncompressedSize="36781831" OS="win">https://github.com/kamil00110/6050-6023-interface/releases/download/v1.0.2/traintastic-setup-v0.3.0-master-148-1d4a47dc.exe</UpdateFile>
+  </PackageUpdate>
+</Updates>

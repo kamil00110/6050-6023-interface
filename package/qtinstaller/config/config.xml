@@ -13,12 +13,12 @@
     <AdminTargetDir>@RootDir@/Program Files/Traintastic</AdminTargetDir>
     <RemoteRepositories>
     <Repository>
-        <Url>https://raw.githubusercontent.com/kamil00110/6050-6023-interface/gh-pages/release/Updates.xml</Url>
+        <Url>https://raw.githubusercontent.com/kamil00110/6050-6023-interface/gh-pages/release</Url>
         <DisplayName>Release Builds (Stable)</DisplayName>
         <Enabled>1</Enabled>
     </Repository>
     <Repository>
-        <Url>https://raw.githubusercontent.com/kamil00110/6050-6023-interface/gh-pages/developer/Updates.xml</Url>
+        <Url>https://raw.githubusercontent.com/kamil00110/6050-6023-interface/gh-pages/developer</Url>
         <DisplayName>Developer Builds (Latest)</DisplayName>
         <Enabled>0</Enabled>
     </Repository>

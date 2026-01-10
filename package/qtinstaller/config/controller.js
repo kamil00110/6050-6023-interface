@@ -68,24 +68,19 @@ function Controller() {
     }
 }
 
-Controller.prototype.addVersionPage = function () {
-    if (!installer.isInstaller()) return;
-
+Controller.prototype.CustomInstallationStep = function() {
     var page = gui.addWizardPage();
-    page.title = "Select Version";
-    page.subTitle = "Choose which Traintastic installer to run";
-
-    var layout = page.layout();
-
-    page.releaseRadio = new QRadioButton("Stable (1.0.6)");
-    page.devRadio = new QRadioButton("Developer (latest)");
-
-    page.releaseRadio.checked = true;
-
-    layout.addWidget(page.releaseRadio);
-    layout.addWidget(page.devRadio);
-
-    this.versionPage = page;
+    page.setTitle("Custom Installation Step");
+    page.setSubTitle("This is a dummy step for testing purposes.");
+    
+    // Add a simple label
+    var label = new QLabel(page);
+    label.setText("✅ Step executed successfully!");
+    label.setWordWrap(true);
+    label.setAlignment(Qt.AlignCenter);
+    
+    // Make the page visible in the wizard
+    gui.currentPageWidget().addPage(page);
 };
 
 
@@ -109,6 +104,7 @@ Controller.prototype.IntroductionPageCallback = function() {
             }
         }
     }
+  this.CustomInstallationStep();
 }
 
 Controller.prototype.TargetDirectoryPageCallback = function() {

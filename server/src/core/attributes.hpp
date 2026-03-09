@@ -445,5 +445,3 @@ struct Attributes
 };
 
 #endif
-
-#endif

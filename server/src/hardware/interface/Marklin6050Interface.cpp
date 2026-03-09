@@ -9,6 +9,7 @@
 #include "../input/list/inputlist.hpp"
 #include "../decoder/list/decoderlist.hpp"
 #include "../decoder/list/decoderlisttablemodel.hpp"
+#include "../decoder/decoderchangeflags.hpp"
 #include "../../utils/displayname.hpp"  
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
@@ -310,11 +311,10 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 
         
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
-        m_kernel->s88Callback = [this](uint32_t address, bool state);
-        m_kernel->setRedundancy(redundancy.value());
+m_kernel->setRedundancy(redundancy.value());
+m_kernel->s88Callback = [this](uint32_t address, bool state)
 {
-
-        this->onS88Input(address, state);
+    this->onS88Input(address, state);
 };
        if (!m_kernel->start())
        {
@@ -360,7 +360,7 @@ void Marklin6050Interface::updateEnabled()
         centralUnitVersion == 6029;
     Attributes::setEnabled(analog, analogsupport);
     if(!analogsupport){
-        Attributes::setValues(analog, false);
+        analog.setValueInternal(false);
     }
     
     if(centralUnitVersion == 6021){

@@ -31,7 +31,7 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     , programmer{this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
     // --- Central Unit Version ---
-    static const std::vector<unsigned int> cuOptions = {
+    static const std::vector<uint16_t> cuOptions = {
         6020, 6021, 6022, 6023, 6223, 6027, 6029, 6030, 6032
     };
     static const std::vector<std::string_view> cuLabels = {
@@ -42,7 +42,7 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     Attributes::addHelp(centralUnitVersion, "marklin6050_settings:central_unit_version.help");
     Attributes::addEnabled(centralUnitVersion, true);
     Attributes::addVisible(centralUnitVersion, true);
-    Attributes::addValues(centralUnitVersion, cuOptions);
+    Attributes::addValues(centralUnitVersion, &cuOptions);
     Attributes::addAliases(centralUnitVersion, &cuOptions, &cuLabels);
     m_interfaceItems.add(centralUnitVersion);
 

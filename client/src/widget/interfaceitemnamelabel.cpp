@@ -123,21 +123,8 @@ InterfaceItemNameLabel::InterfaceItemNameLabel(InterfaceItem& item, QWidget* par
           break;
         }
 
-    layout->addStretch();
-
-    connect(&m_item, &InterfaceItem::attributeChanged, this,
-        [this](AttributeName name, const QVariant& value)
-        {
-            switch(name)
-            {
-                case AttributeName::Visible:
-                    m_label->setVisible(value.toBool());
-                    break;
-                case AttributeName::DisplayName:
-                    m_label->setText(m_item.displayName());
-                    break;
-                default:
-                    break;
-            }
-        });
+        default:
+          break;
+      }
+    });
 }

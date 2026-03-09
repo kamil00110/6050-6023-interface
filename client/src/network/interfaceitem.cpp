@@ -49,23 +49,6 @@ QString InterfaceItem::displayName() const
     id = QString(object().classId()).append(':').append(name());
   return Locale::tr(id);
 }
-QString InterfaceItem::helpText() const
-{
-    QString id;
-
-    if (QVariant attr = getAttribute(AttributeName::Help, QVariant()); attr.isValid())
-        id = attr.toString();
-    else if (QVariant displayAttr = getAttribute(AttributeName::DisplayName, QVariant()); displayAttr.isValid())
-        id = displayAttr.toString() + "/help";
-    else
-        id = QString(object().classId()) + ":" + name() + "/help";
-
-    QString translated = Locale::tr(id);
-    if (translated == id)
-        return QString(); 
-
-    return translated;
-}
 
 QString InterfaceItem::helpText() const
 {

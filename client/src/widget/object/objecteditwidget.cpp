@@ -24,9 +24,6 @@
 
 #include <QFormLayout>
 #include <QVBoxLayout>
-#include <QTabWidget>
-#include <QToolButton>
-#include <QHBoxLayout>
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
 #include "../../network/objectproperty.hpp"
@@ -192,20 +189,18 @@ void ObjectEditWidget::buildForm()
         else
           tabWidget = categoryTabs[category];
 
-        InterfaceItemNameLabel* label = new InterfaceItemNameLabel(*item, this);
-        static_cast<QFormLayout*>(tabWidget->layout())->addRow(label, w);
-
+        static_cast<QFormLayout*>(tabWidget->layout())->addRow(new InterfaceItemNameLabel(*item, this), w);
       }
     }
 
     if(tabs.count() > 1)
     {
-      QTabWidget* mainTabWidget = new QTabWidget(this);
+      QTabWidget* tabWidget = new QTabWidget(this);
       for(auto* tab : tabs)
-        mainTabWidget->addTab(tab, tab->windowTitle());
+        tabWidget->addTab(tab, tab->windowTitle());
       QVBoxLayout* l = new QVBoxLayout();
       l->setContentsMargins(0, 0, 0, 0);
-      l->addWidget(mainTabWidget);
+      l->addWidget(tabWidget);
       setLayout(l);
     }
     else if(tabs.count() == 1)

@@ -311,6 +311,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
         
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
         m_kernel->s88Callback = [this](uint32_t address, bool state)
+        m_kernel->setRedundancy(redundancy.value());
 {
 
         this->onS88Input(address, state);
@@ -681,15 +682,58 @@ Marklin6050Interface::decoderSpeedSteps(DecoderProtocol /*protocol*/) const
 }
 
 void Marklin6050Interface::decoderChanged(
-    const Decoder& /*decoder*/,
-    DecoderChangeFlags /*changes*/,
-    uint32_t /*functionNumber*/)
+    const Decoder& decoder,
+    DecoderChangeFlags changes,
+    uint32_t functionNumber)
 {
-  
+    if (!m_kernel)
+        return;
+
+    const uint8_t address = static_cast<uint8_t>(decoder.address);
+    const bool f0 = decoder.getFunctionValue(0);
+    const uint8_t speed = decoder.emergencyStop
+        ? 0
+        : Decoder::throttleToSpeedStep<uint8_t>(decoder.throttle, 14);
+
+    // Determine function support based on CU version
+    const bool noFunctions =
+        ((centralUnitVersion == 6027) && analog) ||
+        ((centralUnitVersion == 6029) && analog);
+
+    const bool f0only =
+        centralUnitVersion == 6020 ||
+        centralUnitVersion == 6022 ||
+        centralUnitVersion == 6023 ||
+        centralUnitVersion == 6223;
+
+    if (has(changes, DecoderChangeFlags::Direction))
+    {
+        m_kernel->setLocoDirection(address, noFunctions ? false : f0);
+        return;
+    }
+
+    if (has(changes, DecoderChangeFlags::EmergencyStop | DecoderChangeFlags::Throttle))
+    {
+        m_kernel->setLocoSpeed(address, speed, noFunctions ? false : f0);
+        return;
+    }
+
+    if (has(changes, DecoderChangeFlags::FunctionValue))
+    {
+        if (functionNumber == 0 && !noFunctions)
+        {
+            m_kernel->setLocoFunction(address, speed, f0);
+        }
+        else if (functionNumber <= 4 && !noFunctions && !f0only)
+        {
+            m_kernel->setLocoFunctions1to4(
+                address,
+                decoder.getFunctionValue(1),
+                decoder.getFunctionValue(2),
+                decoder.getFunctionValue(3),
+                decoder.getFunctionValue(4));
+        }
+        return;
+    }
 }
-
-
-
-
-
 

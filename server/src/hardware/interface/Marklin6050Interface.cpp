@@ -24,7 +24,6 @@
 #include "../../utils/displayname.hpp"
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
-#include "../../core/serialdeviceproperty.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/eventloop.hpp"
@@ -47,8 +46,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
 {
     name = "Märklin 6050/51";
-    settings.setValueInternal(std::make_shared<Marklin6050::Settings>(*this, settings.name()));
 
+    settings.setValueInternal(std::make_shared<Marklin6050::Settings>(*this, settings.name()));
 
     // --- Connection ---
     Attributes::addDisplayName(serialPort, DisplayName::Serial::device);
@@ -146,37 +145,26 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
 
         if(!simulation)
         {
-            std::string port = serialPort;
-
-            if(port.empty() || !Marklin6050::Serial::isValidPort(port))
-            {
-                value = false;
-                return false;
-            }
-
-            if(!Marklin6050::Serial::testOpen(port))
-            {
-                value = false;
-                return false;
-            }
-
             const auto cfg = settings->config();
 
-            m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
-            m_kernel->setRedundancy(cfg.redundancy);
-            m_kernel->s88Callback = [this](uint32_t address, bool state)
+            try
             {
-                this->onS88Input(address, state);
-            };
-
-            if(!m_kernel->start())
+                m_kernel = std::make_unique<Marklin6050::Kernel>(id.value(), cfg);
+                m_kernel->s88Callback = [this](uint32_t address, bool state)
+                {
+                    this->onS88Input(address, state);
+                };
+                m_kernel->start(serialPort, baudrate.value());
+                m_kernel->startInputThread(cfg.s88amount, cfg.s88interval);
+            }
+            catch(const LogMessageException& e)
             {
+                Log::log(id.value(), e.message(), e.args());
                 m_kernel.reset();
                 value = false;
+                setState(InterfaceState::Offline);
                 return false;
             }
-
-            m_kernel->startInputThread(cfg.s88amount, cfg.s88interval);
         }
 
         setState(InterfaceState::Online);
@@ -185,7 +173,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
     {
         if(m_kernel)
         {
-            m_kernel->stopInputThread();
             m_kernel->stop();
             m_kernel.reset();
         }
@@ -196,6 +183,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
     updateEnabled();
     return true;
 }
+
 // --- Input ---
 
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const
@@ -234,8 +222,6 @@ void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t ad
             break;
 
         case SimulateInputAction::Toggle:
-            // For toggle we'd need to track current state.
-            // Simple approach: just set true
             onS88Input(address, true);
             break;
     }
@@ -274,7 +260,7 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputCh
 
 bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
 {
-    if(!m_kernel)
+    if(!m_kernel || m_simulation)
         return false;
 
     switch(channel)

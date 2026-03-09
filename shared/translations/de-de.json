@@ -3394,5 +3394,9 @@
     {
         "term": "marklin6050_settings:s88_module_amount.help",
         "definition": "Anzahl der angeschlossenen S88-Rückmeldemodule (je 16 Kontakte). Maximal 61 Module für 976 Rückmeldekontakte."
+    },
+    {
+        "term": "wizard.add_interface.interface_marklin6050:title",
+        "definition": "Märklin 6050/51 interface"
     }
 ]

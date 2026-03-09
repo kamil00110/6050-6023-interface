@@ -31,11 +31,8 @@ private:
   Property<unsigned int> s88amount;
   Property<unsigned int> s88interval;
   Property<unsigned int> turnouttime;
-  Property<unsigned int> slowacceleration;
-  Property<unsigned int> slowdeceleration;
   Property<unsigned int> redundancy;
   Property<bool> extensions;
-  Property<bool> debug;
   Property<unsigned int> oldAddress;
   Property<unsigned int> newAddress;
   Property<bool> programmer;

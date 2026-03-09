@@ -1,6 +1,8 @@
 /**
  * server/src/hardware/protocol/Marklin6050Interface/kernel.hpp
  *
+ * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols.
+ *
  * Copyright (C) 2025
  *
  * This program is free software; you can redistribute it and/or
@@ -49,7 +51,8 @@ public:
     bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
 
     // --- Global commands ---
-    bool sendByte(uint8_t byte);
+    bool sendGlobalGo();
+    bool sendGlobalStop();
 
     // --- S88 input polling ---
     void startInputThread(unsigned int moduleCount, unsigned int intervalMs);
@@ -65,9 +68,19 @@ private:
     std::thread m_inputThread;
     std::atomic<bool> m_running{false};
 
-    void sendCommand(uint8_t byte1, uint8_t byte2);
+    // --- Low-level I/O ---
+    bool sendByte(uint8_t byte);
+    bool sendString(const std::string& str);
     int readByte();
-    void inputLoop(unsigned int modules);
+    std::string readLine();
+
+    // --- Binary protocol (6050) ---
+    void sendBinaryCommand(uint8_t byte1, uint8_t byte2);
+    void binaryInputLoop(unsigned int modules);
+
+    // --- ASCII protocol (6023/6223) ---
+    void sendAsciiCommand(const std::string& cmd);
+    void asciiInputLoop(unsigned int modules);
 };
 
 } // namespace Marklin6050

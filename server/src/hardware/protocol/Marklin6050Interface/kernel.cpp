@@ -420,3 +420,25 @@ void Kernel::inputLoop(unsigned int modules)
         }
     }
 }
+
+void Kernel::setLocoEmergencyStop(uint8_t address, bool f0)
+{
+    if (!m_isOpen || address < 1)
+        return;
+
+    uint8_t cmd = 15;  // direction toggle
+    if (f0)
+        cmd |= 0x10;
+
+    // First toggle: triggers emergency stop
+    sendCommand(cmd, address);
+
+    // Second toggle: restores original direction
+    // Small delay so the CU processes them as two separate commands
+    std::thread([this, cmd, address]()
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        if (!m_isOpen) return;
+        sendCommand(cmd, address);
+    }).detach();
+}

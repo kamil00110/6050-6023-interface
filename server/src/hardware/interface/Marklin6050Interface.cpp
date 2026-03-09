@@ -50,11 +50,8 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
       s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),
       turnouttime(this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      slowacceleration(this, "slowacceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      slowdeceleration(this, "slowdeceleration", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       redundancy(this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
       extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      debug(this, "debug", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
       oldAddress(this, "oldAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       newAddress(this, "newAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
       programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
@@ -147,38 +144,6 @@ m_interfaceItems.insertBefore(turnouttime, notes);
 Attributes::addValues(turnouttime, turnouttimes);
 Attributes::addAliases(turnouttime, &turnouttimes, &turnouttimelabels);
 
-static const std::vector<unsigned int> slowacceltimes = {
-    0,1000,2000,3000,4000,5000
-};
-static const std::vector<std::string_view> slowaccellabels = {
-    "OFF/Auto", "1s", "2s", "3s", "4s", "5s",  
-};
-    
-Attributes::addCategory(slowacceleration, "Märklin 6050");
-Attributes::addDisplayName(slowacceleration, "Acceleration time");
-Attributes::addHelp(slowacceleration, "CU.s88intervall");
-Attributes::addEnabled(slowacceleration, !online);
-Attributes::addVisible(slowacceleration, true);
-m_interfaceItems.insertBefore(slowacceleration, notes);
-Attributes::addValues(slowacceleration, slowacceltimes);
-Attributes::addAliases(slowacceleration, &slowacceltimes, &slowaccellabels);
-
-static const std::vector<unsigned int> slowdeceltimes = {
-    0,1000,2000,3000,4000,5000
-};
-static const std::vector<std::string_view> slowdecellabels = {
-    "OFF/Auto", "1s", "2s", "3s", "4s", "5s",  
-};
-    
-Attributes::addCategory(slowdeceleration, "Märklin 6050");
-Attributes::addDisplayName(slowdeceleration, "Deceleration time");
-Attributes::addHelp(slowdeceleration, "CU.s88intervall");
-Attributes::addEnabled(slowdeceleration, !online);
-Attributes::addVisible(slowdeceleration, true);
-m_interfaceItems.insertBefore(slowdeceleration, notes);
-Attributes::addValues(slowdeceleration, slowdeceltimes);
-Attributes::addAliases(slowdeceleration, &slowdeceltimes, &slowdecellabels);
-
 static const std::vector<unsigned int> redundancyamount = {
     1,2,3,4
 };
@@ -200,12 +165,6 @@ Attributes::addDisplayName(extensions, "Feedback Module");
 Attributes::addEnabled(extensions, !online);
 Attributes::addVisible(extensions, true);
 m_interfaceItems.insertBefore(extensions, notes);
-
-Attributes::addCategory(debug, "Märklin 6050");
-Attributes::addDisplayName(debug, "Seiral Activity");
-Attributes::addEnabled(debug, !online);
-Attributes::addVisible(debug, true);
-m_interfaceItems.insertBefore(debug, notes);
 
 Attributes::addCategory(oldAddress, "Programmer");
 Attributes::addDisplayName(oldAddress, "Old loco address");
@@ -347,9 +306,6 @@ void Marklin6050Interface::updateEnabled()
     Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88interval, !online);
-    
-    Attributes::setEnabled(slowacceleration, !online);
-    Attributes::setEnabled(slowdeceleration, !online);
     Attributes::setEnabled(redundancy, !online);
     Attributes::setEnabled(extensions, !online);
     Attributes::setEnabled(oldAddress, online);

@@ -99,15 +99,13 @@ std::span<const uint8_t> DecoderController::decoderSpeedSteps(DecoderProtocol pr
 
 bool DecoderController::addDecoder(Decoder& decoder)
 {
-    // Prevent duplicates
-    if(findDecoder(decoder) != m_decoders.end())
-        return false;
+  if(findDecoder(decoder) != m_decoders.end())
+    return false;
 
-    m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
-    decoders->addObject(decoder.shared_ptr<Decoder>());
-    return true;
+  m_decoders.emplace_back(decoder.shared_ptr<Decoder>());
+  decoders->addObject(decoder.shared_ptr<Decoder>());
+  return true;
 }
-
 
 bool DecoderController::removeDecoder(Decoder& decoder)
 {

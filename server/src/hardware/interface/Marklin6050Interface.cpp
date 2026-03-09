@@ -310,7 +310,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 
         
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
-        m_kernel->s88Callback = [this](uint32_t address, bool state)
+        m_kernel->s88Callback = [this](uint32_t address, bool state);
         m_kernel->setRedundancy(redundancy.value());
 {
 

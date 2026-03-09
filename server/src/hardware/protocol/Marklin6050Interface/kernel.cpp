@@ -266,7 +266,7 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
     if (!m_isOpen || address < 1)
         return;
 
-    uint8_t cmd = speed & 0x0F;
+    uint8_t cmd = speed & 0x0E;
     if (f0)
         cmd |= 0x10;
 

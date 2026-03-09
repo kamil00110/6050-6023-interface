@@ -100,10 +100,10 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     // --- Command redundancy ---
     static const std::vector<unsigned int> redundancyOptions = {1, 2, 3, 4};
     static const std::vector<std::string_view> redundancyLabels = {
-        "marklin6050_settings:redundancy_off",
-        "marklin6050_settings:redundancy_2x",
-        "marklin6050_settings:redundancy_3x",
-        "marklin6050_settings:redundancy_4x"
+        DisplayName::Marklin6050::redundancy_off, 
+        DisplayName::Marklin6050::redundancy_2x,
+        DisplayName::Marklin6050::redundancy_3x,
+        DisplayName::Marklin6050::redundancy_4x
     };
     Attributes::addCategory(redundancy, "category:marklin_6050");
     Attributes::addDisplayName(redundancy, DisplayName::Marklin6050::commandRedundancy);

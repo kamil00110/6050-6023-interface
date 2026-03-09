@@ -98,6 +98,10 @@ namespace DisplayName
     constexpr std::string_view oldLocoAddress = "marklin6050_settings:old_loco_address";
     constexpr std::string_view s88CallInterval = "marklin6050_settings:s88_call_interval";
     constexpr std::string_view s88ModuleAmount = "marklin6050_settings:s88_module_amount";
+    constexpr std::string_view redundancy_2x = "marklin6050_settings:redundancy_2x";
+    constexpr std::string_view redundancy_3x = "marklin6050_settings:redundancy_3x";
+    constexpr std::string_view redundancy_4x = "marklin6050_settings:redundancy_4x";
+    constexpr std::string_view redundancy_off = "marklin6050_settings:redundancy_off";
   }
   namespace Object
   {

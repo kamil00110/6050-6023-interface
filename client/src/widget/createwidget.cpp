@@ -40,6 +40,7 @@
 #include "propertyspinbox.hpp"
 #include "propertylineedit.hpp"
 #include "propertypairoutputaction.hpp"
+#include "propertyvaluelabel.hpp"
 #include "objectpropertycombobox.hpp"
 #include "objectnamelabel.hpp"
 #include "../board/boardwidget.hpp"
@@ -48,8 +49,6 @@
 #include "../network/outputkeyboard.hpp"
 #include "../network/board.hpp"
 #include "../network/property.hpp"
-#include <QLabel>
-#include <QFormLayout>
 #include "../network/objectproperty.hpp"
 
 QWidget* createWidgetIfCustom(const ObjectPtr& object, QWidget* parent)
@@ -108,6 +107,10 @@ QWidget* createWidget(const ObjectPtr& object, QWidget* parent)
   {
     return new TileWidget(object, parent);
   }
+  else if(object->classId() == "booster")
+  {
+    return new TileWidget(object, parent);
+  }
   else
     return new ObjectEditWidget(object, parent);
 }
@@ -138,78 +141,51 @@ QWidget* createWidget(AbstractProperty& baseProperty, QWidget* parent)
 
 QWidget* createWidget(Property& property, QWidget* parent)
 {
-    QWidget* widget = nullptr;
+  if(!property.isWritable()) // read only
+  {
+    return new PropertyValueLabel(property, parent);
+  }
 
-    switch(property.type())
-    {
-        case ValueType::Boolean:
-            widget = new PropertyCheckBox(property, parent);
-            break;
+  switch(property.type())
+  {
+    case ValueType::Boolean:
+      return new PropertyCheckBox(property, parent);
 
-        case ValueType::Enum:
-            if(property.enumName() == "pair_output_action")
-                widget = new PropertyPairOutputAction(property, parent);
-            else
-                widget = new PropertyComboBox(property, parent);
-            break;
+    case ValueType::Enum:
+      if(property.enumName() == "pair_output_action")
+      {
+        return new PropertyPairOutputAction(property, parent);
+      }
+      return new PropertyComboBox(property, parent);
 
-        case ValueType::Integer:
-            if(property.hasAttribute(AttributeName::Values) &&
-               !property.hasAttribute(AttributeName::Min) &&
-               !property.hasAttribute(AttributeName::Max))
-            {
-                widget = new PropertyComboBox(property, parent);
-            }
-            else
-                widget = new PropertySpinBox(property, parent);
-            break;
+    case ValueType::Integer:
+      if(property.hasAttribute(AttributeName::Values) && !property.hasAttribute(AttributeName::Min) && !property.hasAttribute(AttributeName::Max))
+      {
+        return new PropertyComboBox(property, parent);
+      }
+      return new PropertySpinBox(property, parent);
 
-        case ValueType::Float:
-            widget = new PropertyDoubleSpinBox(property, parent);
-            break;
+    case ValueType::Float:
+      return new PropertyDoubleSpinBox(property, parent);
 
-        case ValueType::String:
-            if(property.hasAttribute(AttributeName::Values))
-                widget = new PropertyComboBox(property, parent);
-            else
-                widget = new PropertyLineEdit(property, parent);
-            break;
+    case ValueType::String:
+      if(property.hasAttribute(AttributeName::Values))
+      {
+        return new PropertyComboBox(property, parent);
+      }
+      return new PropertyLineEdit(property, parent);
 
-        case ValueType::Object:
-        case ValueType::Set:
-        case ValueType::Invalid:
-            break;
-    }
+    case ValueType::Object:
+      break; // TODO
 
-    if(widget && property.hasAttribute(AttributeName::Help))
-    {
-        QString helpText = property.getAttribute(AttributeName::Help, QString()).toString();
-        widget->setToolTip(helpText);
-        QWidget* current = widget->parentWidget();
-        while(current)
-        {
-            if(auto* layout = qobject_cast<QFormLayout*>(current->layout()))
-            {
-                for(int row=0; row<layout->rowCount(); ++row)
-                {
-                    QWidget* fieldWidget = layout->itemAt(row, QFormLayout::FieldRole)->widget();
-                    if(fieldWidget == widget)
-                    {
-                        if(QWidget* labelWidget = layout->itemAt(row, QFormLayout::LabelRole)->widget())
-                        {
-                            if(QLabel* label = qobject_cast<QLabel*>(labelWidget))
-                                label->setToolTip(helpText);
-                        }
-                        break;
-                    }
-                }
-                break;
-            }
-            current = current->parentWidget();
-        }
-    }
+    case ValueType::Set:
+      break; // TODO
 
-    return widget;
+    case ValueType::Invalid: /*[[unlikely]]*/
+      break;
+  }
+  assert(false);
+  return nullptr;
 }
 
 QWidget* createWidget(ObjectProperty& property, QWidget* parent)

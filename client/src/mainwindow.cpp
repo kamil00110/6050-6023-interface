@@ -1,9 +1,8 @@
 /**
- * client/src/mainwindow.cpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * This file is part of the traintastic source code.
- *
- * Copyright (C) 2019-2025 Reinder Feenstra
+ * Copyright (C) 2019-2026 Reinder Feenstra
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -408,6 +407,11 @@ MainWindow::MainWindow(QWidget* parent) :
     menu->addAction(Locale::tr("world:inputs") + "...", [this](){ showObject("world.inputs", Locale::tr("world:inputs")); });
     menu->addAction(Locale::tr("world:outputs") + "...", [this](){ showObject("world.outputs", Locale::tr("world:outputs")); });
     menu->addAction(Locale::tr("hardware:identifications") + "...", [this](){ showObject("world.identifications", Locale::tr("hardware:identifications")); });
+    menu->addAction(Locale::tr("hardware:boosters").append("..."),
+      [this]()
+      {
+        showObject("world.boosters", Locale::tr("hardware:boosters"));
+      });
     boardsAction = m_menuObjects->addAction(Theme::getIcon("board"), Locale::tr("world:boards") + "...", [this](){ showObject("world.boards", Locale::tr("world:boards")); });
     m_menuObjects->addAction(
       Theme::getIcon("zone"),
@@ -760,6 +764,19 @@ void MainWindow::worldChanged()
 
       m_worldSimulationAction->setEnabled(simulation->getAttributeBool(AttributeName::Enabled, true));
     }
+
+    if(auto* property = m_world->getProperty("lua_scripts")) [[likely]]
+    {
+      connect(property, &AbstractProperty::attributeChanged,
+        [this](AttributeName name, const QVariant& value)
+        {
+          if(name == AttributeName::Visible)
+          {
+            m_actionLuaScript->setVisible(value.toBool());
+          }
+        });
+      m_actionLuaScript->setVisible(property->getAttributeBool(AttributeName::Visible, true));
+    }
   }
 
   static_cast<MainWindowStatusBar*>(statusBar())->worldChanged();
@@ -1074,8 +1091,6 @@ void MainWindow::updateActions()
   worldStateChanged(haveWorld ? m_connection->world()->getProperty("state")->toInt64() : 0);
 
   setMenuEnabled(m_menuObjects, haveWorld);
-  if(haveWorld && !m_connection->world()->hasProperty("lua_scripts"))
-    m_actionLuaScript->setEnabled(false);
 
   if(connected && !haveWorld)
   {

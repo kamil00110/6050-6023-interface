@@ -200,6 +200,34 @@
         "definition": "Outputs"
     },
     {
+        "term": "booster:current",
+        "definition": "Current"
+    },
+    {
+        "term": "booster:input_voltage",
+        "definition": "Input voltage"
+    },
+    {
+        "term": "booster:load",
+        "definition": "Load"
+    },
+    {
+        "term": "booster:temperature",
+        "definition": "Temperature"
+    },
+    {
+        "term": "booster:type",
+        "definition": "Type"
+    },
+    {
+        "term": "booster:voltage",
+        "definition": "Voltage"
+    },
+    {
+        "term": "booster_driver:poll_interval",
+        "definition": "Poll interval"
+    },
+    {
         "term": "category:block",
         "definition": "Block"
     },
@@ -224,6 +252,10 @@
         "definition": "Developer"
     },
     {
+        "term": "category:features",
+        "definition": "Features"
+    },
+    {
         "term": "category:general",
         "definition": "General"
     },
@@ -246,6 +278,10 @@
     {
         "term": "category:options",
         "definition": "Options"
+    },
+    {
+        "term": "category:status",
+        "definition": "Status"
     },
     {
         "term": "category:trains",
@@ -710,6 +746,10 @@
     {
         "term": "hardware:addresses",
         "definition": "Addresses"
+    },
+    {
+        "term": "hardware:boosters",
+        "definition": "Boosters"
     },
     {
         "term": "hardware:channel",
@@ -1532,6 +1572,18 @@
         "definition": "Unknown locomotive MFX UID: %1"
     },
     {
+        "term": "message:E2025",
+        "definition": "Reading booster '%1' software version failed: %2"
+    },
+    {
+        "term": "message:E2026",
+        "definition": "Reading booster '%1' temperature failed: %2"
+    },
+    {
+        "term": "message:E2027",
+        "definition": "Reading booster '%1' load failed: %2"
+    },
+    {
         "term": "message:E3001",
         "definition": "Can't delete rail vehicle when in active train"
     },
@@ -1646,6 +1698,10 @@
     {
         "term": "message:I2003",
         "definition": "Firmware version: %1"
+    },
+    {
+        "term": "message:I2006",
+        "definition": "Booster '%1' software version: %2"
     },
     {
         "term": "message:I3001",
@@ -1886,6 +1942,14 @@
     {
         "term": "message:W2020",
         "definition": "DCCext (RCN-213) is not supported"
+    },
+    {
+        "term": "message:W2026",
+        "definition": "Reading booster '%1' temperature failed: %2"
+    },
+    {
+        "term": "message:W2027",
+        "definition": "Reading booster '%1' load failed: %2"
     },
     {
         "term": "message:W3001",
@@ -3154,6 +3218,10 @@
     {
         "term": "world:ext_output_change_action",
         "definition": "External output change action"
+    },
+    {
+        "term": "world:feature_scripting",
+        "definition": "Scripting"
     },
     {
         "term": "world:inputs",

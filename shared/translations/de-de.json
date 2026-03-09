@@ -3298,8 +3298,7 @@
     {
         "term": "zone:speed_limit",
         "definition": "Geschwindigkeitbegrenzung"
-    }
-    [
+    },
     {
         "term": "category:marklin_6050",
         "definition": "Märklin 6050"

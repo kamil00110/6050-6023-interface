@@ -28,6 +28,7 @@ public:
     void setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0);
     void setRedundancy(unsigned int count);
     void setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bool f4);
+    void setLocoEmergencyStop(uint8_t address, bool f0);
 
 private:
     std::string m_port;

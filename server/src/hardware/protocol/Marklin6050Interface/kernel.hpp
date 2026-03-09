@@ -49,23 +49,3 @@ private:
 };
 
 } 
-
-namespace Command
-{
-    constexpr uint8_t LocoStop        = 0;    // speed 0
-    constexpr uint8_t LocoSpeedMin    = 1;    // speed step 1
-    constexpr uint8_t LocoSpeedMax    = 14;   // speed step 14
-    constexpr uint8_t LocoDirToggle   = 15;   // direction toggle
-    constexpr uint8_t LocoF0Bit       = 0x10; // bit 4 = F0 on
-
-    constexpr uint8_t AccessoryOff    = 32;
-    constexpr uint8_t AccessoryGreen  = 33;
-    constexpr uint8_t AccessoryRed    = 34;
-
-    constexpr uint8_t FunctionBase    = 64;   // F1-F4 bitmask added to this
-
-    constexpr uint8_t GlobalGo        = 96;
-    constexpr uint8_t GlobalStop      = 97;
-
-    constexpr uint8_t S88Base         = 128;  // + module count
-}

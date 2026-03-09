@@ -1,3 +1,14 @@
+/**
+ * server/src/hardware/interface/Marklin6050Interface.cpp
+ *
+ * Copyright (C) 2025
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -10,54 +21,36 @@
 #include "../decoder/list/decoderlist.hpp"
 #include "../decoder/list/decoderlisttablemodel.hpp"
 #include "../decoder/decoderchangeflags.hpp"
-#include "../../utils/displayname.hpp"  
+#include "../../utils/displayname.hpp"
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"
 #include "../../core/serialdeviceproperty.hpp"
-#include "../../hardware/protocol/Marklin6050Interface/serial_port_list.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/eventloop.hpp"
-#include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include "../../log/log.hpp"
 #include "../../log/logmessageexception.hpp"
-#include <vector>
-#include <string>
-#include <thread>
-#include <atomic>
-#include <chrono>
-
 
 constexpr auto inputListColumns = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
 constexpr auto decoderListColumns = DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 
-
 CREATE_IMPL(Marklin6050Interface)
 
 Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
-    : Interface(world, objId),
-      OutputController(static_cast<IdObject&>(*this)),
-      InputController(static_cast<IdObject&>(*this)),
-      DecoderController(*this, decoderListColumns),
-      serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store),
-      baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      centralUnitVersion{this, "central_unit_version", 6020, PropertyFlags::ReadWrite | PropertyFlags::Store,[this](const uint16_t& /*newValue*/)
-      {
-        onCentralUnitVersionChanged();
-      }},
-      analog(this, "analog", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      s88amount(this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      s88interval(this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      turnouttime(this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      redundancy(this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      extensions(this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      oldAddress(this, "oldAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      newAddress(this, "newAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store),
-      programmer(this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store)
-{    
+    : Interface(world, objId)
+    , OutputController(static_cast<IdObject&>(*this))
+    , InputController(static_cast<IdObject&>(*this))
+    , DecoderController(*this, decoderListColumns)
+    , serialPort(this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store)
+    , baudrate(this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store)
+    , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
+{
     name = "Märklin 6050";
 
+    settings.setValueInternal(std::make_shared<Marklin6050::Settings>(*this, settings.name()));
+
+    // --- Connection ---
     Attributes::addDisplayName(serialPort, DisplayName::Serial::device);
     Attributes::addEnabled(serialPort, !online);
     Attributes::addVisible(serialPort, true);
@@ -66,138 +59,21 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     Attributes::addDisplayName(baudrate, DisplayName::Serial::baudrate);
     Attributes::addEnabled(baudrate, !online);
     Attributes::addVisible(baudrate, true);
-    m_interfaceItems.insertBefore(baudrate, notes);
     Attributes::addValues(baudrate, std::vector<unsigned int>{
-    1200,
-    2400,
-    4800,
-    9600,
-    19200,
-    38400,
-    57600,
-    115200
+        1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200
     });
-    
-    static const std::vector<unsigned int> options = {
-    6020, 6021, 6022, 6023,
-    6223,
-    6027, 6029, 6030, 6032
-};
-static const std::vector<std::string_view> labels = {
-    "6020", "6021", "6022", "6023",
-    "6223",
-    "6027", "6029", "6030", "6032"
-};
-Attributes::addCategory(centralUnitVersion, "Märklin 6050");
-Attributes::addDisplayName(centralUnitVersion, "Central Unit Version");
-Attributes::addHelp(centralUnitVersion, "CUversion");
-Attributes::addEnabled(centralUnitVersion, true);
-Attributes::addVisible(centralUnitVersion, true);
-m_interfaceItems.insertBefore(centralUnitVersion, notes);
-Attributes::addValues(centralUnitVersion, options);
-Attributes::addAliases(centralUnitVersion, &options, &labels);
+    m_interfaceItems.insertBefore(baudrate, notes);
 
-Attributes::addCategory(analog, "Märklin 6050");
-Attributes::addDisplayName(analog, "Analog mode");
-Attributes::addHelp(analog, "CU.s88amount");
-Attributes::addEnabled(analog, !online);
-Attributes::addVisible(analog, true);
-m_interfaceItems.insertBefore(analog, notes);;
+    // --- Settings ---
+    m_interfaceItems.insertBefore(settings, notes);
 
-Attributes::addCategory(s88amount, "Märklin 6050");
-Attributes::addDisplayName(s88amount, "s88 module amount");
-Attributes::addHelp(s88amount, "CU.s88amount");
-Attributes::addEnabled(s88amount, !online);
-Attributes::addVisible(s88amount, true);
-m_interfaceItems.insertBefore(s88amount, notes);;
-Attributes::addMinMax(s88amount, 0u, 61u); 
-Attributes::addValues(s88amount, options);
-    
-
-static const std::vector<unsigned int> intervals = {
-    50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1500, 2000, 2500, 3000
-};
-static const std::vector<std::string_view> intervallabels = {
-    "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s","1.5s","2s","2.5s","3s",
-};
-Attributes::addCategory(s88interval, "Märklin 6050");
-Attributes::addDisplayName(s88interval, "s88 call intervall");
-Attributes::addHelp(s88interval, "CU.s88intervall");
-Attributes::addEnabled(s88interval, !online);
-Attributes::addVisible(s88interval, true);
-m_interfaceItems.insertBefore(s88interval, notes);
-Attributes::addValues(s88interval, intervals);
-Attributes::addAliases(s88interval, &intervals, &intervallabels);
-
-static const std::vector<unsigned int> turnouttimes = {
-    25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000
-};
-static const std::vector<std::string_view> turnouttimelabels = {
-    "25ms", "50ms", "100ms", "200ms", "300ms", "400ms", "500ms", "600ms", "700ms", "800ms", "900ms","1s",  
-};
-Attributes::addCategory(turnouttime, "Märklin 6050");
-Attributes::addDisplayName(turnouttime, "Accessory OFF time");
-Attributes::addHelp(turnouttime, "CU.s88intervall");
-Attributes::addEnabled(turnouttime, !online);
-Attributes::addVisible(turnouttime, true);
-m_interfaceItems.insertBefore(turnouttime, notes);
-Attributes::addValues(turnouttime, turnouttimes);
-Attributes::addAliases(turnouttime, &turnouttimes, &turnouttimelabels);
-
-static const std::vector<unsigned int> redundancyamount = {
-    1,2,3,4
-};
-static const std::vector<std::string_view> redundancylabels = {
-    "OFF", "2x", "3x", "4x",
-};
-    
-Attributes::addCategory(redundancy, "Märklin 6050");
-Attributes::addDisplayName(redundancy, "Command redundancy");
-Attributes::addHelp(redundancy, "CU.s88intervall");
-Attributes::addEnabled(redundancy, !online);
-Attributes::addVisible(redundancy, true);
-m_interfaceItems.insertBefore(redundancy, notes);
-Attributes::addValues(redundancy, redundancyamount);
-Attributes::addAliases(redundancy, &redundancyamount, &redundancylabels);
-
-Attributes::addCategory(extensions, "Märklin 6050");
-Attributes::addDisplayName(extensions, "Feedback Module");
-Attributes::addEnabled(extensions, !online);
-Attributes::addVisible(extensions, true);
-m_interfaceItems.insertBefore(extensions, notes);
-
-Attributes::addCategory(oldAddress, "Programmer");
-Attributes::addDisplayName(oldAddress, "Old loco address");
-Attributes::addEnabled(oldAddress, online);
-Attributes::addVisible(oldAddress, true);
-m_interfaceItems.insertBefore(oldAddress, notes);
-Attributes::addMinMax(oldAddress, 1u, 79u);
-
-Attributes::addCategory(newAddress, "Programmer");
-Attributes::addDisplayName(newAddress, "New loco address");
-Attributes::addEnabled(newAddress, online);
-Attributes::addVisible(newAddress, true);
-m_interfaceItems.insertBefore(newAddress, notes);
-Attributes::addMinMax(newAddress, 1u, 79u);
-    
-Attributes::addCategory(programmer, "Programmer");
-Attributes::addDisplayName(programmer, "Change address");
-Attributes::addEnabled(programmer, online);
-Attributes::addVisible(programmer, true);
-m_interfaceItems.insertBefore(programmer, notes);
-
-m_interfaceItems.insertBefore(inputs, notes);
-    
-m_interfaceItems.insertBefore(outputs, notes);
-
-m_interfaceItems.insertBefore(decoders, notes);
-
-}
-void Marklin6050Interface::onCentralUnitVersionChanged()
-{
-    updateEnabled(); 
+    // --- Lists ---
+    m_interfaceItems.insertBefore(inputs, notes);
+    m_interfaceItems.insertBefore(outputs, notes);
+    m_interfaceItems.insertBefore(decoders, notes);
 }
 
+// --- Lifecycle ---
 
 void Marklin6050Interface::addToWorld()
 {
@@ -218,17 +94,20 @@ void Marklin6050Interface::destroying()
     Interface::destroying();
     OutputController::destroying();
     InputController::destroying();
-    DecoderController::destroying(); 
+    DecoderController::destroying();
 }
+
+// --- State ---
 
 void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
 {
     Interface::worldEvent(state, event);
     updateEnabled();
-    if (!m_kernel)
+
+    if(!m_kernel)
         return;
 
-    switch (event)
+    switch(event)
     {
         case WorldEvent::Stop:
             m_kernel->sendByte(97);
@@ -243,50 +122,61 @@ void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
     }
 }
 
-
 void Marklin6050Interface::onlineChanged(bool /*value*/)
 {
     updateEnabled();
 }
 
+void Marklin6050Interface::updateEnabled()
+{
+    Attributes::setEnabled(serialPort, !online);
+    Attributes::setEnabled(baudrate, !online);
+    settings->updateEnabled(online);
+}
+
+// --- Connection ---
+
 bool Marklin6050Interface::setOnline(bool& value, bool /*simulation*/)
 {
     std::string port = serialPort;
     setState(InterfaceState::Initializing);
-    if (value)
+
+    if(value)
     {
-        
-        if (port.empty() || !Marklin6050::Serial::isValidPort(port))
-        {
-            value = false;
-            return false;
-        }
-     
-        if (!Marklin6050::Serial::testOpen(port))
+        if(port.empty() || !Marklin6050::Serial::isValidPort(port))
         {
             value = false;
             return false;
         }
 
-        
+        if(!Marklin6050::Serial::testOpen(port))
+        {
+            value = false;
+            return false;
+        }
+
+        const auto cfg = settings->config();
+
         m_kernel = std::make_unique<Marklin6050::Kernel>(port, baudrate.value());
-m_kernel->setRedundancy(redundancy.value());
-m_kernel->s88Callback = [this](uint32_t address, bool state)
-{
-    this->onS88Input(address, state);
-};
-       if (!m_kernel->start())
-       {
+        m_kernel->setRedundancy(cfg.redundancy);
+        m_kernel->s88Callback = [this](uint32_t address, bool state)
+        {
+            this->onS88Input(address, state);
+        };
+
+        if(!m_kernel->start())
+        {
             m_kernel.reset();
             value = false;
             return false;
-       }
-        m_kernel->startInputThread(s88amount.value(), s88interval.value());
+        }
+
+        m_kernel->startInputThread(cfg.s88amount, cfg.s88interval);
         setState(InterfaceState::Online);
     }
     else
     {
-        if (m_kernel)
+        if(m_kernel)
         {
             m_kernel->stopInputThread();
             m_kernel->stop();
@@ -299,121 +189,8 @@ m_kernel->s88Callback = [this](uint32_t address, bool state)
     return true;
 }
 
-void Marklin6050Interface::updateEnabled()
-{
-    Attributes::setEnabled(serialPort, !online);
-    Attributes::setEnabled(centralUnitVersion, !online);
-    Attributes::setEnabled(s88amount, !online);
-    Attributes::setEnabled(s88amount, !online);
-    Attributes::setEnabled(s88interval, !online);
-    Attributes::setEnabled(redundancy, !online);
-    Attributes::setEnabled(extensions, !online);
-    Attributes::setEnabled(oldAddress, online);
-    Attributes::setEnabled(newAddress, online);
-    Attributes::setEnabled(programmer, online);
-    const bool analogsupport =
-        centralUnitVersion == 6027||
-        centralUnitVersion == 6029;
-    Attributes::setEnabled(analog, analogsupport);
-    if(!analogsupport){
-        analog.setValueInternal(false);
-    }
-    
-    if(centralUnitVersion == 6021){
-        Attributes::setEnabled(turnouttime, false);
-    }
-    else{
-        Attributes::setEnabled(turnouttime, !online);
-    }
-}
+// --- Input ---
 
-void Marklin6050Interface::serialPortChanged(const std::string& newPort)
-{
-    if (online)
-    {
-        if (!Marklin6050::Serial::isValidPort(newPort) || !Marklin6050::Serial::testOpen(newPort))
-        {
-            bool val = false;
-            setOnline(val, false);
-        }
-    }
-}
-bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
-{
-    if(channel == OutputChannel::Accessory && m_kernel)
-    {
-        auto [min, max] = outputAddressMinMax(channel);
-        if(address < min || address > max)
-            return false;
-
-        unsigned int delayMs = turnouttime.value();
-
-        bool result = m_kernel->setAccessory(address, value, delayMs);
-
-        if(result)
-            updateOutputValue(channel, address, value);
-
-        return result;
-    }
-    if(channel == OutputChannel::Turnout && m_kernel)
-    {
-        auto [min, max] = outputAddressMinMax(channel);
-        if(address < min || address > max)
-            return false;
-
-        unsigned int delayMs = turnouttime.value(); 
-
-        bool result = m_kernel->setAccessory(address, value, delayMs);
-
-        if(result)
-            updateOutputValue(channel, address, value);
-
-        return result;
-    }
-    if(channel == OutputChannel::Output && m_kernel)
-    {
-        auto [min, max] = outputAddressMinMax(channel);
-        if(address < min || address > max)
-            return false;
-
-        unsigned int delayMs = turnouttime.value(); 
-
-        bool result = m_kernel->setAccessory(address, value, delayMs);
-
-        if(result)
-            updateOutputValue(channel, address, value);
-
-        return result;
-    }
-
-    return false;
-}
-
-
-std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
-{
-    switch(channel)
-    {
-        case OutputChannel::Accessory:
-            return {1, 256};
-        case OutputChannel::Turnout:
-        case OutputChannel::Output:
-            return {1, 256}; 
-        default:
-            return OutputController::outputAddressMinMax(channel);
-    }
-}
-
-
-std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
-{
-    static const auto values = makeArray(
-        OutputChannel::Accessory,
-        OutputChannel::Turnout,
-        OutputChannel::Output
-    );
-    return values;
-}
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const
 {
     static const auto values = makeArray(InputChannel::S88);
@@ -426,215 +203,143 @@ std::pair<uint32_t, uint32_t> Marklin6050Interface::inputAddressMinMax(InputChan
     {
         case InputChannel::S88:
         {
-            uint32_t moduleCount = s88amount.value();   
-            uint32_t maxAddress = moduleCount * 16;     
-            return {1, maxAddress};        
+            const uint32_t moduleCount = settings->s88amount.value();
+            return {1, moduleCount * 16};
         }
         default:
-            return {0, 0}; 
+            return {0, 0};
     }
 }
-void Marklin6050Interface::inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action)
-{
-    (void)channel;
-    (void)address;
-    (void)action;
 
+void Marklin6050Interface::inputSimulateChange(InputChannel /*channel*/, uint32_t /*address*/, SimulateInputAction /*action*/)
+{
 }
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-    std::string info = "S88 address " + std::to_string(address) + " -> " + (state ? "ON" : "OFF");
-
-    // Update InputController state
-    TriState ts = state ? TriState::True : TriState::False;
-    updateInputValue(InputChannel::S88, address, ts);
+    updateInputValue(InputChannel::S88, address, state ? TriState::True : TriState::False);
 }
-void Marklin6050Interface::checkDecoder(const Decoder& decoder)
+
+// --- Output ---
+
+std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
 {
-    const bool f4 =
-        centralUnitVersion == 6021 ||
-        centralUnitVersion == 6027 ||
-        centralUnitVersion == 6029 ||
-        centralUnitVersion == 6030;
+    static const auto values = makeArray(
+        OutputChannel::Accessory,
+        OutputChannel::Turnout,
+        OutputChannel::Output
+    );
+    return values;
+}
 
-    const bool f0 =
-        centralUnitVersion == 6020 ||
-        centralUnitVersion == 6022 ||
-        centralUnitVersion == 6023 ||
-        centralUnitVersion == 6223;
+std::pair<uint32_t, uint32_t> Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
+{
+    switch(channel)
+    {
+        case OutputChannel::Accessory:
+        case OutputChannel::Turnout:
+        case OutputChannel::Output:
+            return {1, 256};
 
-    const bool nothing =
-        (centralUnitVersion == 6032) ||
-        ((centralUnitVersion == 6027) && analog) ||
-        ((centralUnitVersion == 6029) && analog);
-
-    uint8_t maxFunctionNumber = 0;
-    
-    if(f4)
-    {
-        // DCC supports many functions
-        maxFunctionNumber = 5; // or whatever is correct for this interface
-    }
-    if(f0)
-    {
-        // DCC supports many functions
-        maxFunctionNumber = 1; // or whatever is correct for this interface
-    }
-    if(nothing)
-    {
-        maxFunctionNumber = 0;
-    }
-    
-    for(const auto& function : *decoder.functions)
-    {
-        if(function->number > maxFunctionNumber)
-        {
-            Log::log(
-                decoder,
-                LogMessage::W2002_COMMAND_STATION_DOESNT_SUPPORT_FUNCTIONS_ABOVE_FX,
-                maxFunctionNumber
-            );
-            break;
-        }
+        default:
+            return OutputController::outputAddressMinMax(channel);
     }
 }
 
+bool Marklin6050Interface::setOutputValue(OutputChannel channel, uint32_t address, OutputValue value)
+{
+    if(!m_kernel)
+        return false;
+
+    switch(channel)
+    {
+        case OutputChannel::Accessory:
+        case OutputChannel::Turnout:
+        case OutputChannel::Output:
+        {
+            auto [min, max] = outputAddressMinMax(channel);
+            if(address < min || address > max)
+                return false;
+
+            const bool result = m_kernel->setAccessory(address, value, settings->turnouttime.value());
+            if(result)
+                updateOutputValue(channel, address, value);
+
+            return result;
+        }
+        default:
+            return false;
+    }
+}
+
+// --- Decoder ---
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {
-    
+    const uint16_t ver = settings->centralUnitVersion;
+    const bool isAnalog = settings->analog;
+
     const bool isDcc =
-        ((centralUnitVersion == 6027) && !analog) ||
-        ((centralUnitVersion == 6029) && !analog) ||
-        ((centralUnitVersion == 6030) && !analog) ||
-        ((centralUnitVersion == 6032) && !analog);
+        ((ver == 6027 || ver == 6029 || ver == 6030 || ver == 6032) && !isAnalog);
 
-    const bool Limited =
-        centralUnitVersion == 6022 ||
-        centralUnitVersion == 6023 ||
-        centralUnitVersion == 6223;
+    const bool isNone =
+        ((ver == 6027 || ver == 6029) && isAnalog);
 
-    const bool Motorola =
-        centralUnitVersion == 6021 ||
-        centralUnitVersion == 6020;
-
-    const bool None =
-        ((centralUnitVersion == 6027) && analog) ||
-        ((centralUnitVersion == 6029) && analog);
-
-    if (isDcc)
+    if(isDcc)
     {
-        static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::DCCShort
-        };
+        static constexpr std::array<DecoderProtocol, 1> protocols{DecoderProtocol::DCCShort};
         return protocols;
     }
-    if (None)
+    if(isNone)
     {
-        static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::None
-        };
+        static constexpr std::array<DecoderProtocol, 1> protocols{DecoderProtocol::None};
         return protocols;
     }
-    if (Motorola)
-    {
-        static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::Motorola
-        };
-        return protocols;
-    }
-    if (Limited)
-    {
-        static constexpr std::array<DecoderProtocol, 1> protocols{
-            DecoderProtocol::Motorola
-        };
-        return protocols;
-    }
-    static constexpr std::array<DecoderProtocol, 0> protocols{};
+
+    // 6020, 6021, 6022, 6023, 6223
+    static constexpr std::array<DecoderProtocol, 1> protocols{DecoderProtocol::Motorola};
     return protocols;
 }
 
+std::pair<uint16_t, uint16_t> Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
+{
+    const uint16_t ver = settings->centralUnitVersion;
+    const bool isAnalog = settings->analog;
+    const bool ext = settings->extensions;
 
-
-std::pair<uint16_t, uint16_t>
-Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
-{   
     const bool isDcc =
-        ((centralUnitVersion == 6027) && !analog) ||
-        ((centralUnitVersion == 6029) && !analog) ||
-        ((centralUnitVersion == 6030) && !analog) ||
-        ((centralUnitVersion == 6032) && !analog);
+        ((ver == 6027 || ver == 6029 || ver == 6030 || ver == 6032) && !isAnalog);
 
-    const bool MM1 =
-        centralUnitVersion == 6020;
+    const bool isNone =
+        ((ver == 6027 || ver == 6029) && isAnalog);
 
-    const bool MM2 =
-        centralUnitVersion == 6021;
+    const bool isLimited =
+        (ver == 6022 || ver == 6023 || ver == 6223);
 
-    const bool Limited =
-        centralUnitVersion == 6022 ||
-        centralUnitVersion == 6023 ||
-        centralUnitVersion == 6223;
+    if(isDcc)
+        return ext ? std::pair{uint16_t(1), uint16_t(127)}
+                   : std::pair{uint16_t(1), uint16_t(80)};
 
-    const bool None =
-        ((centralUnitVersion == 6027) && analog) ||
-        ((centralUnitVersion == 6029) && analog);
+    if(isNone)
+        return {1, 1};
 
-    
-    if (isDcc)
-    {
-        if(extensions){
-            return {1, 127};
-        }
-        else{
-            return {1, 80};
-        }
-    }
-    if (None)
-    {
-        if(extensions){
-            return {1, 1};
-        }
-        else{
-            return {1, 1};
-        }
-    }
-    if (MM2)
-    {
-        if(extensions){
-            return {1, 255};
-        }
-        else{
-            return {1, 80};
-        }
-    }
-    if (MM1)
-    {
-        if(extensions){
-            return {1, 80};
-        }
-        else{
-            return {1, 80};
-        }
-    }
-    if (Limited)
-    {
-        if(extensions){
-            return {10, 40};
-        }
-        else{
-            return {10, 40};
-        }
-    }
+    if(ver == 6021)
+        return ext ? std::pair{uint16_t(1), uint16_t(255)}
+                   : std::pair{uint16_t(1), uint16_t(80)};
+
+    if(ver == 6020)
+        return {1, 80};
+
+    if(isLimited)
+        return {10, 40};
+
     return {0, 0};
 }
 
-std::span<const uint8_t>
-Marklin6050Interface::decoderSpeedSteps(DecoderProtocol /*protocol*/) const
+std::span<const uint8_t> Marklin6050Interface::decoderSpeedSteps(DecoderProtocol /*protocol*/) const
 {
-    static constexpr uint8_t steps[] = { 14 };
-    return std::span<const uint8_t>(steps, 1);
+    static constexpr uint8_t steps[] = {14};
+    return steps;
 }
 
 void Marklin6050Interface::decoderChanged(
@@ -642,7 +347,7 @@ void Marklin6050Interface::decoderChanged(
     DecoderChangeFlags changes,
     uint32_t functionNumber)
 {
-    if (!m_kernel)
+    if(!m_kernel)
         return;
 
     const uint8_t address = static_cast<uint8_t>(decoder.address);
@@ -651,45 +356,47 @@ void Marklin6050Interface::decoderChanged(
         ? 0
         : Decoder::throttleToSpeedStep<uint8_t>(decoder.throttle, 14);
 
+    const uint16_t ver = settings->centralUnitVersion;
+    const bool isAnalog = settings->analog;
+
+    // function support tiers
     const bool noFunctions =
-        ((centralUnitVersion == 6027) && analog) ||
-        ((centralUnitVersion == 6029) && analog);
+        ((ver == 6027 || ver == 6029) && isAnalog);
 
     const bool f0only =
-        centralUnitVersion == 6020 ||
-        centralUnitVersion == 6022 ||
-        centralUnitVersion == 6023 ||
-        centralUnitVersion == 6223;
+        (ver == 6020 || ver == 6022 || ver == 6023 || ver == 6223);
 
     const bool effectiveF0 = noFunctions ? false : f0;
 
-    if (has(changes, DecoderChangeFlags::EmergencyStop) && decoder.emergencyStop)
+    // emergency stop: double direction toggle
+    if(has(changes, DecoderChangeFlags::EmergencyStop) && decoder.emergencyStop)
     {
-        // Double direction toggle = emergency stop without changing direction
         m_kernel->setLocoEmergencyStop(address, effectiveF0);
         return;
     }
 
-    if (has(changes, DecoderChangeFlags::Direction))
+    // direction toggle
+    if(has(changes, DecoderChangeFlags::Direction))
     {
         m_kernel->setLocoDirection(address, effectiveF0);
         return;
     }
 
-    if (has(changes, DecoderChangeFlags::EmergencyStop | DecoderChangeFlags::Throttle))
+    // speed update (including resume from e-stop)
+    if(has(changes, DecoderChangeFlags::EmergencyStop | DecoderChangeFlags::Throttle))
     {
-        // Normal speed update (including resuming from e-stop)
         m_kernel->setLocoSpeed(address, speed, effectiveF0);
         return;
     }
 
-    if (has(changes, DecoderChangeFlags::FunctionValue))
+    // function changes
+    if(has(changes, DecoderChangeFlags::FunctionValue))
     {
-        if (functionNumber == 0 && !noFunctions)
+        if(functionNumber == 0 && !noFunctions)
         {
             m_kernel->setLocoFunction(address, speed, f0);
         }
-        else if (functionNumber <= 4 && !noFunctions && !f0only)
+        else if(functionNumber <= 4 && !noFunctions && !f0only)
         {
             m_kernel->setLocoFunctions1to4(
                 address,
@@ -698,6 +405,5 @@ void Marklin6050Interface::decoderChanged(
                 decoder.getFunctionValue(3),
                 decoder.getFunctionValue(4));
         }
-        return;
     }
 }

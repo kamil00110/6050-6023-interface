@@ -18,7 +18,6 @@
 #include "../input/inputcontroller.hpp"
 #include "../decoder/decodercontroller.hpp"
 #include "../../core/serialdeviceproperty.hpp"
-#include "../../hardware/protocol/Marklin6050Interface/serial.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
 #include "../../hardware/protocol/Marklin6050Interface/settings.hpp"
 
@@ -35,6 +34,7 @@ class Marklin6050Interface
 private:
     std::unique_ptr<Marklin6050::Kernel> m_kernel;
     bool m_simulation{false};
+
     void updateEnabled();
     void onS88Input(uint32_t address, bool state);
 

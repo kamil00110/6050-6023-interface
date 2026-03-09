@@ -3470,5 +3470,9 @@
     {
         "term": "marklin6050_settings:s88_module_amount.help",
         "definition": "Number of connected S88 feedback modules (16 contacts each). Maximum 61 modules for 976 feedback contacts."
+    },
+    {
+        "term": "wizard.add_interface.interface_marklin6050:title",
+        "definition": "Märklin 6050/51 interface"
     }
 ]

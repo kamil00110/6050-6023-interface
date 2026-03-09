@@ -52,7 +52,7 @@ std::span<const std::string_view> Interfaces::classList()
     WlanMausInterface::classId,
     XpressNetInterface::classId,
     Z21Interface::classId,
-    Marklin6050Interface::classId
+    Marklin6050Interface::classId,
     Marklin6023Interface::classId
   );
   return classes;

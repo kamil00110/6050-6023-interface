@@ -36,8 +36,7 @@ private:
     std::atomic<bool> m_running{false}; 
     void inputLoop(unsigned int modules);
     unsigned int m_redundancy{0};
-    void sendLocoCommand(uint8_t address, uint8_t speedByte, bool f0);    
-
+    void sendCommand(uint8_t byte1, uint8_t byte2);
 
 
 #if defined(_WIN32)

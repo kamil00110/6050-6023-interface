@@ -17,6 +17,8 @@
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
 
+#include <boost/asio/write.hpp>
+#include <boost/asio/read.hpp>
 #include <thread>
 #include <chrono>
 #include <vector>

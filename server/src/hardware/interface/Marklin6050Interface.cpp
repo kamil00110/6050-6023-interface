@@ -651,7 +651,6 @@ void Marklin6050Interface::decoderChanged(
         ? 0
         : Decoder::throttleToSpeedStep<uint8_t>(decoder.throttle, 14);
 
-    // Determine function support based on CU version
     const bool noFunctions =
         ((centralUnitVersion == 6027) && analog) ||
         ((centralUnitVersion == 6029) && analog);
@@ -662,15 +661,25 @@ void Marklin6050Interface::decoderChanged(
         centralUnitVersion == 6023 ||
         centralUnitVersion == 6223;
 
+    const bool effectiveF0 = noFunctions ? false : f0;
+
+    if (has(changes, DecoderChangeFlags::EmergencyStop) && decoder.emergencyStop)
+    {
+        // Double direction toggle = emergency stop without changing direction
+        m_kernel->setLocoEmergencyStop(address, effectiveF0);
+        return;
+    }
+
     if (has(changes, DecoderChangeFlags::Direction))
     {
-        m_kernel->setLocoDirection(address, noFunctions ? false : f0);
+        m_kernel->setLocoDirection(address, effectiveF0);
         return;
     }
 
     if (has(changes, DecoderChangeFlags::EmergencyStop | DecoderChangeFlags::Throttle))
     {
-        m_kernel->setLocoSpeed(address, speed, noFunctions ? false : f0);
+        // Normal speed update (including resuming from e-stop)
+        m_kernel->setLocoSpeed(address, speed, effectiveF0);
         return;
     }
 
@@ -692,4 +701,3 @@ void Marklin6050Interface::decoderChanged(
         return;
     }
 }
-

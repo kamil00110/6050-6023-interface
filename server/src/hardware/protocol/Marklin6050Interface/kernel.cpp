@@ -233,6 +233,79 @@ int Kernel::readByte()
     return (r == 1) ? b : -1;
 #endif
 }
+
+
+
+void Kernel::setRedundancy(unsigned int count)
+{
+    m_redundancy = count;
+}
+
+void Kernel::sendLocoCommand(uint8_t address, uint8_t speedByte, bool f0)
+{
+    uint8_t cmd = speedByte & 0x0F;
+    if (f0)
+        cmd |= 0x10;
+
+    sendByte(cmd);
+    sendByte(address);
+
+    for (unsigned int i = 0; i < m_redundancy; i++)
+    {
+        sendByte(cmd);
+        sendByte(address);
+    }
+}
+
+void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
+{
+    if (!m_isOpen || address < 1)
+        return;
+
+    // speed 0 = stop, 1-14 = speed steps
+    sendLocoCommand(address, speed & 0x0E, f0);
+}
+
+void Kernel::setLocoDirection(uint8_t address, bool f0)
+{
+    if (!m_isOpen || address < 1)
+        return;
+
+    // 15 = direction toggle
+    sendLocoCommand(address, 15, f0);
+}
+
+void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
+{
+    if (!m_isOpen || address < 1)
+        return;
+
+    // resend current speed with updated F0
+    sendLocoCommand(address, currentSpeed & 0x0E, f0);
+}
+
+void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bool f4)
+{
+    if (!m_isOpen || address < 1)
+        return;
+
+    // Base 64 + bitmask: bit0=F1, bit1=F2, bit2=F3, bit3=F4
+    uint8_t cmd = 64;
+    if (f1) cmd |= 0x01;
+    if (f2) cmd |= 0x02;
+    if (f3) cmd |= 0x04;
+    if (f4) cmd |= 0x08;
+
+    sendByte(cmd);
+    sendByte(address);
+
+    for (unsigned int i = 0; i < m_redundancy; i++)
+    {
+        sendByte(cmd);
+        sendByte(address);
+    }
+}
+
 void Kernel::startInputThread(unsigned int moduleCount, unsigned int intervalMs)
 {
     if (m_running)
@@ -260,6 +333,7 @@ void Kernel::stopInputThread()
     if(m_inputThread.joinable())
         m_inputThread.join();
 }
+
 void Kernel::inputLoop(unsigned int modules)
 {
     if (!m_running || !m_isOpen || modules == 0)

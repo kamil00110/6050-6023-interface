@@ -3402,5 +3402,9 @@
     {
         "term": "interface.marklin6050:settings",
         "definition": "Einstellungen"
+    },
+    {
+        "term": "interface.marklin6023:settings",
+        "definition": "Einstellungen"
     } 
 ]

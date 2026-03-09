@@ -3440,18 +3440,6 @@
         "definition": "Old loco address"
     },
     {
-        "term": "marklin6050_settings:redundancy_2x",
-        "definition": "2x"
-    },
-    {
-        "term": "marklin6050_settings:redundancy_3x",
-        "definition": "3x"
-    },
-    {
-        "term": "marklin6050_settings:redundancy_4x",
-        "definition": "4x"
-    },
-    {
         "term": "marklin6050_settings:redundancy_off",
         "definition": "Off"
     },

@@ -3474,5 +3474,9 @@
     {
         "term": "wizard.add_interface.interface_marklin6050:title",
         "definition": "Märklin 6050/51 interface"
-    }
+    },
+    {
+        "term": "interface.marklin6050:settings",
+        "definition": "Einstellungen"
+    }, 
 ]

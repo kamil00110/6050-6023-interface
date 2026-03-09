@@ -180,16 +180,30 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
         }
     }, value);
 
-    if (!sendByte(cmd) || !sendByte(static_cast<unsigned char>(address)))
-        return false;
+    uint8_t addr = static_cast<uint8_t>(address);
 
-    if (timeMs > 0) {
-        std::thread([this, address, timeMs]{
+    sendCommand(cmd, addr);
+
+    // Deactivate after delay, then repeat full cycle if redundancy
+    std::thread([this, cmd, addr, timeMs, count = m_redundancy]()
+    {
+        // First cycle: deactivate
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
+        if (!m_isOpen) return;
+        sendCommand(32, addr);
+
+        // Redundant cycles: full activate → wait → deactivate
+        for (unsigned int i = 0; i < count; i++)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+            if (!m_isOpen) return;
+            sendCommand(cmd, addr);
+
             std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
-            sendByte(32);
-            sendByte(static_cast<unsigned char>(address));
-        }).detach();
-    }
+            if (!m_isOpen) return;
+            sendCommand(32, addr);
+        }
+    }).detach();
 
     return true;
 }
@@ -241,20 +255,10 @@ void Kernel::setRedundancy(unsigned int count)
     m_redundancy = count;
 }
 
-void Kernel::sendLocoCommand(uint8_t address, uint8_t speedByte, bool f0)
+void Kernel::sendCommand(uint8_t byte1, uint8_t byte2)
 {
-    uint8_t cmd = speedByte & 0x0F;
-    if (f0)
-        cmd |= 0x10;
-
-    sendByte(cmd);
-    sendByte(address);
-
-    for (unsigned int i = 0; i < m_redundancy; i++)
-    {
-        sendByte(cmd);
-        sendByte(address);
-    }
+    sendByte(byte1);
+    sendByte(byte2);
 }
 
 void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
@@ -262,8 +266,24 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
     if (!m_isOpen || address < 1)
         return;
 
-    // speed 0 = stop, 1-14 = speed steps
-    sendLocoCommand(address, speed & 0x0E, f0);
+    uint8_t cmd = speed & 0x0F;
+    if (f0)
+        cmd |= 0x10;
+
+    sendCommand(cmd, address);
+
+    if (m_redundancy > 0)
+    {
+        std::thread([this, cmd, address, count = m_redundancy]()
+        {
+            for (unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if (!m_isOpen) return;
+                sendCommand(cmd, address);
+            }
+        }).detach();
+    }
 }
 
 void Kernel::setLocoDirection(uint8_t address, bool f0)
@@ -271,8 +291,12 @@ void Kernel::setLocoDirection(uint8_t address, bool f0)
     if (!m_isOpen || address < 1)
         return;
 
-    // 15 = direction toggle
-    sendLocoCommand(address, 15, f0);
+    uint8_t cmd = 15;
+    if (f0)
+        cmd |= 0x10;
+
+    // NO redundancy — toggling twice cancels out
+    sendCommand(cmd, address);
 }
 
 void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
@@ -280,8 +304,24 @@ void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
     if (!m_isOpen || address < 1)
         return;
 
-    // resend current speed with updated F0
-    sendLocoCommand(address, currentSpeed & 0x0E, f0);
+    uint8_t cmd = currentSpeed & 0x0F;
+    if (f0)
+        cmd |= 0x10;
+
+    sendCommand(cmd, address);
+
+    if (m_redundancy > 0)
+    {
+        std::thread([this, cmd, address, count = m_redundancy]()
+        {
+            for (unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if (!m_isOpen) return;
+                sendCommand(cmd, address);
+            }
+        }).detach();
+    }
 }
 
 void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bool f4)
@@ -289,20 +329,25 @@ void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bo
     if (!m_isOpen || address < 1)
         return;
 
-    // Base 64 + bitmask: bit0=F1, bit1=F2, bit2=F3, bit3=F4
     uint8_t cmd = 64;
     if (f1) cmd |= 0x01;
     if (f2) cmd |= 0x02;
     if (f3) cmd |= 0x04;
     if (f4) cmd |= 0x08;
 
-    sendByte(cmd);
-    sendByte(address);
+    sendCommand(cmd, address);
 
-    for (unsigned int i = 0; i < m_redundancy; i++)
+    if (m_redundancy > 0)
     {
-        sendByte(cmd);
-        sendByte(address);
+        std::thread([this, cmd, address, count = m_redundancy]()
+        {
+            for (unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if (!m_isOpen) return;
+                sendCommand(cmd, address);
+            }
+        }).detach();
     }
 }
 

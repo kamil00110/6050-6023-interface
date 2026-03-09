@@ -346,7 +346,7 @@ void Marklin6050Interface::updateEnabled()
     Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88amount, !online);
     Attributes::setEnabled(s88interval, !online);
-    Attributes::setEnabled(turnouttime, !online);
+    
     Attributes::setEnabled(slowacceleration, !online);
     Attributes::setEnabled(slowdeceleration, !online);
     Attributes::setEnabled(redundancy, !online);
@@ -359,9 +359,15 @@ void Marklin6050Interface::updateEnabled()
         centralUnitVersion == 6029;
     Attributes::setEnabled(analog, analogsupport);
     if(!analogsupport){
-        //Attributes::setValues(analog, false);
+        Attributes::setValues(analog, false);
     }
     
+    if(centralUnitVersion == 6021){
+        Attributes::setEnabled(turnouttime, false);
+    }
+    else{
+        Attributes::setEnabled(turnouttime, !online);
+    }
 }
 
 void Marklin6050Interface::serialPortChanged(const std::string& newPort)
@@ -604,7 +610,7 @@ Marklin6050Interface::decoderAddressMinMax(DecoderProtocol /*protocol*/) const
         ((centralUnitVersion == 6032) && !analog);
 
     const bool MM1 =
-        centralUnitVersion == 6021;
+        centralUnitVersion == 6020;
 
     const bool MM2 =
         centralUnitVersion == 6021;

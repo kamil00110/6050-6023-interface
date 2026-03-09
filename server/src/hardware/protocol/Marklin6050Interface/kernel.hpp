@@ -16,8 +16,11 @@
 #include <thread>
 #include <functional>
 #include <atomic>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/serial_port.hpp>
 
 #include "protocol.hpp"
+#include "config.hpp"
 #include "../../output/outputvalue.hpp"
 
 namespace Marklin6050 {
@@ -25,20 +28,15 @@ namespace Marklin6050 {
 class Kernel
 {
 public:
-    Kernel(const std::string& port, unsigned int baudrate = 2400);
+    const std::string logId;
+
+    Kernel(std::string logId, const Config& config);
     ~Kernel();
 
-    // --- Serial I/O ---
-    bool sendByte(unsigned char byte);
-    int readByte();
-
     // --- Lifecycle ---
-    bool start();
+    void start(const std::string& device, uint32_t baudrate);
     void stop();
     bool isRunning() const { return m_running.load(); }
-
-    // --- Configuration ---
-    void setRedundancy(unsigned int count);
 
     // --- Loco commands ---
     void setLocoSpeed(uint8_t address, uint8_t speed, bool f0);
@@ -50,6 +48,9 @@ public:
     // --- Accessory commands ---
     bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
 
+    // --- Global commands ---
+    bool sendByte(uint8_t byte);
+
     // --- S88 input polling ---
     void startInputThread(unsigned int moduleCount, unsigned int intervalMs);
     void stopInputThread();
@@ -58,21 +59,15 @@ public:
     std::function<void(uint32_t, bool)> s88Callback;
 
 private:
-    std::string m_port;
-    unsigned int m_baudrate;
-    unsigned int m_redundancy{0};
+    Config m_config;
+    boost::asio::io_context m_ioContext;
+    boost::asio::serial_port m_serialPort;
     std::thread m_inputThread;
     std::atomic<bool> m_running{false};
-    bool m_isOpen{false};
 
     void sendCommand(uint8_t byte1, uint8_t byte2);
+    int readByte();
     void inputLoop(unsigned int modules);
-
-#if defined(_WIN32)
-    void* m_handle;
-#else
-    int m_fd;
-#endif
 };
 
 } // namespace Marklin6050

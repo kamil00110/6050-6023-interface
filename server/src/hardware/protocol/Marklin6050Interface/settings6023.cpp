@@ -51,9 +51,9 @@ Settings6023::Settings6023(Object& _parent, std::string_view parentPropertyName)
     static const std::vector<unsigned int> redundancyOptions = {1, 2, 3, 4};
     static const std::vector<std::string_view> redundancyLabels = {
         DisplayName::Marklin6050::redundancy_off, 
-        DisplayName::Marklin6050::redundancy_2x,
-        DisplayName::Marklin6050::redundancy_3x,
-        DisplayName::Marklin6050::redundancy_4x
+        "x2",
+        "x3",
+        "x4"
     };
     Attributes::addCategory(redundancy, "category:marklin_6050");
     Attributes::addDisplayName(redundancy, DisplayName::Marklin6050::commandRedundancy);

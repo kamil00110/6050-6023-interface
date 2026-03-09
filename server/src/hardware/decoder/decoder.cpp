@@ -19,7 +19,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-#include <vector>
+
 #include "decoder.hpp"
 #include "list/decoderlist.hpp"
 #include "list/decoderlisttablemodel.hpp"
@@ -130,8 +130,8 @@ Decoder::Decoder(World& world, std::string_view _id) :
 
   Attributes::addDisplayName(address, DisplayName::Hardware::address);
   Attributes::addEnabled(address, false);
-  Attributes::addVisible(address, false);
   Attributes::addMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
+  Attributes::addVisible(address, false);
   m_interfaceItems.add(address);
 
   Attributes::addEnabled(mfxUID, false);
@@ -153,7 +153,7 @@ Decoder::Decoder(World& world, std::string_view _id) :
   Attributes::addValues(speedSteps, std::span<const uint8_t>{});
   Attributes::addVisible(speedSteps, false);
   m_interfaceItems.add(speedSteps);
- 
+
   Attributes::addObjectEditor(vehicle, false);
   m_interfaceItems.add(vehicle);
 
@@ -390,7 +390,6 @@ void Decoder::worldEvent(WorldState state, WorldEvent event)
       break;
   }
 }
-bool m_marklin6022AddressMode = false;
 
 void Decoder::protocolChanged()
 {
@@ -402,21 +401,8 @@ void Decoder::protocolChanged()
     Attributes::setVisible(address, hasAddress);
     if(hasAddress)
     {
-        if(addressRange.first == 10 && addressRange.second == 40)
-            {
-                m_marklin6022AddressMode = true;
-
-                Attributes::setMinMax(address, uint16_t(1), uint16_t(4));
-                Attributes::addUnit(address, "0"); // visual only
-                checkAddress();
-            }
-            else
-            {
-        m_marklin6022AddressMode = false;
-        Attributes::setMinMax(address, addressRange);
-        checkAddress();
-    }
-
+      Attributes::setMinMax(address, addressRange);
+      checkAddress();
     }
     else
       Attributes::setMinMax(address, std::pair<uint16_t, uint16_t>(0, 0));
@@ -460,30 +446,15 @@ bool Decoder::checkProtocol()
 
 bool Decoder::checkAddress()
 {
-    auto value = address.value();
-
-    if(m_marklin6022AddressMode)
-    {
-        static constexpr uint16_t map[] = { 0, 10, 20, 30, 40 };
-
-        value = std::clamp<uint16_t>(value, 1, 4);
-        value = map[value];
-    }
-    else
-    {
-        const auto min = address.getAttribute<uint16_t>(AttributeName::Min);
-        const auto max = address.getAttribute<uint16_t>(AttributeName::Max);
-        value = std::clamp(value, min, max);
-    }
-
-    if(value != address.value())
-    {
-        address = value;
-        return true;
-    }
-    return false;
+  const auto addressMin = address.getAttribute<uint16_t>(AttributeName::Min);
+  const auto addressMax = address.getAttribute<uint16_t>(AttributeName::Max);
+  if(!inRange(address.value(), addressMin, addressMax))
+  {
+    address = std::clamp(address.value(), addressMin, addressMax);
+    return true;
+  }
+  return false;
 }
-
 
 bool Decoder::checkSpeedSteps()
 {

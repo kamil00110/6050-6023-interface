@@ -49,8 +49,6 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
     name = "Märklin 6050/51";
     settings.setValueInternal(std::make_shared<Marklin6050::Settings>(*this, settings.name()));
 
-    name = "DCC-EX";
-  dccex.setValueInternal(std::make_shared<DCCEX::Settings>(*this, dccex.name()));
 
     // --- Connection ---
     Attributes::addDisplayName(serialPort, DisplayName::Serial::device);

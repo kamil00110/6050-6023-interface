@@ -510,7 +510,14 @@ void Kernel::binaryInputLoop(unsigned int modules)
             uint32_t address = m * 16 + (bit + 1);
 
             if(s88Callback)
-                s88Callback(address, state);
+            {
+                EventLoop::call(
+                    [this, address, state]()
+                    {
+                        if(s88Callback)
+                            s88Callback(address, state);
+                    });
+            }
         }
     }
 }
@@ -545,6 +552,13 @@ void Kernel::asciiInputLoop(unsigned int modules)
         }
 
         if(s88Callback)
-            s88Callback(contact, state);
+        {
+            EventLoop::call(
+                [this, contact, state]()
+                {
+                    if(s88Callback)
+                        s88Callback(contact, state);
+                });
+        }
     }
 }

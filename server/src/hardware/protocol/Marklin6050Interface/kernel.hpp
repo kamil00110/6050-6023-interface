@@ -74,12 +74,17 @@ private:
     int readByte();
     std::string readLine();
 
-    // --- Binary protocol (6050) ---
+    // --- Protocol helpers ---
     void sendBinaryCommand(uint8_t byte1, uint8_t byte2);
-    void binaryInputLoop(unsigned int modules);
-
-    // --- ASCII protocol (6023/6223) ---
     void sendAsciiCommand(const std::string& cmd);
+
+    // --- Redundancy helpers ---
+    void sendByteWithRedundancy(uint8_t byte);
+    void sendBinaryCommandWithRedundancy(uint8_t byte1, uint8_t byte2);
+    void sendAsciiCommandWithRedundancy(const std::string& cmd);
+
+    // --- S88 polling ---
+    void binaryInputLoop(unsigned int modules);
     void asciiInputLoop(unsigned int modules);
 };
 

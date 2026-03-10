@@ -145,7 +145,8 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
 
             try
             {
-                m_kernel = std::make_unique<Marklin6050::Kernel>(id.value(), cfg);
+                m_kernel = std::make_unique<Marklin6050::Kernel>(
+                    id.value(), cfg, serialPort.value(), baudrate.value());
 
                 m_kernel->s88Callback = [this](uint32_t address, bool state)
                 {
@@ -190,7 +191,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
                         };
                 }
 
-                m_kernel->start(serialPort, baudrate.value());
+                m_kernel->start();
             }
             catch(const LogMessageException& e)
             {

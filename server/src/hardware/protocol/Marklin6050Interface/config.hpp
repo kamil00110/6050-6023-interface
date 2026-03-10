@@ -1,5 +1,7 @@
 /**
- * server/src/hardware/protocol/Marklin6050Interface/config.hpp
+ * server/src/hardware/protocol/Marklin6050/config.hpp
+ *
+ * Runtime configuration snapshot for the Märklin 6050/6051 binary kernel.
  *
  * Copyright (C) 2025
  *
@@ -13,20 +15,18 @@
 #define TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6050_CONFIG_HPP
 
 #include <cstdint>
-#include "protocol.hpp"
 
 namespace Marklin6050 {
 
 struct Config
 {
-    ProtocolMode protocolMode = ProtocolMode::Binary;
-    uint16_t centralUnitVersion = 6020;
-    bool analog = false;
-    unsigned int s88amount = 1;
-    unsigned int s88interval = 400;
-    unsigned int turnouttime = 200;
-    unsigned int redundancy = 0;
-    bool extensions = false;
+    uint16_t    centralUnitVersion = 6020;
+    bool        analog             = false;
+    unsigned int s88amount         = 1;
+    unsigned int s88interval       = 400;   ///< milliseconds between S88 polls
+    unsigned int turnouttime       = 200;   ///< milliseconds solenoid on-time
+    unsigned int redundancy        = 0;     ///< extra retransmit count (0 = send once)
+    bool        extensions         = false; ///< enable extension event polling
 };
 
 } // namespace Marklin6050

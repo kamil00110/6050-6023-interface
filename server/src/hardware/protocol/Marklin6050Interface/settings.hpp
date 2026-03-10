@@ -25,9 +25,9 @@ public:
     Property<unsigned int> turnouttime;
     Property<unsigned int> redundancy;
     Property<bool> extensions;
-    Property<unsigned int> oldAddress;
-    Property<unsigned int> newAddress;
-    Property<bool> programmer;
+    //Property<unsigned int> oldAddress;
+    //Property<unsigned int> newAddress;
+    //Property<bool> programmer;
 
     Settings(Object& _parent, std::string_view parentPropertyName);
 

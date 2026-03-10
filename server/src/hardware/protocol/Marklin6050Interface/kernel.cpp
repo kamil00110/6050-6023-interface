@@ -16,6 +16,7 @@
 #include "../../../core/eventloop.hpp"
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
+#include "../../../core/eventloop.hpp"
 
 #include <boost/asio/write.hpp>
 #include <boost/asio/read.hpp>

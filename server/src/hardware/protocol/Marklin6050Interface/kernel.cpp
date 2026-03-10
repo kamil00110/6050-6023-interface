@@ -1,8 +1,5 @@
 /**
- * server/src/hardware/protocol/Marklin6050Interface/kernel.cpp
- *
- * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols
- * with optional extension module for external event feedback.
+ * server/src/hardware/protocol/Marklin6050/kernel.cpp
  *
  * Copyright (C) 2025
  *
@@ -13,693 +10,550 @@
  */
 
 #include "kernel.hpp"
-#include "../../../utils/serialport.hpp"
+#include "iohandler.hpp"
+#include "protocol.hpp"
 #include "../../../core/eventloop.hpp"
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
 
-#include <boost/asio/write.hpp>
-#include <boost/asio/read.hpp>
-#include <thread>
+#include <boost/asio/post.hpp>
 #include <chrono>
-#include <vector>
+#include <cassert>
 
-using namespace Marklin6050;
+using namespace std::chrono_literals;
 
-// === Construction / Destruction ===
+namespace Marklin6050 {
 
-Kernel::Kernel(std::string logId_, const Config& config)
-    : logId{std::move(logId_)}
+// ---------------------------------------------------------------------------
+// Construction
+// ---------------------------------------------------------------------------
+
+Kernel::Kernel(std::string logId, const Config& config)
+    : KernelBase{std::move(logId)}
     , m_config{config}
-    , m_serialPort{m_ioContext}
+    , m_s88Timer{m_ioContext}
+    , m_extensionTimer{m_ioContext}
 {
 }
 
-Kernel::~Kernel()
-{
-    stop();
-}
-
-// === Lifecycle ===
+// ---------------------------------------------------------------------------
+// Lifecycle
+// ---------------------------------------------------------------------------
 
 void Kernel::start(const std::string& device, uint32_t baudrate)
 {
-    SerialPort::open(m_serialPort, device, baudrate, 8,
-        SerialParity::None, SerialStopBits::One, SerialFlowControl::None);
+    // IOHandler constructor opens the port; throws LogMessageException on error.
+    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, device, baudrate);
+
+    // Start S88 polling if modules are configured
+    if(m_config.s88amount > 0)
+        scheduleS88Poll();
+
+    // Start extension polling if requested
+    if(m_config.extensions)
+        scheduleExtensionPoll();
+
+    // Run the io_context on the KernelBase background thread
+    KernelBase::start();
 }
 
 void Kernel::stop()
 {
-    stopExtensionThread();
-    stopInputThread();
-
-    if(m_serialPort.is_open())
-    {
-        boost::system::error_code ec;
-        m_serialPort.close(ec);
-    }
-}
-
-// === Low-level I/O ===
-
-bool Kernel::sendByte(uint8_t byte)
-{
-    if(!m_serialPort.is_open())
-        return false;
-
-    boost::system::error_code ec;
-    boost::asio::write(m_serialPort, boost::asio::buffer(&byte, 1), ec);
-
-    if(ec)
-    {
-        EventLoop::call(
-            [this, ec]()
-            {
-                Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
-            });
-        return false;
-    }
-    return true;
-}
-
-bool Kernel::sendString(const std::string& str)
-{
-    if(!m_serialPort.is_open())
-        return false;
-
-    boost::system::error_code ec;
-    boost::asio::write(m_serialPort, boost::asio::buffer(str), ec);
-
-    if(ec)
-    {
-        EventLoop::call(
-            [this, ec]()
-            {
-                Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
-            });
-        return false;
-    }
-    return true;
-}
-
-int Kernel::readByte()
-{
-    if(!m_serialPort.is_open())
-        return -1;
-
-    uint8_t byte;
-    boost::system::error_code ec;
-    boost::asio::read(m_serialPort, boost::asio::buffer(&byte, 1), ec);
-
-    if(ec)
-    {
-        EventLoop::call(
-            [this, ec]()
-            {
-                Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X, ec);
-            });
-        return -1;
-    }
-    return byte;
-}
-
-std::string Kernel::readLine()
-{
-    std::string line;
-    while(m_serialPort.is_open())
-    {
-        int b = readByte();
-        if(b < 0)
-            return {};
-        if(b == AsciiCR || b == '\n')
+    // Cancel timers and destroy the handler on the strand, then stop the thread.
+    boost::asio::post(m_strand,
+        [this]()
         {
-            if(!line.empty())
-                return line;
-            continue;
-        }
-        line += static_cast<char>(b);
-    }
-    return {};
+            m_s88Timer.cancel();
+            m_extensionTimer.cancel();
+            m_redundancyTimers.clear();
+            m_ioHandler.reset();
+        });
+
+    KernelBase::stop();  // joins the io_context thread
 }
 
-// === Protocol helpers ===
+// ---------------------------------------------------------------------------
+// Public command API  (posts onto the strand)
+// ---------------------------------------------------------------------------
 
-void Kernel::sendBinaryCommand(uint8_t byte1, uint8_t byte2)
+void Kernel::sendGlobalGo()
 {
-    sendByte(byte1);
-    sendByte(byte2);
+    boost::asio::post(m_strand, [this](){ sendWithRedundancy(GlobalGo); });
 }
 
-void Kernel::sendAsciiCommand(const std::string& cmd)
+void Kernel::sendGlobalStop()
 {
-    sendString(cmd + AsciiCR);
+    boost::asio::post(m_strand, [this](){ sendWithRedundancy(GlobalStop); });
 }
-
-// === Redundancy helpers ===
-
-void Kernel::sendByteWithRedundancy(uint8_t byte)
-{
-    sendByte(byte);
-
-    if(m_config.redundancy > 0)
-    {
-        std::thread([this, byte, count = m_config.redundancy]()
-        {
-            for(unsigned int i = 0; i < count; i++)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendByte(byte);
-            }
-        }).detach();
-    }
-}
-
-void Kernel::sendBinaryCommandWithRedundancy(uint8_t byte1, uint8_t byte2)
-{
-    sendBinaryCommand(byte1, byte2);
-
-    if(m_config.redundancy > 0)
-    {
-        std::thread([this, byte1, byte2, count = m_config.redundancy]()
-        {
-            for(unsigned int i = 0; i < count; i++)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendBinaryCommand(byte1, byte2);
-            }
-        }).detach();
-    }
-}
-
-void Kernel::sendAsciiCommandWithRedundancy(const std::string& cmd)
-{
-    sendAsciiCommand(cmd);
-
-    if(m_config.redundancy > 0)
-    {
-        std::thread([this, cmd, count = m_config.redundancy]()
-        {
-            for(unsigned int i = 0; i < count; i++)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendAsciiCommand(cmd);
-            }
-        }).detach();
-    }
-}
-
-// === Global commands ===
-
-bool Kernel::sendGlobalGo()
-{
-    if(!m_serialPort.is_open())
-        return false;
-
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-        sendAsciiCommandWithRedundancy("G");
-    else
-        sendByteWithRedundancy(GlobalGo);
-
-    return true;
-}
-
-bool Kernel::sendGlobalStop()
-{
-    if(!m_serialPort.is_open())
-        return false;
-
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-        sendAsciiCommandWithRedundancy("S");
-    else
-        sendByteWithRedundancy(GlobalStop);
-
-    return true;
-}
-
-// === Loco commands ===
 
 void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 {
-    if(!m_serialPort.is_open() || address < 1)
-        return;
-
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        sendAsciiCommandWithRedundancy(
-            "L " + std::to_string(address)
-            + " S " + std::to_string(speed & LocoSpeedMask)
-            + " F " + (f0 ? "1" : "0"));
-    }
-    else
-    {
-        uint8_t cmd = speed & LocoSpeedMask;
-        if(f0)
-            cmd |= LocoF0Bit;
-
-        sendBinaryCommandWithRedundancy(cmd, address);
-    }
+    boost::asio::post(m_strand,
+        [this, address, speed, f0]()
+        {
+            uint8_t cmd = speed & LocoSpeedMask;
+            if(f0) cmd |= LocoF0Bit;
+            sendWithRedundancy(cmd, address);
+        });
 }
 
 void Kernel::setLocoDirection(uint8_t address, bool f0)
 {
-    if(!m_serialPort.is_open() || address < 1)
-        return;
-
-    // no redundancy — toggling twice cancels out
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        sendAsciiCommand("L " + std::to_string(address) + " D");
-    }
-    else
-    {
-        uint8_t cmd = LocoDirToggle;
-        if(f0)
-            cmd |= LocoF0Bit;
-
-        sendBinaryCommand(cmd, address);
-    }
+    // No redundancy – toggling twice cancels out
+    boost::asio::post(m_strand,
+        [this, address, f0]()
+        {
+            uint8_t cmd = LocoDirToggle;
+            if(f0) cmd |= LocoF0Bit;
+            sendRaw(cmd, address);
+        });
 }
 
 void Kernel::setLocoEmergencyStop(uint8_t address, bool f0)
 {
-    if(!m_serialPort.is_open() || address < 1)
-        return;
-
-    // double direction toggle: first stops, second restores direction
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        std::string cmd = "L " + std::to_string(address) + " D";
-        sendAsciiCommand(cmd);
-
-        std::thread([this, cmd]()
+    // Double direction-toggle: first stops, second restores direction.
+    boost::asio::post(m_strand,
+        [this, address, f0]()
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            if(!m_serialPort.is_open()) return;
-            sendAsciiCommand(cmd);
-        }).detach();
-    }
-    else
-    {
-        uint8_t cmd = LocoDirToggle;
-        if(f0)
-            cmd |= LocoF0Bit;
+            uint8_t cmd = LocoDirToggle;
+            if(f0) cmd |= LocoF0Bit;
 
-        sendBinaryCommand(cmd, address);
+            sendRaw(cmd, address);
 
-        std::thread([this, cmd, address]()
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            if(!m_serialPort.is_open()) return;
-            sendBinaryCommand(cmd, address);
-        }).detach();
-    }
+            // Schedule the second toggle on a timer (50 ms later)
+            auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+            t.expires_after(50ms);
+            t.async_wait(boost::asio::bind_executor(m_strand,
+                [this, cmd, address](const boost::system::error_code& ec)
+                {
+                    if(!ec && m_ioHandler)
+                        sendRaw(cmd, address);
+                }));
+        });
 }
 
 void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
 {
-    if(!m_serialPort.is_open() || address < 1)
-        return;
-
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        sendAsciiCommandWithRedundancy(
-            "L " + std::to_string(address)
-            + " S " + std::to_string(currentSpeed & LocoSpeedMask)
-            + " F " + (f0 ? "1" : "0"));
-    }
-    else
-    {
-        uint8_t cmd = currentSpeed & LocoSpeedMask;
-        if(f0)
-            cmd |= LocoF0Bit;
-
-        sendBinaryCommandWithRedundancy(cmd, address);
-    }
+    boost::asio::post(m_strand,
+        [this, address, currentSpeed, f0]()
+        {
+            uint8_t cmd = currentSpeed & LocoSpeedMask;
+            if(f0) cmd |= LocoF0Bit;
+            sendWithRedundancy(cmd, address);
+        });
 }
 
 void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bool f4)
 {
-    // F1-F4 only supported in binary mode (6050)
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-        return;
-
-    if(!m_serialPort.is_open() || address < 1)
-        return;
-
-    uint8_t cmd = FunctionBase;
-    if(f1) cmd |= FunctionF1;
-    if(f2) cmd |= FunctionF2;
-    if(f3) cmd |= FunctionF3;
-    if(f4) cmd |= FunctionF4;
-
-    sendBinaryCommandWithRedundancy(cmd, address);
+    boost::asio::post(m_strand,
+        [this, address, f1, f2, f3, f4]()
+        {
+            uint8_t cmd = FunctionBase;
+            if(f1) cmd |= FunctionF1;
+            if(f2) cmd |= FunctionF2;
+            if(f3) cmd |= FunctionF3;
+            if(f4) cmd |= FunctionF4;
+            sendWithRedundancy(cmd, address);
+        });
 }
-
-// === Accessory commands ===
 
 bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int timeMs)
 {
-    if(!m_serialPort.is_open() || address < 1 || address > 256)
+    if(address < 1 || address > 256)
         return false;
 
-    if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        // ASCII mode: CU handles timing internally
-        char dir = 'G';
-
-        std::visit([&](auto&& v)
+    uint8_t cmd = 0;
+    std::visit(
+        [&](auto&& v)
         {
             using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, OutputPairValue>)
-                dir = (v == OutputPairValue::First) ? 'R' : 'G';
-            else if constexpr (std::is_same_v<T, TriState>)
-                dir = (v == TriState::True) ? 'R' : 'G';
-        }, value);
-
-        sendAsciiCommandWithRedundancy("M " + std::to_string(address) + " " + dir);
-        return true;
-    }
-    else
-    {
-        // binary mode: activate → wait → deactivate cycle
-        unsigned char cmd = 0;
-
-        std::visit([&](auto&& v)
-        {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, OutputPairValue>)
+            if constexpr(std::is_same_v<T, OutputPairValue>)
                 cmd = (v == OutputPairValue::First) ? AccessoryRed : AccessoryGreen;
-            else if constexpr (std::is_same_v<T, TriState>)
+            else if constexpr(std::is_same_v<T, TriState>)
                 cmd = (v == TriState::True) ? AccessoryRed : AccessoryGreen;
             else
-                cmd = static_cast<unsigned char>(v);
+                cmd = static_cast<uint8_t>(v);
         }, value);
 
-        uint8_t addr = static_cast<uint8_t>(address);
+    const uint8_t addr = static_cast<uint8_t>(address);
+    const unsigned int redundancy = m_config.redundancy;
 
-        sendBinaryCommand(cmd, addr);
-
-        std::thread([this, cmd, addr, timeMs, count = m_config.redundancy]()
+    boost::asio::post(m_strand,
+        [this, cmd, addr, timeMs, redundancy]()
         {
-            // redundant activations
-            for(unsigned int i = 0; i < count; i++)
+            if(!m_ioHandler)
+                return;
+
+            // First activation
+            sendRaw(cmd, addr);
+
+            // Schedule redundant activations, then deactivation cycle
+            // We chain timers: [50ms * i  activate] ... [timeMs  deactivate] [50ms * i  deactivate]
+            auto scheduleRetransmits = [this, cmd, addr, redundancy, timeMs]()
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendBinaryCommand(cmd, addr);
-            }
+                unsigned int offset = 0;
 
-            // wait for solenoid timing
-            std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
-            if(!m_serialPort.is_open()) return;
+                // --- redundant activations ---
+                for(unsigned int i = 0; i < redundancy; ++i)
+                {
+                    offset += 50;
+                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                    t.expires_after(std::chrono::milliseconds(offset));
+                    t.async_wait(boost::asio::bind_executor(m_strand,
+                        [this, cmd, addr](const boost::system::error_code& ec)
+                        {
+                            if(!ec && m_ioHandler)
+                                sendRaw(cmd, addr);
+                        }));
+                }
 
-            // first deactivation
-            sendBinaryCommand(AccessoryOff, addr);
+                // --- solenoid off after timeMs ---
+                offset += timeMs;
+                {
+                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                    t.expires_after(std::chrono::milliseconds(offset));
+                    t.async_wait(boost::asio::bind_executor(m_strand,
+                        [this, addr](const boost::system::error_code& ec)
+                        {
+                            if(!ec && m_ioHandler)
+                                sendRaw(AccessoryOff, addr);
+                        }));
+                }
 
-            // redundant deactivations
-            for(unsigned int i = 0; i < count; i++)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendBinaryCommand(AccessoryOff, addr);
-            }
-        }).detach();
+                // --- redundant deactivations ---
+                for(unsigned int i = 0; i < redundancy; ++i)
+                {
+                    offset += 50;
+                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                    t.expires_after(std::chrono::milliseconds(offset));
+                    t.async_wait(boost::asio::bind_executor(m_strand,
+                        [this, addr](const boost::system::error_code& ec)
+                        {
+                            if(!ec && m_ioHandler)
+                                sendRaw(AccessoryOff, addr);
+                        }));
+                }
+            };
 
-        return true;
-    }
+            scheduleRetransmits();
+        });
+
+    return true;
 }
 
-// === S88 input polling ===
+// ---------------------------------------------------------------------------
+// IOHandler callbacks
+// ---------------------------------------------------------------------------
 
-void Kernel::startInputThread(unsigned int moduleCount, unsigned int intervalMs)
+void Kernel::receive(uint8_t byte)
 {
-    if(m_running)
-        return;
+    // Called on the strand by IOHandler.
+    // Route the byte to whichever state machine is active.
 
-    m_running = true;
-
-    m_inputThread = std::thread([this, moduleCount, intervalMs]()
+    // --- S88 receive state machine ---
+    if(m_s88State == S88State::ReceivingData)
     {
-        while(m_running)
-        {
-            if(m_config.protocolMode == ProtocolMode::ASCII)
-                asciiInputLoop(moduleCount);
-            else
-                binaryInputLoop(moduleCount);
+        // Bytes arrive as pairs (high, low) per S88 module word.
+        const unsigned int byteIndex = (m_config.s88amount * 2) - m_s88Expect;
+        --m_s88Expect;
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+        const bool isHighByte = (byteIndex % 2 == 0);
+        if(isHighByte)
+        {
+            m_s88High = byte;
         }
-    });
-}
-
-void Kernel::stopInputThread()
-{
-    if(!m_running)
-        return;
-
-    m_running = false;
-    if(m_inputThread.joinable())
-        m_inputThread.join();
-}
-
-void Kernel::binaryInputLoop(unsigned int modules)
-{
-    if(!m_running || !m_serialPort.is_open() || modules == 0)
-        return;
-
-    uint8_t cmd = S88Base + static_cast<uint8_t>(modules);
-
-    if(!sendByte(cmd))
-        return;
-
-    const unsigned int totalBytes = modules * 2;
-    std::vector<uint8_t> buffer(totalBytes);
-
-    for(unsigned int i = 0; i < totalBytes; i++)
-    {
-        int b = readByte();
-        if(b < 0)
-            return;
-        buffer[i] = static_cast<uint8_t>(b);
-    }
-
-    for(unsigned int m = 0; m < modules; m++)
-    {
-        uint16_t bits =
-            (static_cast<uint16_t>(buffer[m * 2]) << 8) |
-             static_cast<uint16_t>(buffer[m * 2 + 1]);
-
-        for(int bit = 0; bit < 16; bit++)
+        else
         {
-            bool state = bits & (1 << bit);
-            uint32_t address = m * 16 + (bit + 1);
+            // Full 16-bit word received; fire callbacks
+            const uint16_t bits =
+                (static_cast<uint16_t>(m_s88High) << 8) |
+                 static_cast<uint16_t>(byte);
+
+            const unsigned int moduleIdx = m_s88Module++;
 
             if(s88Callback)
             {
+                for(int bit = 0; bit < 16; ++bit)
+                {
+                    const bool state = (bits >> bit) & 1u;
+                    const uint32_t address = moduleIdx * 16 + (bit + 1);
+
+                    EventLoop::call(
+                        [this, address, state]()
+                        {
+                            if(s88Callback)
+                                s88Callback(address, state);
+                        });
+                }
+            }
+        }
+
+        if(m_s88Expect == 0)
+        {
+            m_s88State  = S88State::Idle;
+            m_s88Module = 0;
+        }
+        return;
+    }
+
+    // --- Extension receive state machine ---
+    if(m_config.extensions && m_extState != ExtState::Idle)
+    {
+        processExtensionByte(byte);
+        return;
+    }
+}
+
+void Kernel::onReadError(const boost::system::error_code& ec)
+{
+    EventLoop::call(
+        [this, ec]()
+        {
+            Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X, ec);
+        });
+}
+
+void Kernel::onWriteError(const boost::system::error_code& ec)
+{
+    EventLoop::call(
+        [this, ec]()
+        {
+            Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
+        });
+}
+
+// ---------------------------------------------------------------------------
+// Internal send helpers  (must be on the strand)
+// ---------------------------------------------------------------------------
+
+void Kernel::sendRaw(uint8_t b1, uint8_t b2)
+{
+    if(m_ioHandler)
+        m_ioHandler->send({b1, b2});
+}
+
+void Kernel::sendRaw(uint8_t b)
+{
+    if(m_ioHandler)
+        m_ioHandler->send({b});
+}
+
+void Kernel::sendWithRedundancy(uint8_t b)
+{
+    sendRaw(b);
+    for(unsigned int i = 0; i < m_config.redundancy; ++i)
+    {
+        auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+        t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
+        t.async_wait(boost::asio::bind_executor(m_strand,
+            [this, b](const boost::system::error_code& ec)
+            {
+                if(!ec && m_ioHandler)
+                    sendRaw(b);
+            }));
+    }
+}
+
+void Kernel::sendWithRedundancy(uint8_t b1, uint8_t b2)
+{
+    sendRaw(b1, b2);
+    for(unsigned int i = 0; i < m_config.redundancy; ++i)
+    {
+        auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+        t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
+        t.async_wait(boost::asio::bind_executor(m_strand,
+            [this, b1, b2](const boost::system::error_code& ec)
+            {
+                if(!ec && m_ioHandler)
+                    sendRaw(b1, b2);
+            }));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// S88 polling  (timer-based, strand-safe)
+// ---------------------------------------------------------------------------
+
+void Kernel::scheduleS88Poll()
+{
+    m_s88Timer.expires_after(std::chrono::milliseconds(m_config.s88interval));
+    m_s88Timer.async_wait(boost::asio::bind_executor(m_strand,
+        [this](const boost::system::error_code& ec)
+        {
+            if(ec || !m_ioHandler)
+                return;
+            doS88Poll();
+            scheduleS88Poll();
+        }));
+}
+
+void Kernel::doS88Poll()
+{
+    // Send the poll command: S88Base + module count
+    const uint8_t cmd = S88Base + static_cast<uint8_t>(m_config.s88amount);
+    sendRaw(cmd);
+
+    // Arm the receive state machine
+    m_s88State  = S88State::ReceivingData;
+    m_s88Expect = m_config.s88amount * 2;
+    m_s88Module = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Extension polling  (timer-based, strand-safe)
+// ---------------------------------------------------------------------------
+
+void Kernel::scheduleExtensionPoll()
+{
+    m_extensionTimer.expires_after(1s);
+    m_extensionTimer.async_wait(boost::asio::bind_executor(m_strand,
+        [this](const boost::system::error_code& ec)
+        {
+            if(ec || !m_ioHandler)
+                return;
+            doExtensionPoll();
+            scheduleExtensionPoll();
+        }));
+}
+
+void Kernel::doExtensionPoll()
+{
+    sendRaw(Extension::PollByte);
+    sendRaw(Extension::PollByte);
+    m_extState      = ExtState::WaitCount;
+    m_extEventsLeft = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Extension byte processing  (inline helper; called from receive())
+// ---------------------------------------------------------------------------
+
+void Kernel::processExtensionByte(uint8_t byte)
+{
+    // This is intentionally a flat state machine rather than recursive calls,
+    // so the stack stays shallow and all logic stays on the strand.
+    switch(m_extState)
+    {
+        case ExtState::WaitCount:
+            m_extEventsLeft = byte;
+            m_extState = (byte > 0) ? ExtState::WaitType : ExtState::Idle;
+            break;
+
+        case ExtState::WaitType:
+            switch(byte)
+            {
+                case Extension::EventGlobal:    m_extState = ExtState::GlobalData;    break;
+                case Extension::EventTurnout:   m_extState = ExtState::TurnoutAddr;   break;
+                case Extension::EventLocoState: m_extState = ExtState::LocoStateAddr; break;
+                case Extension::EventLocoFunc:  m_extState = ExtState::LocoFuncAddr;  break;
+                default:
+                    // Unknown event type – cannot safely skip unknown length; abort polling.
+                    m_extState = ExtState::Idle;
+                    break;
+            }
+            break;
+
+        case ExtState::GlobalData:
+        {
+            const bool power = byte & Extension::GlobalPowerBit;
+            const bool run   = byte & Extension::GlobalRunBit;
+            if(extensionGlobalCallback)
+            {
                 EventLoop::call(
-                    [this, address, state]()
+                    [this, power, run]()
                     {
-                        if(s88Callback)
-                            s88Callback(address, state);
+                        if(extensionGlobalCallback)
+                            extensionGlobalCallback(power, run);
                     });
             }
+            advanceExtensionEvent();
+            break;
         }
+
+        case ExtState::TurnoutAddr:
+            m_extTmpAddr = byte;
+            m_extState   = ExtState::TurnoutState;
+            break;
+
+        case ExtState::TurnoutState:
+        {
+            const uint32_t address = (m_extTmpAddr == 0) ? 256u
+                                                           : static_cast<uint32_t>(m_extTmpAddr);
+            const bool green = (byte != 0);
+            if(extensionTurnoutCallback)
+            {
+                EventLoop::call(
+                    [this, address, green]()
+                    {
+                        if(extensionTurnoutCallback)
+                            extensionTurnoutCallback(address, green);
+                    });
+            }
+            advanceExtensionEvent();
+            break;
+        }
+
+        case ExtState::LocoStateAddr:
+            m_extTmpAddr = byte;
+            m_extState   = ExtState::LocoStateData;
+            break;
+
+        case ExtState::LocoStateData:
+        {
+            const uint8_t address = m_extTmpAddr;
+            const uint8_t speed   = byte & Extension::LocoSpeedBits;
+            const bool    f0      = byte & Extension::LocoF0Bit_Ext;
+            const bool    forward = !(byte & Extension::LocoDirBit);
+            if(extensionLocoCallback)
+            {
+                EventLoop::call(
+                    [this, address, speed, f0, forward]()
+                    {
+                        if(extensionLocoCallback)
+                            extensionLocoCallback(address, speed, f0, forward);
+                    });
+            }
+            advanceExtensionEvent();
+            break;
+        }
+
+        case ExtState::LocoFuncAddr:
+            m_extTmpAddr = byte;
+            m_extState   = ExtState::LocoFuncData;
+            break;
+
+        case ExtState::LocoFuncData:
+        {
+            const uint8_t address = m_extTmpAddr;
+            const bool f1 = byte & Extension::LocoF1Bit;
+            const bool f2 = byte & Extension::LocoF2Bit;
+            const bool f3 = byte & Extension::LocoF3Bit;
+            const bool f4 = byte & Extension::LocoF4Bit;
+            if(extensionFuncCallback)
+            {
+                EventLoop::call(
+                    [this, address, f1, f2, f3, f4]()
+                    {
+                        if(extensionFuncCallback)
+                            extensionFuncCallback(address, f1, f2, f3, f4);
+                    });
+            }
+            advanceExtensionEvent();
+            break;
+        }
+
+        default:
+            m_extState = ExtState::Idle;
+            break;
     }
 }
 
-void Kernel::asciiInputLoop(unsigned int modules)
+void Kernel::advanceExtensionEvent()
 {
-    if(!m_running || !m_serialPort.is_open() || modules == 0)
-        return;
-
-    const unsigned int totalContacts = modules * 16;
-
-    for(unsigned int contact = 1; contact <= totalContacts; contact++)
-    {
-        if(!m_running || !m_serialPort.is_open())
-            return;
-
-        sendAsciiCommand("C " + std::to_string(contact));
-
-        std::string response = readLine();
-        if(response.empty())
-            return;
-
-        bool state = false;
-        try
-        {
-            state = (std::stoi(response) != 0);
-        }
-        catch(...)
-        {
-            continue;
-        }
-
-        if(s88Callback)
-        {
-            EventLoop::call(
-                [this, contact, state]()
-                {
-                    if(s88Callback)
-                        s88Callback(contact, state);
-                });
-        }
-    }
+    if(--m_extEventsLeft > 0)
+        m_extState = ExtState::WaitType;
+    else
+        m_extState = ExtState::Idle;
 }
 
-// === Extension polling ===
-
-void Kernel::startExtensionThread()
-{
-    if(m_extensionRunning)
-        return;
-
-    m_extensionRunning = true;
-
-    m_extensionThread = std::thread([this]()
-    {
-        while(m_extensionRunning)
-        {
-            extensionPoll();
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-        }
-    });
-}
-
-void Kernel::stopExtensionThread()
-{
-    if(!m_extensionRunning)
-        return;
-
-    m_extensionRunning = false;
-    if(m_extensionThread.joinable())
-        m_extensionThread.join();
-}
-
-void Kernel::extensionPoll()
-{
-    if(!m_serialPort.is_open())
-        return;
-
-    // send poll command: 255 255
-    if(!sendByte(Extension::PollByte) || !sendByte(Extension::PollByte))
-        return;
-
-    // read event count
-    int countByte = readByte();
-    if(countByte <= 0)
-        return;
-
-    uint8_t count = static_cast<uint8_t>(countByte);
-
-    for(uint8_t i = 0; i < count; i++)
-    {
-        if(!m_serialPort.is_open())
-            return;
-
-        // read event type
-        int typeByte = readByte();
-        if(typeByte < 0)
-            return;
-
-        switch(static_cast<uint8_t>(typeByte))
-        {
-            case Extension::EventGlobal:
-            {
-                int data = readByte();
-                if(data < 0)
-                    return;
-
-                bool power = data & Extension::GlobalPowerBit;
-                bool run = data & Extension::GlobalRunBit;
-
-                if(extensionGlobalCallback)
-                {
-                    EventLoop::call(
-                        [this, power, run]()
-                        {
-                            if(extensionGlobalCallback)
-                                extensionGlobalCallback(power, run);
-                        });
-                }
-                break;
-            }
-            case Extension::EventTurnout:
-            {
-                int addrByte = readByte();
-                int stateByte = readByte();
-                if(addrByte < 0 || stateByte < 0)
-                    return;
-
-                // address 0 means 256
-                uint32_t address = (addrByte == 0) ? 256 : static_cast<uint32_t>(addrByte);
-                bool green = (stateByte != 0);
-
-                if(extensionTurnoutCallback)
-                {
-                    EventLoop::call(
-                        [this, address, green]()
-                        {
-                            if(extensionTurnoutCallback)
-                                extensionTurnoutCallback(address, green);
-                        });
-                }
-                break;
-            }
-            case Extension::EventLocoState:
-            {
-                int addrByte = readByte();
-                int dataByte = readByte();
-                if(addrByte < 0 || dataByte < 0)
-                    return;
-
-                uint8_t address = static_cast<uint8_t>(addrByte);
-                uint8_t speed = dataByte & Extension::LocoSpeedBits;
-                bool f0 = dataByte & Extension::LocoF0Bit_Ext;
-                bool forward = !(dataByte & Extension::LocoDirBit);
-
-                if(extensionLocoCallback)
-                {
-                    EventLoop::call(
-                        [this, address, speed, f0, forward]()
-                        {
-                            if(extensionLocoCallback)
-                                extensionLocoCallback(address, speed, f0, forward);
-                        });
-                }
-                break;
-            }
-            case Extension::EventLocoFunc:
-            {
-                int addrByte = readByte();
-                int dataByte = readByte();
-                if(addrByte < 0 || dataByte < 0)
-                    return;
-
-                uint8_t address = static_cast<uint8_t>(addrByte);
-                bool f1 = dataByte & Extension::LocoF1Bit;
-                bool f2 = dataByte & Extension::LocoF2Bit;
-                bool f3 = dataByte & Extension::LocoF3Bit;
-                bool f4 = dataByte & Extension::LocoF4Bit;
-
-                if(extensionFuncCallback)
-                {
-                    EventLoop::call(
-                        [this, address, f1, f2, f3, f4]()
-                        {
-                            if(extensionFuncCallback)
-                                extensionFuncCallback(address, f1, f2, f3, f4);
-                        });
-                }
-                break;
-            }
-            default:
-                // unknown event type — can't know how many bytes to skip
-                // bail out to avoid reading garbage
-                return;
-        }
-    }
-}
+} // namespace Marklin6050

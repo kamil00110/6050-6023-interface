@@ -21,8 +21,8 @@
 #include "../output/outputcontroller.hpp"
 #include "../input/inputcontroller.hpp"
 #include "../decoder/decodercontroller.hpp"
-#include "../protocol/Marklin6050/kernel.hpp"
-#include "../protocol/Marklin6050/settings.hpp"
+#include "../protocol/Marklin6050Interface/kernel.hpp"
+#include "../protocol/Marklin6050Interface/settings.hpp"
 
 class Marklin6050Interface final
     : public Interface

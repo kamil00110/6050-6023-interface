@@ -98,7 +98,7 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     m_interfaceItems.add(turnouttime);
 
     // --- Command redundancy ---
-    static const std::vector<unsigned int> redundancyOptions = {1, 2, 3, 4};
+    static const std::vector<unsigned int> redundancyOptions = {0, 1, 2, 3};
     static const std::vector<std::string_view> redundancyLabels = {
         DisplayName::Marklin6050::redundancy_off, 
         "x2",

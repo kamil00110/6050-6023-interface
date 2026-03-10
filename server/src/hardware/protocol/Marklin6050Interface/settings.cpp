@@ -26,9 +26,9 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     , turnouttime{this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , redundancy{this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , extensions{this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , oldAddress{this, "oldAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , newAddress{this, "newAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store}
-    , programmer{this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    //, oldAddress{this, "oldAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    //, newAddress{this, "newAddress", 1, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    //, programmer{this, "programmer", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
     // --- Central Unit Version ---
     static const std::vector<uint16_t> cuOptions = {

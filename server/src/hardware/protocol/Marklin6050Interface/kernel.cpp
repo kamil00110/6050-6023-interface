@@ -1,7 +1,8 @@
 /**
  * server/src/hardware/protocol/Marklin6050Interface/kernel.cpp
  *
- * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols.
+ * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols
+ * with optional extension module for external event feedback.
  *
  * Copyright (C) 2025
  *
@@ -49,6 +50,7 @@ void Kernel::start(const std::string& device, uint32_t baudrate)
 
 void Kernel::stop()
 {
+    stopExtensionThread();
     stopInputThread();
 
     if(m_serialPort.is_open())
@@ -398,7 +400,6 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
         uint8_t addr = static_cast<uint8_t>(address);
 
-        // first activation
         sendBinaryCommand(cmd, addr);
 
         std::thread([this, cmd, addr, timeMs, count = m_config.redundancy]()
@@ -545,6 +546,160 @@ void Kernel::asciiInputLoop(unsigned int modules)
                     if(s88Callback)
                         s88Callback(contact, state);
                 });
+        }
+    }
+}
+
+// === Extension polling ===
+
+void Kernel::startExtensionThread()
+{
+    if(m_extensionRunning)
+        return;
+
+    m_extensionRunning = true;
+
+    m_extensionThread = std::thread([this]()
+    {
+        while(m_extensionRunning)
+        {
+            extensionPoll();
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+    });
+}
+
+void Kernel::stopExtensionThread()
+{
+    if(!m_extensionRunning)
+        return;
+
+    m_extensionRunning = false;
+    if(m_extensionThread.joinable())
+        m_extensionThread.join();
+}
+
+void Kernel::extensionPoll()
+{
+    if(!m_serialPort.is_open())
+        return;
+
+    // send poll command: 255 255
+    if(!sendByte(Extension::PollByte) || !sendByte(Extension::PollByte))
+        return;
+
+    // read event count
+    int countByte = readByte();
+    if(countByte <= 0)
+        return;
+
+    uint8_t count = static_cast<uint8_t>(countByte);
+
+    for(uint8_t i = 0; i < count; i++)
+    {
+        if(!m_serialPort.is_open())
+            return;
+
+        // read event type
+        int typeByte = readByte();
+        if(typeByte < 0)
+            return;
+
+        switch(static_cast<uint8_t>(typeByte))
+        {
+            case Extension::EventGlobal:
+            {
+                int data = readByte();
+                if(data < 0)
+                    return;
+
+                bool power = data & Extension::GlobalPowerBit;
+                bool run = data & Extension::GlobalRunBit;
+
+                if(extensionGlobalCallback)
+                {
+                    EventLoop::call(
+                        [this, power, run]()
+                        {
+                            if(extensionGlobalCallback)
+                                extensionGlobalCallback(power, run);
+                        });
+                }
+                break;
+            }
+            case Extension::EventTurnout:
+            {
+                int addrByte = readByte();
+                int stateByte = readByte();
+                if(addrByte < 0 || stateByte < 0)
+                    return;
+
+                // address 0 means 256
+                uint32_t address = (addrByte == 0) ? 256 : static_cast<uint32_t>(addrByte);
+                bool green = (stateByte != 0);
+
+                if(extensionTurnoutCallback)
+                {
+                    EventLoop::call(
+                        [this, address, green]()
+                        {
+                            if(extensionTurnoutCallback)
+                                extensionTurnoutCallback(address, green);
+                        });
+                }
+                break;
+            }
+            case Extension::EventLocoState:
+            {
+                int addrByte = readByte();
+                int dataByte = readByte();
+                if(addrByte < 0 || dataByte < 0)
+                    return;
+
+                uint8_t address = static_cast<uint8_t>(addrByte);
+                uint8_t speed = dataByte & Extension::LocoSpeedBits;
+                bool f0 = dataByte & Extension::LocoF0Bit_Ext;
+                bool forward = !(dataByte & Extension::LocoDirBit);
+
+                if(extensionLocoCallback)
+                {
+                    EventLoop::call(
+                        [this, address, speed, f0, forward]()
+                        {
+                            if(extensionLocoCallback)
+                                extensionLocoCallback(address, speed, f0, forward);
+                        });
+                }
+                break;
+            }
+            case Extension::EventLocoFunc:
+            {
+                int addrByte = readByte();
+                int dataByte = readByte();
+                if(addrByte < 0 || dataByte < 0)
+                    return;
+
+                uint8_t address = static_cast<uint8_t>(addrByte);
+                bool f1 = dataByte & Extension::LocoF1Bit;
+                bool f2 = dataByte & Extension::LocoF2Bit;
+                bool f3 = dataByte & Extension::LocoF3Bit;
+                bool f4 = dataByte & Extension::LocoF4Bit;
+
+                if(extensionFuncCallback)
+                {
+                    EventLoop::call(
+                        [this, address, f1, f2, f3, f4]()
+                        {
+                            if(extensionFuncCallback)
+                                extensionFuncCallback(address, f1, f2, f3, f4);
+                        });
+                }
+                break;
+            }
+            default:
+                // unknown event type — can't know how many bytes to skip
+                // bail out to avoid reading garbage
+                return;
         }
     }
 }

@@ -9,12 +9,6 @@
  * of the License, or (at your option) any later version.
  */
 
-#if defined(_WIN32)
-#define WIN32_LEAN_AND_MEAN
-#include <winsock2.h>
-#include <windows.h>
-#endif
-
 #include "Marklin6023Interface.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"

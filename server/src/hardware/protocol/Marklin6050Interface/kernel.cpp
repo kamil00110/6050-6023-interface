@@ -161,17 +161,87 @@ void Kernel::sendAsciiCommand(const std::string& cmd)
 bool Kernel::sendGlobalGo()
 {
     if(m_config.protocolMode == ProtocolMode::ASCII)
-        return sendString(std::string("G") + AsciiCR);
+    {
+        std::string cmd = std::string("G") + AsciiCR;
+        sendString(cmd);
+
+        if(m_config.redundancy > 0)
+        {
+            std::thread([this, cmd, count = m_config.redundancy]()
+            {
+                for(unsigned int i = 0; i < count; i++)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    if(!m_serialPort.is_open()) return;
+                    sendString(cmd);
+                }
+            }).detach();
+        }
+
+        return true;
+    }
     else
-        return sendByte(Marklin6050::GlobalGo);
+    {
+        sendByte(GlobalGo);
+
+        if(m_config.redundancy > 0)
+        {
+            std::thread([this, count = m_config.redundancy]()
+            {
+                for(unsigned int i = 0; i < count; i++)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    if(!m_serialPort.is_open()) return;
+                    sendByte(GlobalGo);
+                }
+            }).detach();
+        }
+
+        return true;
+    }
 }
 
 bool Kernel::sendGlobalStop()
 {
     if(m_config.protocolMode == ProtocolMode::ASCII)
-        return sendString(std::string("S") + AsciiCR);
+    {
+        std::string cmd = std::string("S") + AsciiCR;
+        sendString(cmd);
+
+        if(m_config.redundancy > 0)
+        {
+            std::thread([this, cmd, count = m_config.redundancy]()
+            {
+                for(unsigned int i = 0; i < count; i++)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    if(!m_serialPort.is_open()) return;
+                    sendString(cmd);
+                }
+            }).detach();
+        }
+
+        return true;
+    }
     else
-        return sendByte(Marklin6050::GlobalStop);
+    {
+        sendByte(GlobalStop);
+
+        if(m_config.redundancy > 0)
+        {
+            std::thread([this, count = m_config.redundancy]()
+            {
+                for(unsigned int i = 0; i < count; i++)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    if(!m_serialPort.is_open()) return;
+                    sendByte(GlobalStop);
+                }
+            }).detach();
+        }
+
+        return true;
+    }
 }
 
 // === Loco commands ===

@@ -85,11 +85,26 @@
             }
           },
           {
-            "name": "Märklin 6050/51",
-            "next": "connection_6050",
+            "name": "Märklin 6023/6223",
+            "next": "serial_port_marklin",
             "actions": {
+              "create_interface": {
+                "class_id": "interface.marklin6023"
+              },
               "set_variables": {
-                "command_station": "Märklin 6050/51"
+                "command_station": "Märklin 6023/6223"
+              }
+            }
+          },
+          {
+            "name": "Märklin 6050/6051",
+            "next": "serial_port_marklin",
+            "actions": {
+              "create_interface": {
+                "class_id": "interface.marklin6050"
+              },
+              "set_variables": {
+                "command_station": "Märklin 6050/6051"
               }
             }
           },
@@ -249,33 +264,6 @@
           },
           {
             "name": "$wizard.add_interface.connection:can_interface$ ($wizard.add_interface.connection:not_yet_supported$)",
-            "disabled": true
-          }
-        ]
-      },
-      "connection_6050": {
-        "title": "$wizard.add_interface.connection:title$",
-        "text": "$wizard.add_interface.connection:text$",
-        "type": "serial",
-        "options": [
-          {
-            "name": "$wizard.add_interface.connection:command_station_usb_port$",
-            "next": "serial_port",
-            "actions": {
-              "create_interface": {
-                "class_id": "interface.marklin6050",
-                "properties": {
-                  "name": "%command_station%",
-                  "type": "serial",
-                  "baudrate": 2400,
-                  "flow_control": "hardware",
-                  "marklin6050.command_station": "%marklin6050_command_station%"
-                }
-              }
-            }
-          },
-          {
-            "name": "$wizard.add_interface.connection:marklin6050_interface$",
             "disabled": true
           }
         ]
@@ -586,6 +574,16 @@
         "object": "interface",
         "properties": [
           "device"
+        ],
+        "next": "name"
+      },
+      "serial_port_marklin": {
+        "title": "$wizard.add_interface.serial_port:title$",
+        "text": "$wizard.add_interface.serial_port:text$",
+        "type": "property",
+        "object": "interface",
+        "properties": [
+          "serialPort"
         ],
         "next": "name"
       },

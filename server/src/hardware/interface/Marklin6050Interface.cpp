@@ -150,12 +150,49 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
             try
             {
                 m_kernel = std::make_unique<Marklin6050::Kernel>(id.value(), cfg);
+
                 m_kernel->s88Callback = [this](uint32_t address, bool state)
                 {
                     this->onS88Input(address, state);
                 };
+
+                if(cfg.extensions)
+                {
+                    m_kernel->extensionTurnoutCallback = [this](uint32_t address, bool green)
+                    {
+                        OutputPairValue val = green ? OutputPairValue::Second : OutputPairValue::First;
+                        updateOutputValue(OutputChannel::Accessory, address, val);
+                    };
+
+                    m_kernel->extensionLocoCallback = [this](uint8_t address, uint8_t speed, bool f0, bool forward)
+                    {
+                        auto decoder = DecoderController::getDecoder(DecoderProtocol::Motorola, address);
+                        if(!decoder)
+                            return;
+
+                        decoder->direction.setValueInternal(forward ? Direction::Forward : Direction::Reverse);
+                        decoder->throttle.setValueInternal(Decoder::speedStepToThrottle<uint8_t>(speed, 14));
+                        decoder->setFunctionValue(0, f0);
+                    };
+
+                    m_kernel->extensionFuncCallback = [this](uint8_t address, bool f1, bool f2, bool f3, bool f4)
+                    {
+                        auto decoder = DecoderController::getDecoder(DecoderProtocol::Motorola, address);
+                        if(!decoder)
+                            return;
+
+                        decoder->setFunctionValue(1, f1);
+                        decoder->setFunctionValue(2, f2);
+                        decoder->setFunctionValue(3, f3);
+                        decoder->setFunctionValue(4, f4);
+                    };
+                }
+
                 m_kernel->start(serialPort, baudrate.value());
                 m_kernel->startInputThread(cfg.s88amount, cfg.s88interval);
+
+                if(cfg.extensions)
+                    m_kernel->startExtensionThread();
             }
             catch(const LogMessageException& e)
             {
@@ -183,7 +220,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
     updateEnabled();
     return true;
 }
-
 // --- Input ---
 
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const

@@ -122,7 +122,8 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     Attributes::addVisible(extensions, true);
     m_interfaceItems.add(extensions);
 
-    // --- Programmer ---
+    // --- Programmer (disabled more research needed) ---
+    /*
     Attributes::addCategory(oldAddress, "category:programmer");
     Attributes::addDisplayName(oldAddress, DisplayName::Marklin6050::oldLocoAddress);
     Attributes::addEnabled(oldAddress, false);
@@ -143,6 +144,7 @@ Settings::Settings(Object& _parent, std::string_view parentPropertyName)
     Attributes::addEnabled(programmer, false);
     Attributes::addVisible(programmer, true);
     m_interfaceItems.add(programmer);
+    */
 }
 
 Config Settings::config() const

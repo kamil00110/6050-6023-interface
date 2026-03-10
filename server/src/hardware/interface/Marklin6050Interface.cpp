@@ -21,6 +21,7 @@
 #include "../decoder/list/decoderlist.hpp"
 #include "../decoder/list/decoderlisttablemodel.hpp"
 #include "../decoder/decoderchangeflags.hpp"
+#include "../decoder/decoder.hpp"
 #include "../../utils/displayname.hpp"
 #include "../../utils/makearray.hpp"
 #include "../../world/world.hpp"

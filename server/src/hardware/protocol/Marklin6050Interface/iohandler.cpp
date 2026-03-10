@@ -1,0 +1,109 @@
+/**
+ * server/src/hardware/protocol/Marklin6050/iohandler.cpp
+ *
+ * Copyright (C) 2025
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ */
+
+#include "iohandler.hpp"
+#include "kernel.hpp"
+#include "../../../utils/serialport.hpp"
+#include "../../../log/log.hpp"
+
+#include <boost/asio/write.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/post.hpp>
+#include <boost/asio/buffer.hpp>
+#include <vector>
+
+namespace Marklin6050 {
+
+IOHandler::IOHandler(Kernel& kernel,
+                     boost::asio::io_context& ioContext,
+                     const std::string& device,
+                     uint32_t baudrate)
+    : m_kernel{kernel}
+    , m_ioContext{ioContext}
+    , m_strand{boost::asio::make_strand(ioContext)}
+    , m_serialPort{ioContext}
+{
+    // open() throws LogMessageException on failure – propagated to Kernel::start()
+    SerialPort::open(m_serialPort, device, baudrate,
+                     8, SerialParity::None, SerialStopBits::One, SerialFlowControl::None);
+
+    startRead();
+}
+
+IOHandler::~IOHandler()
+{
+    boost::system::error_code ec;
+    m_serialPort.cancel(ec);
+    m_serialPort.close(ec);
+}
+
+// ---------------------------------------------------------------------------
+
+void IOHandler::send(std::initializer_list<uint8_t> bytes)
+{
+    send(bytes.begin(), bytes.size());
+}
+
+void IOHandler::send(const uint8_t* data, std::size_t length)
+{
+    // Copy into a shared buffer so the lambda owns the data lifetime.
+    auto buf = std::make_shared<std::vector<uint8_t>>(data, data + length);
+
+    boost::asio::post(m_strand,
+        [this, buf]()
+        {
+            if(!m_serialPort.is_open())
+                return;
+
+            boost::asio::async_write(
+                m_serialPort,
+                boost::asio::buffer(*buf),
+                boost::asio::bind_executor(m_strand,
+                    [this, buf](const boost::system::error_code& ec, std::size_t /*written*/)
+                    {
+                        if(ec && ec != boost::asio::error::operation_aborted)
+                            m_kernel.onWriteError(ec);
+                    }));
+        });
+}
+
+// ---------------------------------------------------------------------------
+
+void IOHandler::startRead()
+{
+    if(!m_serialPort.is_open())
+        return;
+
+    m_serialPort.async_read_some(
+        boost::asio::buffer(m_readBuffer),
+        boost::asio::bind_executor(m_strand,
+            [this](const boost::system::error_code& ec, std::size_t bytesRead)
+            {
+                onRead(ec, bytesRead);
+            }));
+}
+
+void IOHandler::onRead(const boost::system::error_code& ec, std::size_t bytesRead)
+{
+    if(ec)
+    {
+        if(ec != boost::asio::error::operation_aborted)
+            m_kernel.onReadError(ec);
+        return;
+    }
+
+    for(std::size_t i = 0; i < bytesRead; ++i)
+        m_kernel.receive(m_readBuffer[i]);
+
+    startRead();
+}
+
+} // namespace Marklin6050

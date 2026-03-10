@@ -16,7 +16,6 @@
 #include "../../../core/eventloop.hpp"
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
-#include "../../../core/eventloop.hpp"
 
 #include <boost/asio/write.hpp>
 #include <boost/asio/read.hpp>
@@ -26,7 +25,7 @@
 
 using namespace Marklin6050;
 
-// --- Construction / Destruction ---
+// === Construction / Destruction ===
 
 Kernel::Kernel(std::string logId_, const Config& config)
     : logId{std::move(logId_)}
@@ -40,7 +39,7 @@ Kernel::~Kernel()
     stop();
 }
 
-// --- Lifecycle ---
+// === Lifecycle ===
 
 void Kernel::start(const std::string& device, uint32_t baudrate)
 {
@@ -134,14 +133,14 @@ std::string Kernel::readLine()
         {
             if(!line.empty())
                 return line;
-            continue; // skip leading CR/LF
+            continue;
         }
         line += static_cast<char>(b);
     }
     return {};
 }
 
-// === Binary protocol helpers (6050) ===
+// === Protocol helpers ===
 
 void Kernel::sendBinaryCommand(uint8_t byte1, uint8_t byte2)
 {
@@ -149,99 +148,93 @@ void Kernel::sendBinaryCommand(uint8_t byte1, uint8_t byte2)
     sendByte(byte2);
 }
 
-// === ASCII protocol helpers (6023/6223) ===
-
 void Kernel::sendAsciiCommand(const std::string& cmd)
 {
     sendString(cmd + AsciiCR);
+}
+
+// === Redundancy helpers ===
+
+void Kernel::sendByteWithRedundancy(uint8_t byte)
+{
+    sendByte(byte);
+
+    if(m_config.redundancy > 0)
+    {
+        std::thread([this, byte, count = m_config.redundancy]()
+        {
+            for(unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if(!m_serialPort.is_open()) return;
+                sendByte(byte);
+            }
+        }).detach();
+    }
+}
+
+void Kernel::sendBinaryCommandWithRedundancy(uint8_t byte1, uint8_t byte2)
+{
+    sendBinaryCommand(byte1, byte2);
+
+    if(m_config.redundancy > 0)
+    {
+        std::thread([this, byte1, byte2, count = m_config.redundancy]()
+        {
+            for(unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if(!m_serialPort.is_open()) return;
+                sendBinaryCommand(byte1, byte2);
+            }
+        }).detach();
+    }
+}
+
+void Kernel::sendAsciiCommandWithRedundancy(const std::string& cmd)
+{
+    sendAsciiCommand(cmd);
+
+    if(m_config.redundancy > 0)
+    {
+        std::thread([this, cmd, count = m_config.redundancy]()
+        {
+            for(unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                if(!m_serialPort.is_open()) return;
+                sendAsciiCommand(cmd);
+            }
+        }).detach();
+    }
 }
 
 // === Global commands ===
 
 bool Kernel::sendGlobalGo()
 {
+    if(!m_serialPort.is_open())
+        return false;
+
     if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        std::string cmd = std::string("G") + AsciiCR;
-        sendString(cmd);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendString(cmd);
-                }
-            }).detach();
-        }
-
-        return true;
-    }
+        sendAsciiCommandWithRedundancy("G");
     else
-    {
-        sendByte(GlobalGo);
+        sendByteWithRedundancy(GlobalGo);
 
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendByte(GlobalGo);
-                }
-            }).detach();
-        }
-
-        return true;
-    }
+    return true;
 }
 
 bool Kernel::sendGlobalStop()
 {
+    if(!m_serialPort.is_open())
+        return false;
+
     if(m_config.protocolMode == ProtocolMode::ASCII)
-    {
-        std::string cmd = std::string("S") + AsciiCR;
-        sendString(cmd);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendString(cmd);
-                }
-            }).detach();
-        }
-
-        return true;
-    }
+        sendAsciiCommandWithRedundancy("S");
     else
-    {
-        sendByte(GlobalStop);
+        sendByteWithRedundancy(GlobalStop);
 
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendByte(GlobalStop);
-                }
-            }).detach();
-        }
-
-        return true;
-    }
+    return true;
 }
 
 // === Loco commands ===
@@ -253,24 +246,10 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
-        // L x S y F z
-        std::string cmd = "L " + std::to_string(address)
+        sendAsciiCommandWithRedundancy(
+            "L " + std::to_string(address)
             + " S " + std::to_string(speed & LocoSpeedMask)
-            + " F " + (f0 ? "1" : "0");
-        sendAsciiCommand(cmd);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendAsciiCommand(cmd);
-                }
-            }).detach();
-        }
+            + " F " + (f0 ? "1" : "0"));
     }
     else
     {
@@ -278,20 +257,7 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
         if(f0)
             cmd |= LocoF0Bit;
 
-        sendBinaryCommand(cmd, address);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, address, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendBinaryCommand(cmd, address);
-                }
-            }).detach();
-        }
+        sendBinaryCommandWithRedundancy(cmd, address);
     }
 }
 
@@ -300,9 +266,9 @@ void Kernel::setLocoDirection(uint8_t address, bool f0)
     if(!m_serialPort.is_open() || address < 1)
         return;
 
+    // no redundancy — toggling twice cancels out
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
-        // L x D — no redundancy (toggle)
         sendAsciiCommand("L " + std::to_string(address) + " D");
     }
     else
@@ -311,7 +277,6 @@ void Kernel::setLocoDirection(uint8_t address, bool f0)
         if(f0)
             cmd |= LocoF0Bit;
 
-        // no redundancy — toggling twice cancels out
         sendBinaryCommand(cmd, address);
     }
 }
@@ -321,9 +286,9 @@ void Kernel::setLocoEmergencyStop(uint8_t address, bool f0)
     if(!m_serialPort.is_open() || address < 1)
         return;
 
+    // double direction toggle: first stops, second restores direction
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
-        // double direction toggle
         std::string cmd = "L " + std::to_string(address) + " D";
         sendAsciiCommand(cmd);
 
@@ -358,24 +323,10 @@ void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
 
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
-        // resend speed with updated F0
-        std::string cmd = "L " + std::to_string(address)
+        sendAsciiCommandWithRedundancy(
+            "L " + std::to_string(address)
             + " S " + std::to_string(currentSpeed & LocoSpeedMask)
-            + " F " + (f0 ? "1" : "0");
-        sendAsciiCommand(cmd);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendAsciiCommand(cmd);
-                }
-            }).detach();
-        }
+            + " F " + (f0 ? "1" : "0"));
     }
     else
     {
@@ -383,20 +334,7 @@ void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
         if(f0)
             cmd |= LocoF0Bit;
 
-        sendBinaryCommand(cmd, address);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, address, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendBinaryCommand(cmd, address);
-                }
-            }).detach();
-        }
+        sendBinaryCommandWithRedundancy(cmd, address);
     }
 }
 
@@ -415,20 +353,7 @@ void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bo
     if(f3) cmd |= FunctionF3;
     if(f4) cmd |= FunctionF4;
 
-    sendBinaryCommand(cmd, address);
-
-    if(m_config.redundancy > 0)
-    {
-        std::thread([this, cmd, address, count = m_config.redundancy]()
-        {
-            for(unsigned int i = 0; i < count; i++)
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                if(!m_serialPort.is_open()) return;
-                sendBinaryCommand(cmd, address);
-            }
-        }).detach();
-    }
+    sendBinaryCommandWithRedundancy(cmd, address);
 }
 
 // === Accessory commands ===
@@ -440,6 +365,7 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
+        // ASCII mode: CU handles timing internally
         char dir = 'G';
 
         std::visit([&](auto&& v)
@@ -451,26 +377,12 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
                 dir = (v == TriState::True) ? 'R' : 'G';
         }, value);
 
-        std::string cmd = "M " + std::to_string(address) + " " + dir;
-        sendAsciiCommand(cmd);
-
-        if(m_config.redundancy > 0)
-        {
-            std::thread([this, cmd, count = m_config.redundancy]()
-            {
-                for(unsigned int i = 0; i < count; i++)
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-                    if(!m_serialPort.is_open()) return;
-                    sendAsciiCommand(cmd);
-                }
-            }).detach();
-        }
-
+        sendAsciiCommandWithRedundancy("M " + std::to_string(address) + " " + dir);
         return true;
     }
     else
     {
+        // binary mode: activate → wait → deactivate cycle
         unsigned char cmd = 0;
 
         std::visit([&](auto&& v)
@@ -602,7 +514,6 @@ void Kernel::asciiInputLoop(unsigned int modules)
     if(!m_running || !m_serialPort.is_open() || modules == 0)
         return;
 
-    // poll each contact individually using C x command
     const unsigned int totalContacts = modules * 16;
 
     for(unsigned int contact = 1; contact <= totalContacts; contact++)
@@ -623,7 +534,7 @@ void Kernel::asciiInputLoop(unsigned int modules)
         }
         catch(...)
         {
-            continue; // skip unparseable responses
+            continue;
         }
 
         if(s88Callback)

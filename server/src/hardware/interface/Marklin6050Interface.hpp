@@ -1,6 +1,9 @@
 /**
  * server/src/hardware/interface/Marklin6050Interface.hpp
  *
+ * Interface for the Märklin 6050/6051 binary serial protocol.
+ * Uses the Marklin6050 kernel (KernelBase + IOHandler, async I/O).
+ *
  * Copyright (C) 2025
  *
  * This program is free software; you can redistribute it and/or
@@ -14,14 +17,14 @@
 
 #include "interface.hpp"
 #include "../../core/objectproperty.hpp"
+#include "../../core/serialdeviceproperty.hpp"
 #include "../output/outputcontroller.hpp"
 #include "../input/inputcontroller.hpp"
 #include "../decoder/decodercontroller.hpp"
-#include "../../core/serialdeviceproperty.hpp"
-#include "../../hardware/protocol/Marklin6050Interface/kernel.hpp"
-#include "../../hardware/protocol/Marklin6050Interface/settings.hpp"
+#include "../protocol/Marklin6050/kernel.hpp"
+#include "../protocol/Marklin6050/settings.hpp"
 
-class Marklin6050Interface
+class Marklin6050Interface final
     : public Interface
     , public OutputController
     , public InputController
@@ -43,31 +46,34 @@ protected:
     void loaded() final;
     void destroying() final;
     void worldEvent(WorldState state, WorldEvent event) final;
-    void onlineChanged(bool value);
+    void onlineChanged(bool value) final;
     bool setOnline(bool& value, bool simulation) final;
 
 public:
-    SerialDeviceProperty serialPort;
-    Property<uint32_t> baudrate;
+    SerialDeviceProperty         serialPort;
+    Property<uint32_t>           baudrate;
     ObjectProperty<Marklin6050::Settings> settings;
 
     Marklin6050Interface(World& world, std::string_view id);
 
-    // DecoderController:
+    // DecoderController
     std::span<const DecoderProtocol> decoderProtocols() const final;
-    std::pair<uint16_t, uint16_t> decoderAddressMinMax(DecoderProtocol protocol) const final;
-    std::span<const uint8_t> decoderSpeedSteps(DecoderProtocol protocol) const final;
-    void decoderChanged(const Decoder& decoder, DecoderChangeFlags changes, uint32_t functionNumber) final;
+    std::pair<uint16_t, uint16_t>    decoderAddressMinMax(DecoderProtocol protocol) const final;
+    std::span<const uint8_t>         decoderSpeedSteps(DecoderProtocol protocol) const final;
+    void decoderChanged(const Decoder& decoder, DecoderChangeFlags changes,
+                        uint32_t functionNumber) final;
 
-    // InputController:
-    std::span<const InputChannel> inputChannels() const final;
-    std::pair<uint32_t, uint32_t> inputAddressMinMax(InputChannel channel) const final;
-    void inputSimulateChange(InputChannel channel, uint32_t address, SimulateInputAction action) final;
+    // InputController
+    std::span<const InputChannel>      inputChannels() const final;
+    std::pair<uint32_t, uint32_t>      inputAddressMinMax(InputChannel channel) const final;
+    void inputSimulateChange(InputChannel channel, uint32_t address,
+                             SimulateInputAction action) final;
 
-    // OutputController:
-    std::span<const OutputChannel> outputChannels() const final;
-    std::pair<uint32_t, uint32_t> outputAddressMinMax(OutputChannel channel) const final;
-    [[nodiscard]] bool setOutputValue(OutputChannel channel, uint32_t address, OutputValue value) final;
+    // OutputController
+    std::span<const OutputChannel>     outputChannels() const final;
+    std::pair<uint32_t, uint32_t>      outputAddressMinMax(OutputChannel channel) const final;
+    [[nodiscard]] bool setOutputValue(OutputChannel channel, uint32_t address,
+                                      OutputValue value) final;
 };
 
 #endif

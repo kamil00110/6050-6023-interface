@@ -50,7 +50,7 @@ Settings6023::Settings6023(Object& _parent, std::string_view parentPropertyName)
     // --- Command redundancy ---
     static const std::vector<unsigned int> redundancyOptions = {0, 1, 2, 3};
     static const std::vector<std::string_view> redundancyLabels = {
-        DisplayName::Marklin6050::redundancy_off, 
+        "$marklin6050_settings:redundancy_off$", 
         "x2",
         "x3",
         "x4"

@@ -175,9 +175,9 @@ void Settings::updateEnabled(bool online)
     Attributes::setEnabled(extensions, !online);
 
     // programmer only when online
-    Attributes::setEnabled(oldAddress, online);
-    Attributes::setEnabled(newAddress, online);
-    Attributes::setEnabled(programmer, online);
+    //Attributes::setEnabled(oldAddress, online);
+    //Attributes::setEnabled(newAddress, online);
+    //Attributes::setEnabled(programmer, online);
 
     const uint16_t ver = centralUnitVersion;
 

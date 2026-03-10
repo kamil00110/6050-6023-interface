@@ -370,8 +370,7 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
     if(m_config.protocolMode == ProtocolMode::ASCII)
     {
-        // determine direction
-        char dir = 'G'; // green/straight
+        char dir = 'G';
 
         std::visit([&](auto&& v)
         {
@@ -382,7 +381,6 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
                 dir = (v == TriState::True) ? 'R' : 'G';
         }, value);
 
-        // ASCII mode: CU handles timing internally
         std::string cmd = "M " + std::to_string(address) + " " + dir;
         sendAsciiCommand(cmd);
 
@@ -403,7 +401,6 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
     }
     else
     {
-        // binary mode: need activate + deactivate cycle
         unsigned char cmd = 0;
 
         std::visit([&](auto&& v)
@@ -419,23 +416,30 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
         uint8_t addr = static_cast<uint8_t>(address);
 
+        // first activation
         sendBinaryCommand(cmd, addr);
 
         std::thread([this, cmd, addr, timeMs, count = m_config.redundancy]()
         {
-            // first cycle: deactivate
-            std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
-            if(!m_serialPort.is_open()) return;
-            sendBinaryCommand(AccessoryOff, addr);
-
-            // redundant cycles: full activate → wait → deactivate
+            // redundant activations
             for(unsigned int i = 0; i < count; i++)
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 if(!m_serialPort.is_open()) return;
                 sendBinaryCommand(cmd, addr);
+            }
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
+            // wait for solenoid timing
+            std::this_thread::sleep_for(std::chrono::milliseconds(timeMs));
+            if(!m_serialPort.is_open()) return;
+
+            // first deactivation
+            sendBinaryCommand(AccessoryOff, addr);
+
+            // redundant deactivations
+            for(unsigned int i = 0; i < count; i++)
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 if(!m_serialPort.is_open()) return;
                 sendBinaryCommand(AccessoryOff, addr);
             }

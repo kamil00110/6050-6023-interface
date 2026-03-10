@@ -27,9 +27,12 @@ namespace Marklin6023 {
 // Construction
 // ---------------------------------------------------------------------------
 
-Kernel::Kernel(std::string logId, const Config& config)
+Kernel::Kernel(std::string logId, const Config& config,
+               std::string device, uint32_t baudrate)
     : KernelBase{std::move(logId)}
     , m_config{config}
+    , m_device{std::move(device)}
+    , m_baudrate{baudrate}
     , m_s88Timer{m_ioContext}
 {
 }
@@ -38,9 +41,9 @@ Kernel::Kernel(std::string logId, const Config& config)
 // Lifecycle
 // ---------------------------------------------------------------------------
 
-void Kernel::start(const std::string& device, uint32_t baudrate)
+void Kernel::start()
 {
-    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, device, baudrate);
+    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_device, m_baudrate);
 
     if(m_config.s88amount > 0)
         startS88Cycle();

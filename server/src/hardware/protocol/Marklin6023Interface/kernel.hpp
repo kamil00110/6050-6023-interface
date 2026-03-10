@@ -54,13 +54,23 @@ public:
     // Construction / lifecycle
     // -----------------------------------------------------------------------
 
-    explicit Kernel(std::string logId, const Config& config);
+    /**
+     * @param logId    Identifier used in log messages.
+     * @param config   Immutable configuration snapshot.
+     * @param device   Serial device path (e.g. "/dev/ttyUSB0").
+     * @param baudrate Baud rate (typically 9600 for 6023/6223).
+     *
+     * The device and baudrate are stored here so that start() is parameterless,
+     * consistent with the KernelBase contract.
+     */
+    Kernel(std::string logId, const Config& config,
+           std::string device, uint32_t baudrate);
 
     /**
-     * Open the serial port and begin operation.
+     * Create the IOHandler (opens the serial port) and begin operation.
      * Throws LogMessageException on serial-port errors.
      */
-    void start(const std::string& device, uint32_t baudrate);
+    void start();
 
     /** Gracefully stop all timers and close the port. */
     void stop();
@@ -110,6 +120,8 @@ private:
     // Members
     // -----------------------------------------------------------------------
     const Config                 m_config;
+    const std::string            m_device;
+    const uint32_t               m_baudrate;
     std::unique_ptr<IOHandler>   m_ioHandler;
 
     std::vector<boost::asio::steady_timer> m_redundancyTimers;

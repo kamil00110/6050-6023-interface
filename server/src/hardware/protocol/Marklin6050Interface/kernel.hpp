@@ -1,7 +1,8 @@
 /**
  * server/src/hardware/protocol/Marklin6050Interface/kernel.hpp
  *
- * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols.
+ * Kernel supporting both binary (6050) and ASCII (6023/6223) protocols
+ * with optional extension module for external event feedback.
  *
  * Copyright (C) 2025
  *
@@ -58,15 +59,25 @@ public:
     void startInputThread(unsigned int moduleCount, unsigned int intervalMs);
     void stopInputThread();
 
+    // --- Extension polling ---
+    void startExtensionThread();
+    void stopExtensionThread();
+
     // --- Callbacks ---
     std::function<void(uint32_t, bool)> s88Callback;
+    std::function<void(bool power, bool run)> extensionGlobalCallback;
+    std::function<void(uint32_t address, bool green)> extensionTurnoutCallback;
+    std::function<void(uint8_t address, uint8_t speed, bool f0, bool forward)> extensionLocoCallback;
+    std::function<void(uint8_t address, bool f1, bool f2, bool f3, bool f4)> extensionFuncCallback;
 
 private:
     Config m_config;
     boost::asio::io_context m_ioContext;
     boost::asio::serial_port m_serialPort;
     std::thread m_inputThread;
+    std::thread m_extensionThread;
     std::atomic<bool> m_running{false};
+    std::atomic<bool> m_extensionRunning{false};
 
     // --- Low-level I/O ---
     bool sendByte(uint8_t byte);
@@ -86,6 +97,9 @@ private:
     // --- S88 polling ---
     void binaryInputLoop(unsigned int modules);
     void asciiInputLoop(unsigned int modules);
+
+    // --- Extension polling ---
+    void extensionPoll();
 };
 
 } // namespace Marklin6050

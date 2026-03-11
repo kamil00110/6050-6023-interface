@@ -12,29 +12,25 @@
 #include "iohandler.hpp"
 #include "kernel.hpp"
 #include "../../../utils/serialport.hpp"
-#include "../../../log/log.hpp"
 
 #include <boost/asio/write.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/post.hpp>
 #include <boost/asio/buffer.hpp>
-#include <vector>
+#include <memory>
 
 namespace Marklin6050 {
 
 IOHandler::IOHandler(Kernel& kernel,
                      boost::asio::io_context& ioContext,
+                     boost::asio::io_context::strand& strand,
                      const std::string& device,
                      uint32_t baudrate)
     : m_kernel{kernel}
-    , m_ioContext{ioContext}
-    , m_strand{boost::asio::make_strand(ioContext)}
+    , m_strand{strand}
     , m_serialPort{ioContext}
 {
-    // open() throws LogMessageException on failure – propagated to Kernel::start()
     SerialPort::open(m_serialPort, device, baudrate,
-                     8, SerialParity::None, SerialStopBits::One, SerialFlowControl::None);
-
+                     8, SerialParity::None, SerialStopBits::One,
+                     SerialFlowControl::None);
     startRead();
 }
 
@@ -49,30 +45,18 @@ IOHandler::~IOHandler()
 
 void IOHandler::send(std::initializer_list<uint8_t> bytes)
 {
-    send(bytes.begin(), bytes.size());
-}
+    // Called on the strand; copy into a shared buffer to outlive the call.
+    auto buf = std::make_shared<std::vector<uint8_t>>(bytes);
 
-void IOHandler::send(const uint8_t* data, std::size_t length)
-{
-    // Copy into a shared buffer so the lambda owns the data lifetime.
-    auto buf = std::make_shared<std::vector<uint8_t>>(data, data + length);
-
-    boost::asio::post(m_strand,
-        [this, buf]()
-        {
-            if(!m_serialPort.is_open())
-                return;
-
-            boost::asio::async_write(
-                m_serialPort,
-                boost::asio::buffer(*buf),
-                boost::asio::bind_executor(m_strand,
-                    [this, buf](const boost::system::error_code& ec, std::size_t /*written*/)
-                    {
-                        if(ec && ec != boost::asio::error::operation_aborted)
-                            m_kernel.onWriteError(ec);
-                    }));
-        });
+    boost::asio::async_write(
+        m_serialPort,
+        boost::asio::buffer(*buf),
+        m_strand.wrap(
+            [this, buf](const boost::system::error_code& ec, std::size_t)
+            {
+                if(ec && ec != boost::asio::error::operation_aborted)
+                    m_kernel.onWriteError(ec);
+            }));
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +68,7 @@ void IOHandler::startRead()
 
     m_serialPort.async_read_some(
         boost::asio::buffer(m_readBuffer),
-        boost::asio::bind_executor(m_strand,
+        m_strand.wrap(
             [this](const boost::system::error_code& ec, std::size_t bytesRead)
             {
                 onRead(ec, bytesRead);

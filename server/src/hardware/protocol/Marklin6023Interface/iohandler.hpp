@@ -1,8 +1,5 @@
 /**
- * server/src/hardware/protocol/Marklin6023/iohandler.hpp
- *
- * Serial IOHandler for the Märklin 6023/6223 ASCII kernel.
- * Accumulates bytes into lines and delivers them via Kernel::receiveLine().
+ * server/src/hardware/protocol/Marklin6023/iohandler.cpp
  *
  * Copyright (C) 2025
  *
@@ -12,50 +9,98 @@
  * of the License, or (at your option) any later version.
  */
 
-#ifndef TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6023_IOHANDLER_HPP
-#define TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6023_IOHANDLER_HPP
+#include "iohandler.hpp"
+#include "kernel.hpp"
+#include "../../../utils/serialport.hpp"
 
-#include <string>
-#include <array>
-#include <vector>
-#include <cstdint>
-#include <boost/asio/io_context.hpp>
-#include <boost/asio/serial_port.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/system/error_code.hpp>
+#include <boost/asio/write.hpp>
+#include <boost/asio/buffer.hpp>
+#include <memory>
 
 namespace Marklin6023 {
 
-class Kernel;
-
-class IOHandler final
+IOHandler::IOHandler(Kernel& kernel,
+                     boost::asio::io_context& ioContext,
+                     boost::asio::io_context::strand& strand,
+                     const std::string& device,
+                     uint32_t baudrate)
+    : m_kernel{kernel}
+    , m_strand{strand}
+    , m_serialPort{ioContext}
 {
-public:
-    IOHandler(Kernel& kernel,
-              boost::asio::io_context& ioContext,
-              boost::asio::io_context::strand& strand,
-              const std::string& device,
-              uint32_t baudrate);
+    SerialPort::open(m_serialPort, device, baudrate,
+                     8, SerialParity::None, SerialStopBits::One,
+                     SerialFlowControl::None);
+    startRead();
+}
 
-    ~IOHandler();
+IOHandler::~IOHandler()
+{
+    boost::system::error_code ec;
+    m_serialPort.cancel(ec);
+    m_serialPort.close(ec);
+}
 
-    /** Send a complete command string (including CR). Must be on the strand. */
-    void sendString(std::string str);
+// ---------------------------------------------------------------------------
 
-private:
-    static constexpr std::size_t kReadBufferSize = 256;
+void IOHandler::sendString(std::string str)
+{
+    auto buf = std::make_shared<std::string>(std::move(str));
 
-    Kernel&                          m_kernel;
-    boost::asio::io_context::strand& m_strand;
-    boost::asio::serial_port         m_serialPort;
+    boost::asio::async_write(
+        m_serialPort,
+        boost::asio::buffer(*buf),
+        m_strand.wrap(
+            [this, buf](const boost::system::error_code& ec, std::size_t)
+            {
+                if(ec && ec != boost::asio::error::operation_aborted)
+                    m_kernel.onWriteError(ec);
+            }));
+}
 
-    std::array<uint8_t, kReadBufferSize> m_readBuffer;
-    std::string                          m_lineBuffer;
+// ---------------------------------------------------------------------------
 
-    void startRead();
-    void onRead(const boost::system::error_code& ec, std::size_t bytesRead);
-};
+void IOHandler::startRead()
+{
+    if(!m_serialPort.is_open())
+        return;
+
+    m_serialPort.async_read_some(
+        boost::asio::buffer(m_readBuffer),
+        m_strand.wrap(
+            [this](const boost::system::error_code& ec, std::size_t bytesRead)
+            {
+                onRead(ec, bytesRead);
+            }));
+}
+
+void IOHandler::onRead(const boost::system::error_code& ec, std::size_t bytesRead)
+{
+    if(ec)
+    {
+        if(ec != boost::asio::error::operation_aborted)
+            m_kernel.onReadError(ec);
+        return;
+    }
+
+    for(std::size_t i = 0; i < bytesRead; ++i)
+    {
+        const char c = static_cast<char>(m_readBuffer[i]);
+        if(c == '\r' || c == '\n')
+        {
+            if(!m_lineBuffer.empty())
+            {
+                m_kernel.receiveLine(std::move(m_lineBuffer));
+                m_lineBuffer.clear();
+            }
+        }
+        else
+        {
+            m_lineBuffer += c;
+        }
+    }
+
+    startRead();
+}
 
 } // namespace Marklin6023
-
-#endif

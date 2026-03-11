@@ -17,6 +17,7 @@
 #include "../../../log/logmessageexception.hpp"
 
 #include <chrono>
+#include <cstdio>
 
 using namespace std::chrono_literals;
 
@@ -246,6 +247,13 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
 
 void Kernel::receive(uint8_t byte)
 {
+    if(m_config.debugLogRXTX)
+    {
+        char buf[4];
+        std::snprintf(buf, sizeof(buf), "%02X", byte);
+        EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2002_RX_X, msg); });
+    }
+
     // S88 receive state machine
     if(m_s88State == S88State::ReceivingData)
     {
@@ -322,13 +330,29 @@ void Kernel::onWriteError(const boost::system::error_code& ec)
 void Kernel::sendRaw(uint8_t b1, uint8_t b2)
 {
     if(m_ioHandler)
+    {
+        if(m_config.debugLogRXTX)
+        {
+            char buf[8];
+            std::snprintf(buf, sizeof(buf), "%02X %02X", b1, b2);
+            EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
+        }
         m_ioHandler->send({b1, b2});
+    }
 }
 
 void Kernel::sendRaw(uint8_t b)
 {
     if(m_ioHandler)
+    {
+        if(m_config.debugLogRXTX)
+        {
+            char buf[4];
+            std::snprintf(buf, sizeof(buf), "%02X", b);
+            EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
+        }
         m_ioHandler->send({b});
+    }
 }
 
 void Kernel::sendWithRedundancy(uint8_t b)

@@ -20,6 +20,7 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     , s88amount{this, "s88amount", 1, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , s88interval{this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , redundancy{this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , debugLogRXTX{this, "debug_log_rx_tx", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
     // --- S88 module count (max 4 for 6023/6223) ---
     Attributes::addCategory(s88amount, "category:marklin_6023");
@@ -60,6 +61,11 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     Attributes::addValues(redundancy, redundancyOptions);
     Attributes::addAliases(redundancy, &redundancyOptions, &redundancyLabels);
     m_interfaceItems.add(redundancy);
+
+    // --- Debug log RX/TX ---
+    Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
+    Attributes::addEnabled(debugLogRXTX, true);
+    m_interfaceItems.add(debugLogRXTX);
 }
 
 Config Settings::config() const
@@ -68,6 +74,7 @@ Config Settings::config() const
     cfg.s88amount   = s88amount;
     cfg.s88interval = s88interval;
     cfg.redundancy  = redundancy;
+    cfg.debugLogRXTX = debugLogRXTX;
     return cfg;
 }
 

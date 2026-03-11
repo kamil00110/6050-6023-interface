@@ -43,16 +43,16 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
 {
   // s88amount — disabled when online (toggled by updateEnabled)
   Attributes::addCategory(s88amount, "category:marklin_6023");
-  Attributes::addDisplayName(s88amount, DisplayName::Marklin6023::s88ModuleAmount);
-  Attributes::addHelp(s88amount, "marklin6023_settings:s88_module_amount.help");
+  Attributes::addDisplayName(s88amount, DisplayName::Marklin6050::s88ModuleAmount);
+  Attributes::addHelp(s88amount, "marklin6050_settings:s88_module_amount.help");
   Attributes::addEnabled(s88amount, true);
   Attributes::addMinMax(s88amount, 0u, 4u);
   m_interfaceItems.add(s88amount);
 
   // s88interval — disabled when online
   Attributes::addCategory(s88interval, "category:marklin_6023");
-  Attributes::addDisplayName(s88interval, DisplayName::Marklin6023::s88CallInterval);
-  Attributes::addHelp(s88interval, "marklin6023_settings:s88_call_interval.help");
+  Attributes::addDisplayName(s88interval, DisplayName::Marklin6050::s88CallInterval);
+  Attributes::addHelp(s88interval, "marklin6050_settings:s88_call_interval.help");
   Attributes::addEnabled(s88interval, true);
   Attributes::addValues(s88interval, std::span<const unsigned int>{kS88Intervals});
   Attributes::addAliases(s88interval,
@@ -62,8 +62,8 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
 
   // redundancy — disabled when online
   Attributes::addCategory(redundancy, "category:marklin_6023");
-  Attributes::addDisplayName(redundancy, DisplayName::Marklin6023::commandRedundancy);
-  Attributes::addHelp(redundancy, "marklin6023_settings:command_redundancy.help");
+  Attributes::addDisplayName(redundancy, DisplayName::Marklin6050::commandRedundancy);
+  Attributes::addHelp(redundancy, "marklin6050_settings:command_redundancy.help");
   Attributes::addEnabled(redundancy, true);
   Attributes::addValues(redundancy, std::span<const unsigned int>{kRedundancyOptions});
   Attributes::addAliases(redundancy,

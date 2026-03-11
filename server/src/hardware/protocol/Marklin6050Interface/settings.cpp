@@ -118,6 +118,7 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     m_interfaceItems.add(extensions);
 
     // --- Debug log RX/TX ---
+    Attributes::addCategory(debugLogRXTX, "category:marklin_6023");
     Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
     Attributes::addEnabled(debugLogRXTX, true);
     m_interfaceItems.add(debugLogRXTX);
@@ -150,6 +151,7 @@ void Settings::updateEnabled(bool online)
     Attributes::setEnabled(s88interval,        !online);
     Attributes::setEnabled(redundancy,         !online);
     Attributes::setEnabled(extensions,         !online);
+    Attributes::setEnabled(debugLogRXTX,       !online);
 
     const uint16_t ver         = centralUnitVersion;
     const bool     analogSupport = (ver == 6027 || ver == 6029);

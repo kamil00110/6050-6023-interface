@@ -27,6 +27,7 @@ struct Config
     unsigned int turnouttime       = 200;   ///< milliseconds solenoid on-time
     unsigned int redundancy        = 0;     ///< extra retransmit count (0 = send once)
     bool        extensions         = false; ///< enable extension event polling
+    bool        debugLogRXTX       = false; ///< log every TX/RX byte to the debug log
 };
 
 } // namespace Marklin6050

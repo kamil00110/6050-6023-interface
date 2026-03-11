@@ -1,5 +1,5 @@
 /**
- * server/src/hardware/protocol/Marklin6023/settings.hpp
+ * server/src/hardware/protocol/Marklin6050/settings.hpp
  *
  * Copyright (C) 2025
  *
@@ -9,33 +9,40 @@
  * of the License, or (at your option) any later version.
  */
 
-#ifndef TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6023_SETTINGS_HPP
-#define TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6023_SETTINGS_HPP
+#ifndef TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6050_SETTINGS_HPP
+#define TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6050_SETTINGS_HPP
 
 #include "../../../core/subobject.hpp"
 #include "../../../core/property.hpp"
 #include "config.hpp"
 
-namespace Marklin6023 {
+namespace Marklin6050 {
 
 class Settings final : public SubObject
 {
-    CLASS_ID("marklin6023_settings")
+    CLASS_ID("marklin6050_settings")
+
+private:
+    void centralUnitVersionChanged(uint16_t value);
 
 protected:
     void loaded() final;
 
 public:
-    Property<unsigned int> s88amount;
-    Property<unsigned int> s88interval;
-    Property<unsigned int> redundancy;
+    Property<uint16_t>      centralUnitVersion;
+    Property<bool>          analog;
+    Property<unsigned int>  s88amount;
+    Property<unsigned int>  s88interval;
+    Property<unsigned int>  turnouttime;
+    Property<unsigned int>  redundancy;
+    Property<bool>          extensions;
 
     Settings(Object& parent, std::string_view parentPropertyName);
 
-    Config config() const;
-    void   updateEnabled(bool online);
+    Config      config() const;
+    void        updateEnabled(bool online);
 };
 
-} // namespace Marklin6023
+} // namespace Marklin6050
 
 #endif

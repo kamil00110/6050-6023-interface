@@ -46,7 +46,7 @@ protected:
     void loaded() final;
     void destroying() final;
     void worldEvent(WorldState state, WorldEvent event) final;
-    void onlineChanged(bool value) final;
+    void onlineChanged(bool value) override;
     bool setOnline(bool& value, bool simulation) final;
 
 public:

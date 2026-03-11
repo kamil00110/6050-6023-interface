@@ -5,15 +5,12 @@
  *
  * Design
  * ------
- *  - Derives from KernelBase (io_context ownership, strand, lifecycle).
+ *  - Derives from KernelBase (provides logId and m_started).
+ *  - Owns its own io_context, strand, and background thread.
  *  - Serial I/O is fully delegated to IOHandler (async, non-blocking).
- *  - S88 polling is contact-by-contact: a query command is sent, then
- *    the kernel waits for the response line before querying the next
- *    contact. The poll cycle restarts via steady_timer once all contacts
- *    have been queried.
- *  - Command redundancy is implemented via steady_timer (no threads).
- *  - All mutable state is accessed exclusively on the kernel strand.
- *  - Public command methods post work onto the strand → thread-safe.
+ *  - S88 polling is contact-by-contact request/response; no blocking.
+ *  - Command redundancy uses steady_timer (no detached threads).
+ *  - All mutable state is accessed exclusively on m_strand (thread-safe).
  *
  * Copyright (C) 2025
  *
@@ -32,9 +29,12 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -45,45 +45,20 @@ class IOHandler;
 class Kernel : public KernelBase
 {
 public:
-    // -----------------------------------------------------------------------
-    // Callbacks (set before start(); called on the EventLoop thread)
-    // -----------------------------------------------------------------------
     std::function<void(uint32_t address, bool state)> s88Callback;
 
-    // -----------------------------------------------------------------------
-    // Construction / lifecycle
-    // -----------------------------------------------------------------------
-
     /**
-     * @param logId    Identifier used in log messages.
-     * @param config   Immutable configuration snapshot.
-     * @param device   Serial device path (e.g. "/dev/ttyUSB0").
-     * @param baudrate Baud rate (typically 9600 for 6023/6223).
-     *
-     * The device and baudrate are stored here so that start() is parameterless,
-     * consistent with the KernelBase contract.
+     * logId_ is passed to KernelBase; the name differs from the inherited
+     * member logId to avoid -Wshadow errors.
      */
-    Kernel(std::string logId, const Config& config,
+    Kernel(std::string logId_, const Config& config,
            std::string device, uint32_t baudrate);
 
-    /**
-     * Explicitly declared so that the unique_ptr<IOHandler> destructor is
-     * only instantiated in kernel.cpp where IOHandler is a complete type.
-     */
+    /** Declared here so ~unique_ptr<IOHandler> resolves in kernel.cpp only. */
     ~Kernel();
 
-    /**
-     * Create the IOHandler (opens the serial port) and begin operation.
-     * Throws LogMessageException on serial-port errors.
-     */
     void start();
-
-    /** Gracefully stop all timers and close the port. */
     void stop();
-
-    // -----------------------------------------------------------------------
-    // Command API  (thread-safe)
-    // -----------------------------------------------------------------------
 
     void sendGlobalGo();
     void sendGlobalStop();
@@ -95,41 +70,32 @@ public:
 
     bool setAccessory(uint32_t address, OutputValue value);
 
-    // -----------------------------------------------------------------------
-    // IOHandler entry points  (called on the strand)
-    // -----------------------------------------------------------------------
+    // Called by IOHandler on m_strand
     void receiveLine(std::string line);
     void onReadError(const boost::system::error_code& ec);
     void onWriteError(const boost::system::error_code& ec);
 
 private:
-    // -----------------------------------------------------------------------
-    // Internal helpers  (must be on the strand)
-    // -----------------------------------------------------------------------
+    void sendCmd(std::string cmd);
+    void sendCmdWithRedundancy(std::string cmd);
 
-    void sendCmd(std::string cmd);                ///< sends cmd + CR
-    void sendCmdWithRedundancy(std::string cmd);  ///< sends + schedules retransmits
+    void startS88Cycle();
+    void queryNextContact();
+    void onS88Response(const std::string& line);
 
-    // -----------------------------------------------------------------------
-    // S88 polling state machine
-    // -----------------------------------------------------------------------
-    void startS88Cycle();                         ///< kick off a new poll cycle
-    void queryNextContact();                      ///< send "C <n>\r"
-    void onS88Response(const std::string& line);  ///< handle "0" or "1" reply
+    unsigned int m_s88NextContact  = 1;
+    bool         m_s88WaitingReply = false;
 
-    unsigned int m_s88NextContact = 1;            ///< 1-based contact being queried
-    bool         m_s88WaitingReply = false;       ///< true while awaiting response
+    const Config       m_config;
+    const std::string  m_device;
+    const uint32_t     m_baudrate;
 
-    boost::asio::steady_timer m_s88Timer;
+    boost::asio::io_context         m_ioContext;
+    boost::asio::io_context::strand m_strand;
+    std::thread                     m_ioThread;
 
-    // -----------------------------------------------------------------------
-    // Members
-    // -----------------------------------------------------------------------
-    const Config                 m_config;
-    const std::string            m_device;
-    const uint32_t               m_baudrate;
-    std::unique_ptr<IOHandler>   m_ioHandler;
-
+    std::unique_ptr<IOHandler>             m_ioHandler;
+    boost::asio::steady_timer              m_s88Timer;
     std::vector<boost::asio::steady_timer> m_redundancyTimers;
 };
 

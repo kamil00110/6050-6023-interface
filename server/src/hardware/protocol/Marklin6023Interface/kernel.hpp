@@ -82,9 +82,11 @@ private:
     void startS88Cycle();
     void queryNextContact();
     void onS88Response(const std::string& line);
+    void onS88ResponseTimeout();
 
     unsigned int m_s88NextContact  = 1;
     bool         m_s88WaitingReply = false;
+    uint32_t     m_s88LastQueried  = 0; ///< contact number of the in-flight query (for logging)
 
     const Config       m_config;
     const std::string  m_device;
@@ -96,6 +98,7 @@ private:
 
     std::unique_ptr<IOHandler>             m_ioHandler;
     boost::asio::steady_timer              m_s88Timer;
+    boost::asio::steady_timer              m_s88ResponseTimer;
     std::vector<boost::asio::steady_timer> m_redundancyTimers;
 };
 

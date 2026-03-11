@@ -16,9 +16,7 @@
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
 
-#include <boost/asio/post.hpp>
 #include <chrono>
-#include <cassert>
 
 using namespace std::chrono_literals;
 
@@ -28,12 +26,13 @@ namespace Marklin6050 {
 // Construction
 // ---------------------------------------------------------------------------
 
-Kernel::Kernel(std::string logId, const Config& config,
+Kernel::Kernel(std::string logId_, const Config& config,
                std::string device, uint32_t baudrate)
-    : KernelBase{std::move(logId)}
+    : KernelBase{std::move(logId_)}
     , m_config{config}
     , m_device{std::move(device)}
     , m_baudrate{baudrate}
+    , m_strand{m_ioContext}
     , m_s88Timer{m_ioContext}
     , m_extensionTimer{m_ioContext}
 {
@@ -47,34 +46,35 @@ Kernel::~Kernel() = default;
 
 void Kernel::start()
 {
-    // IOHandler constructor opens the port; throws LogMessageException on error.
-    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_device, m_baudrate);
+    // IOHandler constructor opens the serial port.
+    // Throws LogMessageException on failure – propagated to the interface.
+    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_strand,
+                                              m_device, m_baudrate);
 
-    // Start S88 polling if modules are configured
     if(m_config.s88amount > 0)
         scheduleS88Poll();
 
-    // Start extension polling if requested
     if(m_config.extensions)
         scheduleExtensionPoll();
 
-    // Run the io_context on the KernelBase background thread
-    KernelBase::start();
+    m_ioThread = std::thread([this](){ m_ioContext.run(); });
 }
 
 void Kernel::stop()
 {
-    // Cancel timers and destroy the handler on the strand, then stop the thread.
-    boost::asio::post(m_strand,
+    // Post cleanup onto the strand so it runs before the io_context stops.
+    m_strand.post(
         [this]()
         {
             m_s88Timer.cancel();
             m_extensionTimer.cancel();
             m_redundancyTimers.clear();
             m_ioHandler.reset();
+            m_ioContext.stop();
         });
 
-    KernelBase::stop();  // joins the io_context thread
+    if(m_ioThread.joinable())
+        m_ioThread.join();
 }
 
 // ---------------------------------------------------------------------------
@@ -83,17 +83,17 @@ void Kernel::stop()
 
 void Kernel::sendGlobalGo()
 {
-    boost::asio::post(m_strand, [this](){ sendWithRedundancy(GlobalGo); });
+    m_strand.post([this](){ sendWithRedundancy(GlobalGo); });
 }
 
 void Kernel::sendGlobalStop()
 {
-    boost::asio::post(m_strand, [this](){ sendWithRedundancy(GlobalStop); });
+    m_strand.post([this](){ sendWithRedundancy(GlobalStop); });
 }
 
 void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 {
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, speed, f0]()
         {
             uint8_t cmd = speed & LocoSpeedMask;
@@ -104,8 +104,8 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 
 void Kernel::setLocoDirection(uint8_t address, bool f0)
 {
-    // No redundancy – toggling twice cancels out
-    boost::asio::post(m_strand,
+    // No redundancy – toggling twice cancels out.
+    m_strand.post(
         [this, address, f0]()
         {
             uint8_t cmd = LocoDirToggle;
@@ -117,29 +117,28 @@ void Kernel::setLocoDirection(uint8_t address, bool f0)
 void Kernel::setLocoEmergencyStop(uint8_t address, bool f0)
 {
     // Double direction-toggle: first stops, second restores direction.
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, f0]()
         {
             uint8_t cmd = LocoDirToggle;
             if(f0) cmd |= LocoF0Bit;
-
             sendRaw(cmd, address);
 
-            // Schedule the second toggle on a timer (50 ms later)
             auto& t = m_redundancyTimers.emplace_back(m_ioContext);
             t.expires_after(50ms);
-            t.async_wait(boost::asio::bind_executor(m_strand,
-                [this, cmd, address](const boost::system::error_code& ec)
-                {
-                    if(!ec && m_ioHandler)
-                        sendRaw(cmd, address);
-                }));
+            t.async_wait(
+                m_strand.wrap(
+                    [this, cmd, address](const boost::system::error_code& ec)
+                    {
+                        if(!ec && m_ioHandler)
+                            sendRaw(cmd, address);
+                    }));
         });
 }
 
 void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
 {
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, currentSpeed, f0]()
         {
             uint8_t cmd = currentSpeed & LocoSpeedMask;
@@ -150,7 +149,7 @@ void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
 
 void Kernel::setLocoFunctions1to4(uint8_t address, bool f1, bool f2, bool f3, bool f4)
 {
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, f1, f2, f3, f4]()
         {
             uint8_t cmd = FunctionBase;
@@ -180,86 +179,78 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value, unsigned int time
                 cmd = static_cast<uint8_t>(v);
         }, value);
 
-    const uint8_t addr = static_cast<uint8_t>(address);
+    const uint8_t      addr       = static_cast<uint8_t>(address);
     const unsigned int redundancy = m_config.redundancy;
 
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, cmd, addr, timeMs, redundancy]()
         {
             if(!m_ioHandler)
                 return;
 
-            // First activation
             sendRaw(cmd, addr);
 
-            // Schedule redundant activations, then deactivation cycle
-            // We chain timers: [50ms * i  activate] ... [timeMs  deactivate] [50ms * i  deactivate]
-            auto scheduleRetransmits = [this, cmd, addr, redundancy, timeMs]()
-            {
-                unsigned int offset = 0;
+            unsigned int offset = 0;
 
-                // --- redundant activations ---
-                for(unsigned int i = 0; i < redundancy; ++i)
-                {
-                    offset += 50;
-                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
-                    t.expires_after(std::chrono::milliseconds(offset));
-                    t.async_wait(boost::asio::bind_executor(m_strand,
+            // Redundant activations
+            for(unsigned int i = 0; i < redundancy; ++i)
+            {
+                offset += 50;
+                auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                t.expires_after(std::chrono::milliseconds(offset));
+                t.async_wait(
+                    m_strand.wrap(
                         [this, cmd, addr](const boost::system::error_code& ec)
                         {
                             if(!ec && m_ioHandler)
                                 sendRaw(cmd, addr);
                         }));
-                }
+            }
 
-                // --- solenoid off after timeMs ---
-                offset += timeMs;
-                {
-                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
-                    t.expires_after(std::chrono::milliseconds(offset));
-                    t.async_wait(boost::asio::bind_executor(m_strand,
+            // Solenoid off
+            offset += timeMs;
+            {
+                auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                t.expires_after(std::chrono::milliseconds(offset));
+                t.async_wait(
+                    m_strand.wrap(
                         [this, addr](const boost::system::error_code& ec)
                         {
                             if(!ec && m_ioHandler)
                                 sendRaw(AccessoryOff, addr);
                         }));
-                }
+            }
 
-                // --- redundant deactivations ---
-                for(unsigned int i = 0; i < redundancy; ++i)
-                {
-                    offset += 50;
-                    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
-                    t.expires_after(std::chrono::milliseconds(offset));
-                    t.async_wait(boost::asio::bind_executor(m_strand,
+            // Redundant deactivations
+            for(unsigned int i = 0; i < redundancy; ++i)
+            {
+                offset += 50;
+                auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+                t.expires_after(std::chrono::milliseconds(offset));
+                t.async_wait(
+                    m_strand.wrap(
                         [this, addr](const boost::system::error_code& ec)
                         {
                             if(!ec && m_ioHandler)
                                 sendRaw(AccessoryOff, addr);
                         }));
-                }
-            };
-
-            scheduleRetransmits();
+            }
         });
 
     return true;
 }
 
 // ---------------------------------------------------------------------------
-// IOHandler callbacks
+// IOHandler callbacks  (arrive on m_strand)
 // ---------------------------------------------------------------------------
 
 void Kernel::receive(uint8_t byte)
 {
-    // Called on the strand by IOHandler.
-    // Route the byte to whichever state machine is active.
-
-    // --- S88 receive state machine ---
+    // S88 receive state machine
     if(m_s88State == S88State::ReceivingData)
     {
-        // Bytes arrive as pairs (high, low) per S88 module word.
-        const unsigned int byteIndex = (m_config.s88amount * 2) - m_s88Expect;
+        const unsigned int byteIndex =
+            (m_config.s88amount * 2) - m_s88Expect;
         --m_s88Expect;
 
         const bool isHighByte = (byteIndex % 2 == 0);
@@ -269,25 +260,23 @@ void Kernel::receive(uint8_t byte)
         }
         else
         {
-            // Full 16-bit word received; fire callbacks
             const uint16_t bits =
                 (static_cast<uint16_t>(m_s88High) << 8) |
                  static_cast<uint16_t>(byte);
-
             const unsigned int moduleIdx = m_s88Module++;
 
             if(s88Callback)
             {
                 for(int bit = 0; bit < 16; ++bit)
                 {
-                    const bool state = (bits >> bit) & 1u;
-                    const uint32_t address = moduleIdx * 16 + (bit + 1);
+                    const bool     state   = (bits >> bit) & 1u;
+                    const uint32_t contact = moduleIdx * 16 + (bit + 1);
 
                     EventLoop::call(
-                        [this, address, state]()
+                        [this, contact, state]()
                         {
                             if(s88Callback)
-                                s88Callback(address, state);
+                                s88Callback(contact, state);
                         });
                 }
             }
@@ -301,11 +290,10 @@ void Kernel::receive(uint8_t byte)
         return;
     }
 
-    // --- Extension receive state machine ---
+    // Extension receive state machine
     if(m_config.extensions && m_extState != ExtState::Idle)
     {
         processExtensionByte(byte);
-        return;
     }
 }
 
@@ -328,7 +316,7 @@ void Kernel::onWriteError(const boost::system::error_code& ec)
 }
 
 // ---------------------------------------------------------------------------
-// Internal send helpers  (must be on the strand)
+// Internal send helpers  (must be on m_strand)
 // ---------------------------------------------------------------------------
 
 void Kernel::sendRaw(uint8_t b1, uint8_t b2)
@@ -350,12 +338,13 @@ void Kernel::sendWithRedundancy(uint8_t b)
     {
         auto& t = m_redundancyTimers.emplace_back(m_ioContext);
         t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
-        t.async_wait(boost::asio::bind_executor(m_strand,
-            [this, b](const boost::system::error_code& ec)
-            {
-                if(!ec && m_ioHandler)
-                    sendRaw(b);
-            }));
+        t.async_wait(
+            m_strand.wrap(
+                [this, b](const boost::system::error_code& ec)
+                {
+                    if(!ec && m_ioHandler)
+                        sendRaw(b);
+                }));
     }
 }
 
@@ -366,59 +355,59 @@ void Kernel::sendWithRedundancy(uint8_t b1, uint8_t b2)
     {
         auto& t = m_redundancyTimers.emplace_back(m_ioContext);
         t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
-        t.async_wait(boost::asio::bind_executor(m_strand,
-            [this, b1, b2](const boost::system::error_code& ec)
-            {
-                if(!ec && m_ioHandler)
-                    sendRaw(b1, b2);
-            }));
+        t.async_wait(
+            m_strand.wrap(
+                [this, b1, b2](const boost::system::error_code& ec)
+                {
+                    if(!ec && m_ioHandler)
+                        sendRaw(b1, b2);
+                }));
     }
 }
 
 // ---------------------------------------------------------------------------
-// S88 polling  (timer-based, strand-safe)
+// S88 polling
 // ---------------------------------------------------------------------------
 
 void Kernel::scheduleS88Poll()
 {
     m_s88Timer.expires_after(std::chrono::milliseconds(m_config.s88interval));
-    m_s88Timer.async_wait(boost::asio::bind_executor(m_strand,
-        [this](const boost::system::error_code& ec)
-        {
-            if(ec || !m_ioHandler)
-                return;
-            doS88Poll();
-            scheduleS88Poll();
-        }));
+    m_s88Timer.async_wait(
+        m_strand.wrap(
+            [this](const boost::system::error_code& ec)
+            {
+                if(ec || !m_ioHandler)
+                    return;
+                doS88Poll();
+                scheduleS88Poll();
+            }));
 }
 
 void Kernel::doS88Poll()
 {
-    // Send the poll command: S88Base + module count
     const uint8_t cmd = S88Base + static_cast<uint8_t>(m_config.s88amount);
     sendRaw(cmd);
-
-    // Arm the receive state machine
     m_s88State  = S88State::ReceivingData;
     m_s88Expect = m_config.s88amount * 2;
     m_s88Module = 0;
 }
 
 // ---------------------------------------------------------------------------
-// Extension polling  (timer-based, strand-safe)
+// Extension polling
 // ---------------------------------------------------------------------------
 
 void Kernel::scheduleExtensionPoll()
 {
     m_extensionTimer.expires_after(1s);
-    m_extensionTimer.async_wait(boost::asio::bind_executor(m_strand,
-        [this](const boost::system::error_code& ec)
-        {
-            if(ec || !m_ioHandler)
-                return;
-            doExtensionPoll();
-            scheduleExtensionPoll();
-        }));
+    m_extensionTimer.async_wait(
+        m_strand.wrap(
+            [this](const boost::system::error_code& ec)
+            {
+                if(ec || !m_ioHandler)
+                    return;
+                doExtensionPoll();
+                scheduleExtensionPoll();
+            }));
 }
 
 void Kernel::doExtensionPoll()
@@ -429,14 +418,8 @@ void Kernel::doExtensionPoll()
     m_extEventsLeft = 0;
 }
 
-// ---------------------------------------------------------------------------
-// Extension byte processing  (inline helper; called from receive())
-// ---------------------------------------------------------------------------
-
 void Kernel::processExtensionByte(uint8_t byte)
 {
-    // This is intentionally a flat state machine rather than recursive calls,
-    // so the stack stays shallow and all logic stays on the strand.
     switch(m_extState)
     {
         case ExtState::WaitCount:
@@ -452,8 +435,7 @@ void Kernel::processExtensionByte(uint8_t byte)
                 case Extension::EventLocoState: m_extState = ExtState::LocoStateAddr; break;
                 case Extension::EventLocoFunc:  m_extState = ExtState::LocoFuncAddr;  break;
                 default:
-                    // Unknown event type – cannot safely skip unknown length; abort polling.
-                    m_extState = ExtState::Idle;
+                    m_extState = ExtState::Idle; // unknown – bail
                     break;
             }
             break;
@@ -482,8 +464,8 @@ void Kernel::processExtensionByte(uint8_t byte)
 
         case ExtState::TurnoutState:
         {
-            const uint32_t address = (m_extTmpAddr == 0) ? 256u
-                                                           : static_cast<uint32_t>(m_extTmpAddr);
+            const uint32_t address =
+                (m_extTmpAddr == 0) ? 256u : static_cast<uint32_t>(m_extTmpAddr);
             const bool green = (byte != 0);
             if(extensionTurnoutCallback)
             {
@@ -555,10 +537,7 @@ void Kernel::processExtensionByte(uint8_t byte)
 
 void Kernel::advanceExtensionEvent()
 {
-    if(--m_extEventsLeft > 0)
-        m_extState = ExtState::WaitType;
-    else
-        m_extState = ExtState::Idle;
+    m_extState = (--m_extEventsLeft > 0) ? ExtState::WaitType : ExtState::Idle;
 }
 
 } // namespace Marklin6050

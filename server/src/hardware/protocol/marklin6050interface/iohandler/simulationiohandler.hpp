@@ -25,7 +25,7 @@
 
 #include "iohandler.hpp"
 
-#include <boost/asio/strand.hpp>
+#include <boost/asio/io_context.hpp>
 
 namespace Marklin6050 {
 

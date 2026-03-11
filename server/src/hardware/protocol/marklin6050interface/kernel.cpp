@@ -10,7 +10,7 @@
  */
 
 #include "kernel.hpp"
-#include "iohandler.hpp"
+#include "iohandler/iohandler.hpp"
 #include "protocol.hpp"
 #include "../../../core/eventloop.hpp"
 #include "../../../log/log.hpp"
@@ -390,22 +390,13 @@ void Kernel::receive(uint8_t byte)
   }
 }
 
-void Kernel::onReadError(const boost::system::error_code& ec)
+void Kernel::error()
 {
   EventLoop::call(
-  [this, ec]()
-  {
-      Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X, ec);
-  });
-}
-
-void Kernel::onWriteError(const boost::system::error_code& ec)
-{
-  EventLoop::call(
-  [this, ec]()
-  {
-      Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
-  });
+    [this]()
+    {
+      Log::log(logId, LogMessage::E2003_SERIAL_READ_WRITE_FAILED);
+    });
 }
 
 // ---------------------------------------------------------------------------

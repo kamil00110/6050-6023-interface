@@ -2,11 +2,7 @@
  * server/src/hardware/protocol/Marklin6023/iohandler.hpp
  *
  * Serial IOHandler for the Märklin 6023/6223 ASCII kernel.
- * Owns the Boost.Asio serial_port and performs async line-oriented I/O.
- *
- * ASCII responses are CR or LF terminated; the handler accumulates bytes
- * until a terminator arrives and then delivers the complete line to the
- * kernel via Kernel::receiveLine().
+ * Accumulates bytes into lines and delivers them via Kernel::receiveLine().
  *
  * Copyright (C) 2025
  *
@@ -21,6 +17,7 @@
 
 #include <string>
 #include <array>
+#include <vector>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/serial_port.hpp>
@@ -36,24 +33,24 @@ class IOHandler final
 public:
     IOHandler(Kernel& kernel,
               boost::asio::io_context& ioContext,
+              boost::asio::io_context::strand& strand,
               const std::string& device,
               uint32_t baudrate);
 
     ~IOHandler();
 
-    /** Send a raw string (including terminator) asynchronously. Thread-safe. */
+    /** Send a complete command string (including CR). Must be on the strand. */
     void sendString(std::string str);
 
 private:
     static constexpr std::size_t kReadBufferSize = 256;
 
-    Kernel&                                         m_kernel;
-    boost::asio::io_context&                        m_ioContext;
-    boost::asio::strand<boost::asio::io_context::executor_type> m_strand;
-    boost::asio::serial_port                        m_serialPort;
+    Kernel&                          m_kernel;
+    boost::asio::io_context::strand& m_strand;
+    boost::asio::serial_port         m_serialPort;
 
-    std::array<uint8_t, kReadBufferSize>            m_readBuffer;
-    std::string                                     m_lineBuffer;  ///< accumulates partial line
+    std::array<uint8_t, kReadBufferSize> m_readBuffer;
+    std::string                          m_lineBuffer;
 
     void startRead();
     void onRead(const boost::system::error_code& ec, std::size_t bytesRead);

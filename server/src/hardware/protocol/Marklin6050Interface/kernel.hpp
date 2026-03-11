@@ -66,8 +66,14 @@ public:
      * The device and baudrate are stored here so that start() is parameterless,
      * consistent with the KernelBase contract.
      */
-    Kernel(std::string logId, const Config& config,
+    explicit Kernel(std::string logId, const Config& config,
            std::string device, uint32_t baudrate);
+
+    /**
+     * Explicitly declared so that the unique_ptr<IOHandler> destructor is
+     * only instantiated in kernel.cpp where IOHandler is a complete type.
+     */
+    ~Kernel();
 
     /**
      * Create the IOHandler (opens the serial port) and begin operation.

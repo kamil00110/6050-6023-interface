@@ -18,8 +18,66 @@
 
 #include <chrono>
 #include <cstdio>
+#include <string>
 
 using namespace std::chrono_literals;
+
+// ---------------------------------------------------------------------------
+// Interpreted command logging helpers
+// ---------------------------------------------------------------------------
+
+static std::string interpretTx1(uint8_t b)
+{
+    if(b == GlobalGo)   return "Global go";
+    if(b == GlobalStop) return "Global stop";
+    if(b == Extension::PollByte) return "Extension poll";
+    if(b >= S88Base)
+        return "S88 poll: " + std::to_string(b - S88Base) + " module(s)";
+    return "?";
+}
+
+static std::string interpretTx2(uint8_t b1, uint8_t b2)
+{
+    const uint8_t cmd  = b1 & 0x7Fu; // strip any parity
+    const uint8_t addr = b2;
+
+    // Speed / F0 / direction toggle (bits 0-4)
+    if(cmd <= 0x1Fu)
+    {
+        const uint8_t speed = cmd & LocoSpeedMask;
+        const bool    f0    = cmd & LocoF0Bit;
+        if(speed == LocoDirToggle)
+            return "Loco " + std::to_string(addr) +
+                   ": direction toggle, F0=" + (f0 ? "on" : "off");
+        return "Loco " + std::to_string(addr) +
+               ": speed " + std::to_string(speed) +
+               ", F0=" + (f0 ? "on" : "off");
+    }
+
+    // Accessory (32-34)
+    if(cmd == AccessoryOff)   return "Accessory " + std::to_string(addr) + ": off";
+    if(cmd == AccessoryGreen) return "Accessory " + std::to_string(addr) + ": green (straight)";
+    if(cmd == AccessoryRed)   return "Accessory " + std::to_string(addr) + ": red (diverging)";
+
+    // Functions F1-F4 (64-79)
+    if(cmd >= FunctionBase && cmd < FunctionBase + 16u)
+    {
+        const uint8_t bits = cmd - FunctionBase;
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Loco %u: F1=%u F2=%u F3=%u F4=%u",
+                      addr,
+                      (bits & FunctionF1) ? 1u : 0u,
+                      (bits & FunctionF2) ? 1u : 0u,
+                      (bits & FunctionF3) ? 1u : 0u,
+                      (bits & FunctionF4) ? 1u : 0u);
+        return buf;
+    }
+
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%02X %02X", b1, b2);
+    return buf;
+}
+
 
 namespace Marklin6050 {
 
@@ -249,9 +307,32 @@ void Kernel::receive(uint8_t byte)
 {
     if(m_config.debugLogRXTX)
     {
-        char buf[4];
-        std::snprintf(buf, sizeof(buf), "%02X", byte);
-        EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2002_RX_X, msg); });
+        char raw[4];
+        std::snprintf(raw, sizeof(raw), "%02X", byte);
+
+        // Build interpreted label based on current receive state
+        std::string interp;
+        if(m_s88State == S88State::ReceivingData)
+        {
+            const unsigned int byteIndex = (m_config.s88amount * 2) - m_s88Expect;
+            const bool isHighByte = (byteIndex % 2 == 0);
+            char ibuf[48];
+            std::snprintf(ibuf, sizeof(ibuf), "S88 module %u %s byte",
+                          m_s88Module + 1,
+                          isHighByte ? "high" : "low");
+            interp = ibuf;
+        }
+        else if(m_config.extensions && m_extState != ExtState::Idle)
+        {
+            interp = "ext-event byte";
+        }
+        else
+        {
+            interp = "unexpected";
+        }
+
+        EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
+                        { Log::log(logId, LogMessage::D2002_RX_X, msg); });
     }
 
     // S88 receive state machine
@@ -333,9 +414,11 @@ void Kernel::sendRaw(uint8_t b1, uint8_t b2)
     {
         if(m_config.debugLogRXTX)
         {
-            char buf[8];
-            std::snprintf(buf, sizeof(buf), "%02X %02X", b1, b2);
-            EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
+            char raw[8];
+            std::snprintf(raw, sizeof(raw), "%02X %02X", b1, b2);
+            const std::string interp = interpretTx2(b1, b2);
+            EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
+                            { Log::log(logId, LogMessage::D2001_TX_X, msg); });
         }
         m_ioHandler->send({b1, b2});
     }
@@ -347,9 +430,11 @@ void Kernel::sendRaw(uint8_t b)
     {
         if(m_config.debugLogRXTX)
         {
-            char buf[4];
-            std::snprintf(buf, sizeof(buf), "%02X", b);
-            EventLoop::call([this, msg = std::string(buf)](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
+            char raw[4];
+            std::snprintf(raw, sizeof(raw), "%02X", b);
+            const std::string interp = interpretTx1(b);
+            EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
+                            { Log::log(logId, LogMessage::D2001_TX_X, msg); });
         }
         m_ioHandler->send({b});
     }

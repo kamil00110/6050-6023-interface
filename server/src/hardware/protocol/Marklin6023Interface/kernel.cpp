@@ -17,10 +17,94 @@
 #include "../../../log/logmessageexception.hpp"
 
 #include <chrono>
+#include <string>
 
 using namespace std::chrono_literals;
 
 namespace Marklin6023 {
+
+// ---------------------------------------------------------------------------
+// S88 response timeout: if the device doesn't reply within this period,
+// we skip the current contact and continue — prevents the cycle hanging.
+// ---------------------------------------------------------------------------
+static constexpr auto kS88ResponseTimeout = std::chrono::milliseconds(1000);
+
+// ---------------------------------------------------------------------------
+// Interpreted command logging helpers
+// ---------------------------------------------------------------------------
+
+static std::string interpretTx(const std::string& cmd)
+{
+    if(cmd.empty())
+        return cmd;
+
+    // "G" – Global Go
+    if(cmd == "G")
+        return "Global go";
+
+    // "S" – Global Stop
+    if(cmd == "S")
+        return "Global stop";
+
+    // "L <addr> S <spd> F <f0>" – loco speed + F0
+    // "L <addr> D"              – loco direction toggle
+    if(cmd.size() >= 2 && cmd[0] == 'L' && cmd[1] == ' ')
+    {
+        // find addr (after "L ")
+        const std::size_t addrStart = 2;
+        const std::size_t spaceAfterAddr = cmd.find(' ', addrStart);
+        if(spaceAfterAddr == std::string::npos)
+            return cmd;
+        const std::string addr = cmd.substr(addrStart, spaceAfterAddr - addrStart);
+        const std::string rest = cmd.substr(spaceAfterAddr + 1);
+
+        if(!rest.empty() && rest[0] == 'D')
+            return "Loco " + addr + ": direction toggle";
+
+        // "S <spd> F <f0>"
+        // rest = "S 5 F 0"
+        unsigned int spd = 0, f0 = 0;
+        if(std::sscanf(rest.c_str(), "S %u F %u", &spd, &f0) == 2)
+            return "Loco " + addr + ": speed " + std::to_string(spd) +
+                   ", F0=" + (f0 ? "on" : "off");
+
+        return cmd;
+    }
+
+    // "M <addr> R/G" – accessory
+    if(cmd.size() >= 2 && cmd[0] == 'M' && cmd[1] == ' ')
+    {
+        const std::size_t addrStart = 2;
+        const std::size_t spaceAfterAddr = cmd.find(' ', addrStart);
+        if(spaceAfterAddr != std::string::npos && spaceAfterAddr + 1 < cmd.size())
+        {
+            const std::string addr = cmd.substr(addrStart, spaceAfterAddr - addrStart);
+            const char dir = cmd[spaceAfterAddr + 1];
+            return std::string("Accessory ") + addr +
+                   (dir == 'R' ? ": red (diverging)" : ": green (straight)");
+        }
+    }
+
+    // "C <n>" – S88 contact query
+    if(cmd.size() >= 3 && cmd[0] == 'C' && cmd[1] == ' ')
+    {
+        const std::string contact = cmd.substr(2);
+        return "S88 query contact " + contact;
+    }
+
+    return cmd;
+}
+
+static std::string interpretRx(const std::string& line, uint32_t queriedContact)
+{
+    // S88 response is a single digit "0" or "1"
+    if(line == "0" || line == "1")
+    {
+        const std::string state = (line == "1") ? "occupied" : "clear";
+        return "S88 contact " + std::to_string(queriedContact) + ": " + state;
+    }
+    return line;
+}
 
 // ---------------------------------------------------------------------------
 // Construction
@@ -34,6 +118,7 @@ Kernel::Kernel(std::string logId_, const Config& config,
     , m_baudrate{baudrate}
     , m_strand{m_ioContext}
     , m_s88Timer{m_ioContext}
+    , m_s88ResponseTimer{m_ioContext}
 {
 }
 
@@ -60,6 +145,7 @@ void Kernel::stop()
         [this]()
         {
             m_s88Timer.cancel();
+            m_s88ResponseTimer.cancel();
             m_redundancyTimers.clear();
             m_ioHandler.reset();
             m_ioContext.stop();
@@ -97,7 +183,6 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 
 void Kernel::setLocoDirection(uint8_t address, bool /*f0*/)
 {
-    // No redundancy – toggling twice cancels out.
     m_strand.post(
         [this, address]()
         {
@@ -107,7 +192,6 @@ void Kernel::setLocoDirection(uint8_t address, bool /*f0*/)
 
 void Kernel::setLocoEmergencyStop(uint8_t address, bool /*f0*/)
 {
-    // Double direction-toggle: first stops, second restores direction.
     m_strand.post(
         [this, address]()
         {
@@ -163,7 +247,17 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
 void Kernel::receiveLine(std::string line)
 {
     if(m_config.debugLogRXTX)
-        EventLoop::call([this, msg = line](){ Log::log(logId, LogMessage::D2002_RX_X, msg); });
+    {
+        const std::string interp = m_s88WaitingReply
+            ? interpretRx(line, m_s88LastQueried)
+            : line;
+        EventLoop::call(
+            [this, raw = line, interp]()
+            {
+                Log::log(logId, LogMessage::D2002_RX_X,
+                         raw + "  [" + interp + "]");
+            });
+    }
 
     if(m_s88WaitingReply)
         onS88Response(line);
@@ -193,12 +287,21 @@ void Kernel::onWriteError(const boost::system::error_code& ec)
 
 void Kernel::sendCmd(std::string cmd)
 {
-    if(m_ioHandler)
+    if(!m_ioHandler)
+        return;
+
+    if(m_config.debugLogRXTX)
     {
-        if(m_config.debugLogRXTX)
-            EventLoop::call([this, msg = cmd](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
-        m_ioHandler->sendString(std::move(cmd) + CR);
+        const std::string interp = interpretTx(cmd);
+        EventLoop::call(
+            [this, raw = cmd, interp]()
+            {
+                Log::log(logId, LogMessage::D2001_TX_X,
+                         raw + "  [" + interp + "]");
+            });
     }
+
+    m_ioHandler->sendString(std::move(cmd) + CR);
 }
 
 void Kernel::sendCmdWithRedundancy(std::string cmd)
@@ -226,6 +329,7 @@ void Kernel::startS88Cycle()
 {
     m_s88NextContact  = 1;
     m_s88WaitingReply = false;
+    m_s88LastQueried  = 0;
 
     m_s88Timer.expires_after(std::chrono::milliseconds(m_config.s88interval));
     m_s88Timer.async_wait(
@@ -250,12 +354,27 @@ void Kernel::queryNextContact()
         return;
     }
 
+    m_s88LastQueried  = m_s88NextContact;
     m_s88WaitingReply = true;
     sendCmd("C " + std::to_string(m_s88NextContact));
+
+    // Safety net: if the device doesn't respond within the timeout,
+    // skip this contact and continue — prevents the cycle from hanging.
+    m_s88ResponseTimer.expires_after(kS88ResponseTimeout);
+    m_s88ResponseTimer.async_wait(
+        m_strand.wrap(
+            [this](const boost::system::error_code& ec)
+            {
+                if(ec) // cancelled normally (response arrived)
+                    return;
+                onS88ResponseTimeout();
+            }));
 }
 
 void Kernel::onS88Response(const std::string& line)
 {
+    // Cancel the timeout — we got a reply.
+    m_s88ResponseTimer.cancel();
     m_s88WaitingReply = false;
 
     bool state = false;
@@ -274,6 +393,23 @@ void Kernel::onS88Response(const std::string& line)
             });
     }
 
+    queryNextContact();
+}
+
+void Kernel::onS88ResponseTimeout()
+{
+    // No response within kS88ResponseTimeout — log and move on.
+    const uint32_t contact = m_s88LastQueried;
+    EventLoop::call(
+        [this, contact]()
+        {
+            Log::log(logId, LogMessage::W2001_X,
+                     "S88 no response for contact " + std::to_string(contact) +
+                     ", skipping");
+        });
+
+    m_s88WaitingReply = false;
+    m_s88NextContact++;
     queryNextContact();
 }
 

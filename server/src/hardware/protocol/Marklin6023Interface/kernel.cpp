@@ -16,7 +16,6 @@
 #include "../../../log/log.hpp"
 #include "../../../log/logmessageexception.hpp"
 
-#include <boost/asio/post.hpp>
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -27,12 +26,13 @@ namespace Marklin6023 {
 // Construction
 // ---------------------------------------------------------------------------
 
-Kernel::Kernel(std::string logId, const Config& config,
+Kernel::Kernel(std::string logId_, const Config& config,
                std::string device, uint32_t baudrate)
-    : KernelBase{std::move(logId)}
+    : KernelBase{std::move(logId_)}
     , m_config{config}
     , m_device{std::move(device)}
     , m_baudrate{baudrate}
+    , m_strand{m_ioContext}
     , m_s88Timer{m_ioContext}
 {
 }
@@ -45,44 +45,47 @@ Kernel::~Kernel() = default;
 
 void Kernel::start()
 {
-    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_device, m_baudrate);
+    m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_strand,
+                                              m_device, m_baudrate);
 
     if(m_config.s88amount > 0)
         startS88Cycle();
 
-    KernelBase::start();
+    m_ioThread = std::thread([this](){ m_ioContext.run(); });
 }
 
 void Kernel::stop()
 {
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this]()
         {
             m_s88Timer.cancel();
             m_redundancyTimers.clear();
             m_ioHandler.reset();
+            m_ioContext.stop();
         });
 
-    KernelBase::stop();
+    if(m_ioThread.joinable())
+        m_ioThread.join();
 }
 
 // ---------------------------------------------------------------------------
-// Public command API  (posts onto the strand)
+// Public command API
 // ---------------------------------------------------------------------------
 
 void Kernel::sendGlobalGo()
 {
-    boost::asio::post(m_strand, [this](){ sendCmdWithRedundancy("G"); });
+    m_strand.post([this](){ sendCmdWithRedundancy("G"); });
 }
 
 void Kernel::sendGlobalStop()
 {
-    boost::asio::post(m_strand, [this](){ sendCmdWithRedundancy("S"); });
+    m_strand.post([this](){ sendCmdWithRedundancy("S"); });
 }
 
 void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 {
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, speed, f0]()
         {
             sendCmdWithRedundancy(
@@ -95,8 +98,7 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 void Kernel::setLocoDirection(uint8_t address, bool /*f0*/)
 {
     // No redundancy – toggling twice cancels out.
-    // The 6023/6223 direction command does not carry an F0 state byte.
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address]()
         {
             sendCmd("L " + std::to_string(address) + " D");
@@ -105,8 +107,8 @@ void Kernel::setLocoDirection(uint8_t address, bool /*f0*/)
 
 void Kernel::setLocoEmergencyStop(uint8_t address, bool /*f0*/)
 {
-    // Double direction toggle: first stops, second restores direction.
-    boost::asio::post(m_strand,
+    // Double direction-toggle: first stops, second restores direction.
+    m_strand.post(
         [this, address]()
         {
             const std::string cmd = "L " + std::to_string(address) + " D";
@@ -114,18 +116,18 @@ void Kernel::setLocoEmergencyStop(uint8_t address, bool /*f0*/)
 
             auto& t = m_redundancyTimers.emplace_back(m_ioContext);
             t.expires_after(50ms);
-            t.async_wait(boost::asio::bind_executor(m_strand,
-                [this, cmd](const boost::system::error_code& ec)
-                {
-                    if(!ec && m_ioHandler)
-                        sendCmd(cmd);
-                }));
+            t.async_wait(
+                m_strand.wrap(
+                    [this, cmd](const boost::system::error_code& ec)
+                    {
+                        if(!ec && m_ioHandler)
+                            sendCmd(cmd);
+                    }));
         });
 }
 
 void Kernel::setLocoFunction(uint8_t address, uint8_t currentSpeed, bool f0)
 {
-    // Resend the speed command with the updated F0 bit.
     setLocoSpeed(address, currentSpeed, f0);
 }
 
@@ -145,28 +147,23 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
                 dir = (v == TriState::True) ? 'R' : 'G';
         }, value);
 
-    boost::asio::post(m_strand,
+    m_strand.post(
         [this, address, dir]()
         {
-            sendCmdWithRedundancy(
-                "M " + std::to_string(address) + " " + dir);
+            sendCmdWithRedundancy("M " + std::to_string(address) + " " + dir);
         });
 
     return true;
 }
 
 // ---------------------------------------------------------------------------
-// IOHandler callbacks  (called on the strand)
+// IOHandler callbacks  (arrive on m_strand)
 // ---------------------------------------------------------------------------
 
 void Kernel::receiveLine(std::string line)
 {
-    // The only responses we currently expect are S88 contact query replies ("0" or "1").
     if(m_s88WaitingReply)
-    {
         onS88Response(line);
-    }
-    // Future: handle additional response types here.
 }
 
 void Kernel::onReadError(const boost::system::error_code& ec)
@@ -188,7 +185,7 @@ void Kernel::onWriteError(const boost::system::error_code& ec)
 }
 
 // ---------------------------------------------------------------------------
-// Internal send helpers  (must be on the strand)
+// Internal send helpers  (must be on m_strand)
 // ---------------------------------------------------------------------------
 
 void Kernel::sendCmd(std::string cmd)
@@ -200,39 +197,38 @@ void Kernel::sendCmd(std::string cmd)
 void Kernel::sendCmdWithRedundancy(std::string cmd)
 {
     sendCmd(cmd);
-
     for(unsigned int i = 0; i < m_config.redundancy; ++i)
     {
         auto& t = m_redundancyTimers.emplace_back(m_ioContext);
         t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
-        t.async_wait(boost::asio::bind_executor(m_strand,
-            [this, cmd](const boost::system::error_code& ec)
-            {
-                if(!ec && m_ioHandler)
-                    sendCmd(cmd);
-            }));
+        t.async_wait(
+            m_strand.wrap(
+                [this, cmd](const boost::system::error_code& ec)
+                {
+                    if(!ec && m_ioHandler)
+                        sendCmd(cmd);
+                }));
     }
 }
 
 // ---------------------------------------------------------------------------
-// S88 polling  (contact-by-contact, request/response style)
+// S88 polling
 // ---------------------------------------------------------------------------
 
 void Kernel::startS88Cycle()
 {
-    // Wait for the configured interval before starting the first (and each
-    // subsequent) cycle so we do not hammer the CU immediately on connect.
-    m_s88NextContact   = 1;
-    m_s88WaitingReply  = false;
+    m_s88NextContact  = 1;
+    m_s88WaitingReply = false;
 
     m_s88Timer.expires_after(std::chrono::milliseconds(m_config.s88interval));
-    m_s88Timer.async_wait(boost::asio::bind_executor(m_strand,
-        [this](const boost::system::error_code& ec)
-        {
-            if(ec || !m_ioHandler)
-                return;
-            queryNextContact();
-        }));
+    m_s88Timer.async_wait(
+        m_strand.wrap(
+            [this](const boost::system::error_code& ec)
+            {
+                if(ec || !m_ioHandler)
+                    return;
+                queryNextContact();
+            }));
 }
 
 void Kernel::queryNextContact()
@@ -240,17 +236,15 @@ void Kernel::queryNextContact()
     if(!m_ioHandler)
         return;
 
-    const unsigned int totalContacts = m_config.s88amount * 16;
-    if(m_s88NextContact > totalContacts)
+    const unsigned int total = m_config.s88amount * 16;
+    if(m_s88NextContact > total)
     {
-        // Cycle complete – restart after the poll interval
         startS88Cycle();
         return;
     }
 
     m_s88WaitingReply = true;
     sendCmd("C " + std::to_string(m_s88NextContact));
-    // The response will arrive asynchronously via receiveLine() → onS88Response()
 }
 
 void Kernel::onS88Response(const std::string& line)
@@ -258,17 +252,10 @@ void Kernel::onS88Response(const std::string& line)
     m_s88WaitingReply = false;
 
     bool state = false;
-    try
-    {
-        state = (std::stoi(line) != 0);
-    }
-    catch(...)
-    {
-        // Malformed response – skip this contact but continue the cycle
-    }
+    try { state = (std::stoi(line) != 0); }
+    catch(...) {}
 
-    const uint32_t contact = m_s88NextContact;
-    ++m_s88NextContact;
+    const uint32_t contact = m_s88NextContact++;
 
     if(s88Callback)
     {
@@ -280,8 +267,6 @@ void Kernel::onS88Response(const std::string& line)
             });
     }
 
-    // Query the next contact immediately (no inter-contact delay needed;
-    // the round-trip time acts as natural throttle).
     queryNextContact();
 }
 

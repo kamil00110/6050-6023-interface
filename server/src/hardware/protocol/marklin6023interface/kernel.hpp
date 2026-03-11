@@ -68,8 +68,7 @@ public:
   // IOHandler entry points — called on m_strand by IOHandler.
   void started() override;
   void receiveLine(std::string line);
-  void onReadError(const boost::system::error_code& ec);
-  void onWriteError(const boost::system::error_code& ec);
+  void error();
 
 private:
   void sendCmd(std::string cmd);

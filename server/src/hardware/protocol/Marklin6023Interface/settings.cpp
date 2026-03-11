@@ -86,9 +86,10 @@ void Settings::loaded()
 
 void Settings::updateEnabled(bool online)
 {
-    Attributes::setEnabled(s88amount,   !online);
-    Attributes::setEnabled(s88interval, !online);
-    Attributes::setEnabled(redundancy,  !online);
+    Attributes::setEnabled(s88amount,    !online);
+    Attributes::setEnabled(s88interval,  !online);
+    Attributes::setEnabled(redundancy,   !online);
+    Attributes::setEnabled(debugLogRXTX, !online);
 }
 
 } // namespace Marklin6023

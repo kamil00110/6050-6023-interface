@@ -274,7 +274,7 @@ void Kernel::error()
   EventLoop::call(
     [this]()
     {
-      Log::log(logId, LogMessage::E2003_SERIAL_READ_WRITE_FAILED);
+      Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X);
     });
 }
 
@@ -400,7 +400,7 @@ void Kernel::onS88ResponseTimeout()
   EventLoop::call(
     [this, contact]()
     {
-      Log::log(logId, LogMessage::W2001_X,
+      Log::log(logId, LogMessage::E2019_TIMEOUT_NO_RESPONSE_WITHIN_X_MS,
                      "S88 no response for contact " + std::to_string(contact) +
                      ", skipping");
     });

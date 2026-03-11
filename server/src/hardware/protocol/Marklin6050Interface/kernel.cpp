@@ -1,13 +1,25 @@
 /**
- * server/src/hardware/protocol/Marklin6050/kernel.cpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
+
 
 #include "kernel.hpp"
 #include "iohandler.hpp"
@@ -106,7 +118,7 @@ Kernel::~Kernel() = default;
 void Kernel::start()
 {
     // IOHandler constructor opens the serial port.
-    // Throws LogMessageException on failure â€“ propagated to the interface.
+    // Throws LogMessageException on failure – propagated to the interface.
     m_ioHandler = std::make_unique<IOHandler>(*this, m_ioContext, m_strand,
                                               m_device, m_baudrate);
 
@@ -163,7 +175,7 @@ void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
 
 void Kernel::setLocoDirection(uint8_t address, bool f0)
 {
-    // No redundancy â€“ toggling twice cancels out.
+    // No redundancy – toggling twice cancels out.
     m_strand.post(
         [this, address, f0]()
         {
@@ -544,7 +556,7 @@ void Kernel::processExtensionByte(uint8_t byte)
                 case Extension::EventLocoState: m_extState = ExtState::LocoStateAddr; break;
                 case Extension::EventLocoFunc:  m_extState = ExtState::LocoFuncAddr;  break;
                 default:
-                    m_extState = ExtState::Idle; // unknown â€“ bail
+                    m_extState = ExtState::Idle; // unknown – bail
                     break;
             }
             break;

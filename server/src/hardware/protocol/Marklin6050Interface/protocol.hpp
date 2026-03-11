@@ -1,17 +1,22 @@
 /**
- * server/src/hardware/protocol/Marklin6050/protocol.hpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * Protocol constants for the Märklin 6050/6051 binary serial interface.
- *
- * Binary protocol: All commands are 2 bytes: command byte + address byte.
- * Extension protocol: Poll with 255 255, receive change buffer.
- *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6050_PROTOCOL_HPP
@@ -38,7 +43,7 @@ constexpr uint8_t AccessoryOff     = 32;
 constexpr uint8_t AccessoryGreen   = 33;
 constexpr uint8_t AccessoryRed     = 34;
 
-// --- Loco functions F1–F4 ---
+// --- Loco functions F1�F4 ---
 constexpr uint8_t FunctionBase     = 64;
 constexpr uint8_t FunctionF1       = 0x01;
 constexpr uint8_t FunctionF2       = 0x02;
@@ -67,7 +72,7 @@ constexpr uint8_t S88Base          = 128;
 //   bit 0 = power (1=on)  bit 1 = running (1=go)
 //
 // Type 0x02: Turnout changed  (2 data bytes)
-//   byte1 = address (1-255, 0 → 256)
+//   byte1 = address (1-255, 0 ? 256)
 //   byte2 = position (0=red/diverging, 1=green/straight)
 //
 // Type 0x03: Loco state changed  (2 data bytes)

@@ -1,13 +1,25 @@
 /**
- * server/src/hardware/protocol/Marklin6023/kernel.cpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
+
 
 #include "kernel.hpp"
 #include "iohandler.hpp"
@@ -25,7 +37,7 @@ namespace Marklin6023 {
 
 // ---------------------------------------------------------------------------
 // S88 response timeout: if the device doesn't reply within this period,
-// we skip the current contact and continue â€” prevents the cycle hanging.
+// we skip the current contact and continue — prevents the cycle hanging.
 // ---------------------------------------------------------------------------
 static constexpr auto kS88ResponseTimeout = std::chrono::milliseconds(1000);
 
@@ -38,16 +50,16 @@ static std::string interpretTx(const std::string& cmd)
     if(cmd.empty())
         return cmd;
 
-    // "G" â€“ Global Go
+    // "G" – Global Go
     if(cmd == "G")
         return "Global go";
 
-    // "S" â€“ Global Stop
+    // "S" – Global Stop
     if(cmd == "S")
         return "Global stop";
 
-    // "L <addr> S <spd> F <f0>" â€“ loco speed + F0
-    // "L <addr> D"              â€“ loco direction toggle
+    // "L <addr> S <spd> F <f0>" – loco speed + F0
+    // "L <addr> D"              – loco direction toggle
     if(cmd.size() >= 2 && cmd[0] == 'L' && cmd[1] == ' ')
     {
         // find addr (after "L ")
@@ -71,7 +83,7 @@ static std::string interpretTx(const std::string& cmd)
         return cmd;
     }
 
-    // "M <addr> R/G" â€“ accessory
+    // "M <addr> R/G" – accessory
     if(cmd.size() >= 2 && cmd[0] == 'M' && cmd[1] == ' ')
     {
         const std::size_t addrStart = 2;
@@ -85,7 +97,7 @@ static std::string interpretTx(const std::string& cmd)
         }
     }
 
-    // "C <n>" â€“ S88 contact query
+    // "C <n>" – S88 contact query
     if(cmd.size() >= 3 && cmd[0] == 'C' && cmd[1] == ' ')
     {
         const std::string contact = cmd.substr(2);
@@ -359,7 +371,7 @@ void Kernel::queryNextContact()
     sendCmd("C " + std::to_string(m_s88NextContact));
 
     // Safety net: if the device doesn't respond within the timeout,
-    // skip this contact and continue â€” prevents the cycle from hanging.
+    // skip this contact and continue — prevents the cycle from hanging.
     m_s88ResponseTimer.expires_after(kS88ResponseTimeout);
     m_s88ResponseTimer.async_wait(
         m_strand.wrap(
@@ -373,7 +385,7 @@ void Kernel::queryNextContact()
 
 void Kernel::onS88Response(const std::string& line)
 {
-    // Cancel the timeout â€” we got a reply.
+    // Cancel the timeout — we got a reply.
     m_s88ResponseTimer.cancel();
     m_s88WaitingReply = false;
 
@@ -398,7 +410,7 @@ void Kernel::onS88Response(const std::string& line)
 
 void Kernel::onS88ResponseTimeout()
 {
-    // No response within kS88ResponseTimeout â€” log and move on.
+    // No response within kS88ResponseTimeout — log and move on.
     const uint32_t contact = m_s88LastQueried;
     EventLoop::call(
         [this, contact]()

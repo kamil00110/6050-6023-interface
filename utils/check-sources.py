@@ -26,7 +26,7 @@ def check_license(text, filepath, fix=False):
  * This file is part of Traintastic,
  * see <https://github.com/traintastic/traintastic>.
  *
- * Copyright (C) ''' + str(datetime.datetime.now().year) + ''' Reinder Feenstra
+ * Copyright (C) ''' + str(datetime.datetime.now().year) + ''' Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

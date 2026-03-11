@@ -36,6 +36,7 @@ public:
     Property<unsigned int>  turnouttime;
     Property<unsigned int>  redundancy;
     Property<bool>          extensions;
+    Property<bool>          debugLogRXTX;
 
     Settings(Object& parent, std::string_view parentPropertyName);
 

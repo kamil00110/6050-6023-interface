@@ -306,7 +306,7 @@ bool Marklin6050Interface::setOutputValue(
     case OutputChannel::Output:
     {
       const auto [min, max] = outputAddressMinMax(channel);
-      if([[unlikely]] !inRange(address, min, max))
+      if(!inRange(address, min, max)) [[unlikely]]
         return false;
 
       const bool result =

@@ -162,6 +162,9 @@ bool Kernel::setAccessory(uint32_t address, OutputValue value)
 
 void Kernel::receiveLine(std::string line)
 {
+    if(m_config.debugLogRXTX)
+        EventLoop::call([this, msg = line](){ Log::log(logId, LogMessage::D2002_RX_X, msg); });
+
     if(m_s88WaitingReply)
         onS88Response(line);
 }
@@ -191,7 +194,11 @@ void Kernel::onWriteError(const boost::system::error_code& ec)
 void Kernel::sendCmd(std::string cmd)
 {
     if(m_ioHandler)
+    {
+        if(m_config.debugLogRXTX)
+            EventLoop::call([this, msg = cmd](){ Log::log(logId, LogMessage::D2001_TX_X, msg); });
         m_ioHandler->sendString(std::move(cmd) + CR);
+    }
 }
 
 void Kernel::sendCmdWithRedundancy(std::string cmd)

@@ -35,8 +35,8 @@
 #include "wlanmausinterface.hpp"
 #include "xpressnetinterface.hpp"
 #include "z21interface.hpp"
-#include "Marklin6050Interface.hpp"
-#include "Marklin6023Interface.hpp"
+#include "marklin6050interface.hpp"
+#include "marklin6023interface.hpp"
 
 
 std::span<const std::string_view> Interfaces::classList()

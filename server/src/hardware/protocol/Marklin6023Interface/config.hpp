@@ -23,6 +23,7 @@ struct Config
     unsigned int s88amount   = 1;   ///< number of S88 modules (max 4 for 6023/6223)
     unsigned int s88interval = 400; ///< milliseconds between S88 poll cycles
     unsigned int redundancy  = 0;   ///< extra retransmit count (0 = send once)
+    bool         debugLogRXTX = false; ///< log every TX/RX line to the debug log
 };
 
 } // namespace Marklin6023

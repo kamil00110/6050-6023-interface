@@ -5,14 +5,13 @@
  *
  * Design
  * ------
- *  - Derives from KernelBase (io_context ownership, strand, lifecycle).
+ *  - Derives from KernelBase (provides logId and m_started).
+ *  - Owns its own io_context, strand, and background thread.
  *  - Serial I/O is fully delegated to IOHandler (async, non-blocking).
- *  - Command redundancy is implemented via Boost.Asio steady_timer
- *    (no detached threads).
- *  - S88 polling and Extension polling each use a recurring steady_timer.
- *  - All state is accessed exclusively on the kernel strand → thread-safe.
- *  - Public command methods (setLocoSpeed, etc.) are safe to call from
- *    any thread; they post work onto the strand internally.
+ *  - Command redundancy, S88 polling, and Extension polling all use
+ *    boost::asio::steady_timer (no detached threads).
+ *  - All mutable state is accessed exclusively on m_strand (thread-safe).
+ *  - Public command methods post work onto the strand (safe from any thread).
  *
  * Copyright (C) 2025
  *
@@ -32,8 +31,11 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 #include <vector>
 #include <cstdint>
+#include <boost/asio/io_context.hpp>
+#include <boost/asio/strand.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -44,49 +46,24 @@ class IOHandler;
 class Kernel : public KernelBase
 {
 public:
-    // -----------------------------------------------------------------------
-    // Callbacks (set before start(); called on the EventLoop thread)
-    // -----------------------------------------------------------------------
     std::function<void(uint32_t address, bool state)>                           s88Callback;
     std::function<void(bool power, bool run)>                                   extensionGlobalCallback;
     std::function<void(uint32_t address, bool green)>                           extensionTurnoutCallback;
     std::function<void(uint8_t address, uint8_t speed, bool f0, bool forward)>  extensionLocoCallback;
     std::function<void(uint8_t address, bool f1, bool f2, bool f3, bool f4)>    extensionFuncCallback;
 
-    // -----------------------------------------------------------------------
-    // Construction / lifecycle
-    // -----------------------------------------------------------------------
-
     /**
-     * @param logId    Identifier used in log messages.
-     * @param config   Immutable configuration snapshot.
-     * @param device   Serial device path (e.g. "/dev/ttyUSB0").
-     * @param baudrate Baud rate (typically 2400 for 6050).
-     *
-     * The device and baudrate are stored here so that start() is parameterless,
-     * consistent with the KernelBase contract.
+     * logId_ is passed to KernelBase; the name differs from the inherited
+     * member logId to avoid -Wshadow errors.
      */
-    explicit Kernel(std::string logId, const Config& config,
+    Kernel(std::string logId_, const Config& config,
            std::string device, uint32_t baudrate);
 
-    /**
-     * Explicitly declared so that the unique_ptr<IOHandler> destructor is
-     * only instantiated in kernel.cpp where IOHandler is a complete type.
-     */
+    /** Declared here so ~unique_ptr<IOHandler> resolves in kernel.cpp only. */
     ~Kernel();
 
-    /**
-     * Create the IOHandler (opens the serial port) and begin operation.
-     * Throws LogMessageException on serial-port errors.
-     */
     void start();
-
-    /** Gracefully stop all timers and close the port. */
     void stop();
-
-    // -----------------------------------------------------------------------
-    // Command API  (thread-safe – may be called from any thread)
-    // -----------------------------------------------------------------------
 
     void sendGlobalGo();
     void sendGlobalStop();
@@ -99,72 +76,52 @@ public:
 
     bool setAccessory(uint32_t address, OutputValue value, unsigned int timeMs);
 
-    // -----------------------------------------------------------------------
-    // IOHandler entry points  (called on the strand by IOHandler)
-    // -----------------------------------------------------------------------
+    // Called by IOHandler on m_strand
     void receive(uint8_t byte);
     void onReadError(const boost::system::error_code& ec);
     void onWriteError(const boost::system::error_code& ec);
 
 private:
-    // -----------------------------------------------------------------------
-    // Internal helpers  (must be called on the strand)
-    // -----------------------------------------------------------------------
-
-    // Low-level send – goes straight to IOHandler
     void sendRaw(uint8_t b1, uint8_t b2);
     void sendRaw(uint8_t b);
-
-    // Redundant send:  sends immediately, schedules (config.redundancy) retransmits
     void sendWithRedundancy(uint8_t b);
     void sendWithRedundancy(uint8_t b1, uint8_t b2);
 
-    // -----------------------------------------------------------------------
-    // S88 polling
-    // -----------------------------------------------------------------------
     void scheduleS88Poll();
     void doS88Poll();
 
-    // S88 binary-protocol receive state machine
     enum class S88State { Idle, ReceivingData };
-    S88State     m_s88State   = S88State::Idle;
-    unsigned int m_s88Expect  = 0;   ///< bytes still expected for current poll
-    unsigned int m_s88Module  = 0;   ///< module index being received
-    uint8_t      m_s88High    = 0;   ///< high byte of current 16-bit word
+    S88State     m_s88State  = S88State::Idle;
+    unsigned int m_s88Expect = 0;
+    unsigned int m_s88Module = 0;
+    uint8_t      m_s88High   = 0;
 
-    // -----------------------------------------------------------------------
-    // Extension polling
-    // -----------------------------------------------------------------------
     void scheduleExtensionPoll();
     void doExtensionPoll();
+    void processExtensionByte(uint8_t byte);
+    void advanceExtensionEvent();
 
-    // Extension receive state machine
-    enum class ExtState
-    {
-        Idle,
-        WaitCount,
-        WaitType,
-        GlobalData,
+    enum class ExtState {
+        Idle, WaitCount, WaitType, GlobalData,
         TurnoutAddr, TurnoutState,
         LocoStateAddr, LocoStateData,
-        LocoFuncAddr,  LocoFuncData
+        LocoFuncAddr, LocoFuncData
     };
-    ExtState    m_extState        = ExtState::Idle;
-    uint8_t     m_extEventsLeft   = 0;
-    uint8_t     m_extTmpAddr      = 0;
+    ExtState m_extState      = ExtState::Idle;
+    uint8_t  m_extEventsLeft = 0;
+    uint8_t  m_extTmpAddr    = 0;
 
-    // -----------------------------------------------------------------------
-    // Members
-    // -----------------------------------------------------------------------
-    const Config                          m_config;
-    const std::string                     m_device;
-    const uint32_t                        m_baudrate;
-    std::unique_ptr<IOHandler>            m_ioHandler;
+    const Config       m_config;
+    const std::string  m_device;
+    const uint32_t     m_baudrate;
 
-    boost::asio::steady_timer             m_s88Timer;
-    boost::asio::steady_timer             m_extensionTimer;
+    boost::asio::io_context         m_ioContext;
+    boost::asio::io_context::strand m_strand;
+    std::thread                     m_ioThread;
 
-    // For redundancy retransmit scheduling
+    std::unique_ptr<IOHandler>             m_ioHandler;
+    boost::asio::steady_timer              m_s88Timer;
+    boost::asio::steady_timer              m_extensionTimer;
     std::vector<boost::asio::steady_timer> m_redundancyTimers;
 };
 

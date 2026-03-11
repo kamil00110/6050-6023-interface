@@ -26,6 +26,7 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     , turnouttime{this, "turnouttime", 200, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , redundancy{this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store}
     , extensions{this, "extensions", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
+    , debugLogRXTX{this, "debug_log_rx_tx", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
     // --- Central Unit Version ---
     static const std::vector<uint16_t> cuOptions = {
@@ -115,6 +116,11 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     Attributes::addEnabled(extensions, true);
     Attributes::addVisible(extensions, true);
     m_interfaceItems.add(extensions);
+
+    // --- Debug log RX/TX ---
+    Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
+    Attributes::addEnabled(debugLogRXTX, true);
+    m_interfaceItems.add(debugLogRXTX);
 }
 
 Config Settings::config() const
@@ -127,6 +133,7 @@ Config Settings::config() const
     cfg.turnouttime        = turnouttime;
     cfg.redundancy         = redundancy;
     cfg.extensions         = extensions;
+    cfg.debugLogRXTX       = debugLogRXTX;
     return cfg;
 }
 

@@ -29,6 +29,7 @@ public:
     Property<unsigned int> s88amount;
     Property<unsigned int> s88interval;
     Property<unsigned int> redundancy;
+    Property<bool>         debugLogRXTX;
 
     Settings(Object& parent, std::string_view parentPropertyName);
 

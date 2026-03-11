@@ -99,7 +99,7 @@ void Marklin6050Interface::destroying()
 // State
 // ---------------------------------------------------------------------------
 
-void Marklin6050Interface::worldEvent(WorldState /*state*/, WorldEvent event)
+void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
 {
     Interface::worldEvent(state, event);
     updateEnabled();

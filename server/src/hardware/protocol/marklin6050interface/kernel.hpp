@@ -29,8 +29,10 @@
 
 #include <functional>
 #include <memory>
+#include <thread>
 #include <vector>
 #include <cstdint>
+#include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/system/error_code.hpp>
@@ -115,7 +117,9 @@ private:
   uint8_t  m_extTmpAddr    = 0;
 
   const Config                           m_config;
+  boost::asio::io_context                m_ioContext;
   boost::asio::io_context::strand        m_strand;
+  std::thread                            m_ioThread;
   std::unique_ptr<IOHandler>             m_ioHandler;
   boost::asio::steady_timer              m_s88Timer;
   boost::asio::steady_timer              m_extensionTimer;

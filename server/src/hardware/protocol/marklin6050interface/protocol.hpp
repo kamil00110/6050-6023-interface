@@ -1,17 +1,22 @@
 /**
- * server/src/hardware/protocol/Marklin6050/protocol.hpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * Protocol constants for the Märklin 6050/6051 binary serial interface.
- *
- * Binary protocol: All commands are 2 bytes: command byte + address byte.
- * Extension protocol: Poll with 255 255, receive change buffer.
- *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6050_PROTOCOL_HPP

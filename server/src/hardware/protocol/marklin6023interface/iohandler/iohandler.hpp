@@ -24,6 +24,7 @@
 #define TRAINTASTIC_SERVER_HARDWARE_PROTOCOL_MARKLIN6023_IOHANDLER_IOHANDLER_HPP
 
 #include <string>
+#include <boost/system/error_code.hpp>
 
 namespace Marklin6023 {
 
@@ -37,7 +38,8 @@ protected:
   IOHandler(Kernel& kernel);
 
   void started();
-  void error();
+  void readError(const boost::system::error_code& ec);
+  void writeError(const boost::system::error_code& ec);
 
 public:
   IOHandler(const IOHandler&) = delete;

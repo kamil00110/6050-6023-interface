@@ -269,12 +269,21 @@ void Kernel::receiveLine(std::string line)
     onS88Response(line);
 }
 
-void Kernel::error()
+void Kernel::readError(const boost::system::error_code& ec)
 {
   EventLoop::call(
-    [this]()
+    [this, ec]()
     {
-      Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X);
+      Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X, ec);
+    });
+}
+
+void Kernel::writeError(const boost::system::error_code& ec)
+{
+  EventLoop::call(
+    [this, ec]()
+    {
+      Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
     });
 }
 
@@ -400,7 +409,7 @@ void Kernel::onS88ResponseTimeout()
   EventLoop::call(
     [this, contact]()
     {
-      Log::log(logId, LogMessage::E2019_TIMEOUT_NO_RESPONSE_WITHIN_X_MS,
+      Log::log(logId, LogMessage::W9999_X,
                      "S88 no response for contact " + std::to_string(contact) +
                      ", skipping");
     });

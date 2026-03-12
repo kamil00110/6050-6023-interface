@@ -1,13 +1,24 @@
 /**
- * server/src/hardware/interface/marklin6050interface.cpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
+
 
 #include "marklin6050interface.hpp"
 #include "../protocol/marklin6050interface/iohandler/serialiohandler.hpp"
@@ -41,10 +52,6 @@ static constexpr std::array<uint32_t, 6> kBaudrateValues{
 
 CREATE_IMPL(Marklin6050Interface)
 
-// ---------------------------------------------------------------------------
-// Construction
-// ---------------------------------------------------------------------------
-
 Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
   : Interface{world, objId}
   , DecoderController{*this, decoderListColumns}
@@ -54,7 +61,7 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
   , baudrate{this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
 {
-  name = "Märklin 6050/51";
+  name = "M\u00E4rklin 6050/51";
 
   settings.setValueInternal(
     std::make_shared<Marklin6050::Settings>(*this, settings.name()));
@@ -73,10 +80,6 @@ Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
   m_interfaceItems.insertBefore(outputs,  notes);
   m_interfaceItems.insertBefore(decoders, notes);
 }
-
-// ---------------------------------------------------------------------------
-// Lifecycle
-// ---------------------------------------------------------------------------
 
 void Marklin6050Interface::addToWorld()
 {
@@ -99,10 +102,6 @@ void Marklin6050Interface::destroying()
   DecoderController::destroying();
   Interface::destroying();
 }
-
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
 
 void Marklin6050Interface::worldEvent(WorldState state, WorldEvent event)
 {
@@ -133,10 +132,6 @@ void Marklin6050Interface::updateEnabled()
   Attributes::setEnabled(baudrate, !online);
   settings->updateEnabled(online);
 }
-
-// ---------------------------------------------------------------------------
-// Connection
-// ---------------------------------------------------------------------------
 
 bool Marklin6050Interface::setOnline(bool& value, bool simulation)
 {
@@ -238,10 +233,6 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Input
-// ---------------------------------------------------------------------------
-
 std::span<const InputChannel> Marklin6050Interface::inputChannels() const
 {
   static const auto values = makeArray(InputChannel::S88);
@@ -279,10 +270,6 @@ void Marklin6050Interface::onS88Input(uint32_t address, bool state)
   updateInputValue(InputChannel::S88, address,
                    state ? TriState::True : TriState::False);
 }
-
-// ---------------------------------------------------------------------------
-// Output
-// ---------------------------------------------------------------------------
 
 std::span<const OutputChannel> Marklin6050Interface::outputChannels() const
 {
@@ -327,10 +314,6 @@ bool Marklin6050Interface::setOutputValue(
 
   return false;
 }
-
-// ---------------------------------------------------------------------------
-// Decoder
-// ---------------------------------------------------------------------------
 
 std::span<const DecoderProtocol> Marklin6050Interface::decoderProtocols() const
 {

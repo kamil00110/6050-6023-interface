@@ -10,8 +10,8 @@
  */
 
 #include "marklin6050interface.hpp"
-#include "../protocol/Marklin6050Interface/iohandler/serialiohandler.hpp"
-#include "../protocol/Marklin6050Interface/iohandler/simulationiohandler.hpp"
+#include "../protocol/marklin6050interface/iohandler/serialiohandler.hpp"
+#include "../protocol/marklin6050interface/iohandler/simulationiohandler.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
 #include "../decoder/list/decoderlist.hpp"

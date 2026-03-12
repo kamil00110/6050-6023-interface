@@ -32,6 +32,8 @@
 
 using namespace std::chrono_literals;
 
+namespace Marklin6050 {
+
 // ---------------------------------------------------------------------------
 // Interpreted command logging helpers
 // ---------------------------------------------------------------------------
@@ -88,8 +90,6 @@ static std::string interpretTx2(uint8_t b1, uint8_t b2)
   return buf;
 }
 
-
-namespace Marklin6050 {
 
 // ---------------------------------------------------------------------------
 // Construction

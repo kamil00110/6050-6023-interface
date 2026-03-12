@@ -1,22 +1,14 @@
 /**
- * This file is part of Traintastic,
- * see <https://github.com/traintastic/traintastic>.
+ * server/src/hardware/interface/marklin6023interface.hpp
  *
- * Copyright (C) 2026 Kamil Kasprzak
+ * Interface for the Märklin 6023/6223 ASCII serial protocol.
+ *
+ * Copyright (C) 2025
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef TRAINTASTIC_SERVER_HARDWARE_INTERFACE_MARKLIN6023INTERFACE_HPP
@@ -28,8 +20,8 @@
 #include "../output/outputcontroller.hpp"
 #include "../input/inputcontroller.hpp"
 #include "../decoder/decodercontroller.hpp"
-#include "../protocol/marklin6023interface/kernel.hpp"
-#include "../protocol/marklin6023interface/settings.hpp"
+#include "../protocol/Marklin6023Interface/kernel.hpp"
+#include "../protocol/Marklin6023Interface/settings.hpp"
 
 class Marklin6023Interface final
   : public Interface
@@ -56,7 +48,7 @@ protected:
   bool setOnline(bool& value, bool simulation) final;
 
 public:
-  SerialDeviceProperty serialPort;
+  SerialDeviceProperty device;
   Property<uint32_t>   baudrate;
   ObjectProperty<Marklin6023::Settings> settings;
 

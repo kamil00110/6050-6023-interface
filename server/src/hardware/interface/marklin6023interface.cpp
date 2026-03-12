@@ -1,27 +1,17 @@
 /**
- * This file is part of Traintastic,
- * see <https://github.com/traintastic/traintastic>.
+ * server/src/hardware/interface/marklin6023interface.cpp
  *
- * Copyright (C) 2026 Kamil Kasprzak
+ * Copyright (C) 2025
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "marklin6023interface.hpp"
-#include "../protocol/marklin6023interface/iohandler/serialiohandler.hpp"
-#include "../protocol/marklin6023interface/iohandler/simulationiohandler.hpp"
+#include "../protocol/Marklin6023Interface/iohandler/serialiohandler.hpp"
+#include "../protocol/Marklin6023Interface/iohandler/simulationiohandler.hpp"
 #include "../output/list/outputlist.hpp"
 #include "../input/list/inputlist.hpp"
 #include "../decoder/list/decoderlist.hpp"
@@ -39,10 +29,10 @@
 #include "../../log/logmessageexception.hpp"
 
 // List columns
-
-constexpr auto decoderListColumns = DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 constexpr auto inputListColumns  = InputListColumn::Address;
-constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
+constexpr auto outputListColumns = OutputListColumn::Address;
+constexpr auto decoderListColumns =
+  DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 
 // Baudrate choices as a span-compatible array
 static constexpr std::array<uint32_t, 6> kBaudrateValues{
@@ -60,18 +50,18 @@ Marklin6023Interface::Marklin6023Interface(World& world, std::string_view objId)
   , DecoderController{*this, decoderListColumns}
   , InputController{static_cast<IdObject&>(*this)}
   , OutputController{static_cast<IdObject&>(*this)}
-  , serialPort{this, "serialPort", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , device{this, "device", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
   , baudrate{this, "baudrate", 9600, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
 {
-  name = "M\u00E4rklin 6023/6223";
+  name = "Märklin 6023/6223";
 
   settings.setValueInternal(
     std::make_shared<Marklin6023::Settings>(*this, settings.name()));
 
-  Attributes::addDisplayName(serialPort, DisplayName::Serial::device);
-  Attributes::addEnabled(serialPort, !online);
-  m_interfaceItems.insertBefore(serialPort, notes);
+  Attributes::addDisplayName(device, DisplayName::Serial::device);
+  Attributes::addEnabled(device, !online);
+  m_interfaceItems.insertBefore(device, notes);
 
   Attributes::addDisplayName(baudrate, DisplayName::Serial::baudrate);
   Attributes::addEnabled(baudrate, !online);
@@ -120,7 +110,9 @@ void Marklin6023Interface::worldEvent(WorldState state, WorldEvent event)
   updateEnabled();
 
   if(!m_kernel)
+  {
     return;
+  }
 
   switch(event)
   {
@@ -137,8 +129,8 @@ void Marklin6023Interface::onlineChanged(bool /*value*/)
 
 void Marklin6023Interface::updateEnabled()
 {
-  Attributes::setEnabled(serialPort, !online);
-  Attributes::setEnabled(baudrate,   !online);
+  Attributes::setEnabled(device,   !online);
+  Attributes::setEnabled(baudrate, !online);
   settings->updateEnabled(online);
 }
 
@@ -164,14 +156,18 @@ bool Marklin6023Interface::setOnline(bool& value, bool simulation)
       };
 
       if(simulation)
+      {
         m_kernel->setIOHandler(
           std::make_unique<Marklin6023::SimulationIOHandler>(
             *m_kernel, m_kernel->strand()));
+      }
       else
+      {
         m_kernel->setIOHandler(
           std::make_unique<Marklin6023::SerialIOHandler>(
             *m_kernel, m_kernel->ioContext(), m_kernel->strand(),
-            serialPort.value(), baudrate.value()));
+            device.value(), baudrate.value()));
+      }
 
       m_kernel->start();
     }
@@ -214,7 +210,9 @@ std::pair<uint32_t, uint32_t>
 Marklin6023Interface::inputAddressMinMax(InputChannel channel) const
 {
   if(channel == InputChannel::S88)
+  {
     return {1, settings->s88amount.value() * 16};
+  }
   return {0, 0};
 }
 
@@ -222,7 +220,9 @@ void Marklin6023Interface::inputSimulateChange(
   InputChannel channel, uint32_t address, SimulateInputAction action)
 {
   if(channel != InputChannel::S88)
+  {
     return;
+  }
 
   switch(action)
   {
@@ -244,51 +244,45 @@ void Marklin6023Interface::onS88Input(uint32_t address, bool state)
 
 std::span<const OutputChannel> Marklin6023Interface::outputChannels() const
 {
-  static const auto values = makeArray(
-    OutputChannel::Accessory,
-    OutputChannel::Turnout,
-    OutputChannel::Output);
+  static const auto values = makeArray(OutputChannel::Accessory);
   return values;
 }
 
 std::pair<uint32_t, uint32_t>
 Marklin6023Interface::outputAddressMinMax(OutputChannel channel) const
 {
-  switch(channel)
+  if(channel == OutputChannel::Accessory)
   {
-    case OutputChannel::Accessory:
-    case OutputChannel::Turnout:
-    case OutputChannel::Output:
-      return {1, 256};
-    default:
-      return OutputController::outputAddressMinMax(channel);
+    return {1, 256};
   }
+  return OutputController::outputAddressMinMax(channel);
 }
 
 bool Marklin6023Interface::setOutputValue(
   OutputChannel channel, uint32_t address, OutputValue value)
 {
   if(!m_kernel)
-    return false;
-
-  switch(channel)
   {
-    case OutputChannel::Accessory:
-    case OutputChannel::Turnout:
-    case OutputChannel::Output:
-    {
-      const auto [min, max] = outputAddressMinMax(channel);
-      if(!inRange(address, min, max)) [[unlikely]]
-        return false;
-
-      const bool result = m_kernel->setAccessory(address, value);
-      if(result)
-        updateOutputValue(channel, address, value);
-      return result;
-    }
-    default:
-      return false;
+    return false;
   }
+
+  if(channel == OutputChannel::Accessory)
+  {
+    const auto [min, max] = outputAddressMinMax(channel);
+    if(!inRange(address, min, max)) [[unlikely]]
+    {
+      return false;
+    }
+
+    const bool result = m_kernel->setAccessory(address, value);
+    if(result)
+    {
+      updateOutputValue(channel, address, value);
+    }
+    return result;
+  }
+
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +311,9 @@ void Marklin6023Interface::decoderChanged(
   const Decoder& decoder, DecoderChangeFlags changes, uint32_t functionNumber)
 {
   if(!m_kernel)
+  {
     return;
+  }
 
   const uint8_t address = static_cast<uint8_t>(decoder.address);
   const bool    f0      = decoder.getFunctionValue(0);
@@ -333,12 +329,18 @@ void Marklin6023Interface::decoderChanged(
 
   // Handle remaining flags independently — multiple may be set simultaneously.
   if(has(changes, DecoderChangeFlags::Direction))
+  {
     m_kernel->setLocoDirection(address, f0);
+  }
 
   if(has(changes, DecoderChangeFlags::Throttle))
+  {
     m_kernel->setLocoSpeed(address, speed, f0);
+  }
 
   // 6023/6223: only F0 is supported
   if(has(changes, DecoderChangeFlags::FunctionValue) && functionNumber == 0)
+  {
     m_kernel->setLocoFunction(address, speed, f0);
+  }
 }

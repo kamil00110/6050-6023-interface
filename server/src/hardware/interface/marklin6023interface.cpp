@@ -54,7 +54,7 @@ Marklin6023Interface::Marklin6023Interface(World& world, std::string_view objId)
   , baudrate{this, "baudrate", 9600, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
 {
-  name = "Märklin 6023/6223";
+  name = "M\u00E4rklin 6023/6223";
 
   settings.setValueInternal(
     std::make_shared<Marklin6023::Settings>(*this, settings.name()));

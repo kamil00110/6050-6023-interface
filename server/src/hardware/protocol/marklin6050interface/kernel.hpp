@@ -71,7 +71,8 @@ public:
   // IOHandler entry points — called on m_strand by IOHandler.
   void started() override;
   void receive(uint8_t byte);
-  void error();
+  void readError(const boost::system::error_code& ec);
+  void writeError(const boost::system::error_code& ec);
 
 private:
   void sendRaw(uint8_t b1, uint8_t b2);

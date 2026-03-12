@@ -390,12 +390,21 @@ void Kernel::receive(uint8_t byte)
   }
 }
 
-void Kernel::error()
+void Kernel::readError(const boost::system::error_code& ec)
 {
   EventLoop::call(
-    [this]()
+    [this, ec]()
     {
-      Log::log(logId, LogMessage::E2003_SERIAL_READ_WRITE_FAILED);
+      Log::log(logId, LogMessage::E2002_SERIAL_READ_FAILED_X, ec);
+    });
+}
+
+void Kernel::writeError(const boost::system::error_code& ec)
+{
+  EventLoop::call(
+    [this, ec]()
+    {
+      Log::log(logId, LogMessage::E2001_SERIAL_WRITE_FAILED_X, ec);
     });
 }
 

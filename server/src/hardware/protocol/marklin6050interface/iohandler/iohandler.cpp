@@ -35,9 +35,14 @@ void IOHandler::started()
   m_kernel.started();
 }
 
-void IOHandler::error()
+void IOHandler::readError(const boost::system::error_code& ec)
 {
-  m_kernel.error();
+  m_kernel.readError(ec);
+}
+
+void IOHandler::writeError(const boost::system::error_code& ec)
+{
+  m_kernel.writeError(ec);
 }
 
 } // namespace Marklin6050

@@ -39,10 +39,10 @@
 #include "../../log/logmessageexception.hpp"
 
 // List columns
+
+constexpr auto decoderListColumns = DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 constexpr auto inputListColumns  = InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Channel | OutputListColumn::Address;
-constexpr auto decoderListColumns =
-  DecoderListColumn::Id | DecoderListColumn::Name | DecoderListColumn::Address;
 
 // Baudrate choices as a span-compatible array
 static constexpr std::array<uint32_t, 6> kBaudrateValues{
@@ -64,7 +64,7 @@ Marklin6023Interface::Marklin6023Interface(World& world, std::string_view objId)
   , baudrate{this, "baudrate", 9600, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}
 {
-  name = "Märklin 6023/6223";
+  name = "M\u00E4rklin 6023/6223";
 
   settings.setValueInternal(
     std::make_shared<Marklin6023::Settings>(*this, settings.name()));

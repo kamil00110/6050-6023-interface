@@ -1,9 +1,8 @@
 /**
- * server/src/hardware/protocol/Marklin6050Interface/iohandler/iohandler.cpp
+ * This file is part of Traintastic,
+ * see <https://github.com/traintastic/traintastic>.
  *
- * This file is part of the traintastic source code.
- *
- * Copyright (C) 2025
+ * Copyright (C) 2026 Kamil Kasprzak
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

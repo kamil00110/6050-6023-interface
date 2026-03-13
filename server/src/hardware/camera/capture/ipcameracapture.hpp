@@ -16,24 +16,17 @@
 
 #include "cameracapture.hpp"
 #include <string>
+#include <memory>
 #include <atomic>
-#include <opencv2/videoio.hpp>
 
-/**
- * @brief Captures from an IP camera URL using OpenCV.
- *
- * Supports:
- *   - RTSP streams     rtsp://user:pass@host/stream
- *   - MJPEG over HTTP  http://host/video.mjpg
- *
- * OpenCV's FFmpeg backend handles both transparently.
- * Frames are re-encoded as JPEG so the downstream MJPEGStreamer always
- * receives a consistent byte format regardless of the camera's native codec.
- */
+// Forward-declare cv::VideoCapture — OpenCV included in .cpp only.
+namespace cv { class VideoCapture; }
+
 class IpCameraCapture final : public CameraCapture
 {
 public:
   IpCameraCapture(const std::string& url, double fps);
+  ~IpCameraCapture() override;  // needs to be in .cpp where cv:: is complete
 
   bool     open()    override;
   uint32_t width()   const override { return m_width;  }
@@ -42,15 +35,15 @@ public:
   void     interrupt() override { m_interrupted = true; }
 
 private:
-  std::string       m_url;
-  double            m_fps;
-  cv::VideoCapture  m_cap;
-  uint32_t          m_width{0};
-  uint32_t          m_height{0};
-  std::atomic<bool> m_interrupted{false};
+  std::string                      m_url;
+  double                           m_fps;
+  std::unique_ptr<cv::VideoCapture> m_cap;  // allocated in open()
+  uint32_t                         m_width{0};
+  uint32_t                         m_height{0};
+  std::atomic<bool>                m_interrupted{false};
 
-  static constexpr int k_jpegQuality   = 75;
-  static constexpr int k_reconnectWaitMs = 2000; ///< Wait before reconnect attempt
+  static constexpr int k_jpegQuality     = 75;
+  static constexpr int k_reconnectWaitMs = 2000;
 };
 
 #endif

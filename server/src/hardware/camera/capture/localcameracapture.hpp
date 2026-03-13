@@ -16,24 +16,18 @@
 
 #include "cameracapture.hpp"
 #include <string>
+#include <memory>
 #include <atomic>
-#include <opencv2/videoio.hpp>
 
-/**
- * @brief Captures frames from a local USB / V4L2 device via OpenCV.
- *
- * The device can be specified either as a numeric index ("0", "1", …) or as
- * a device path ("/dev/video0").  On Windows the index maps directly to the
- * DirectShow or Media Foundation device list.
- */
+// Forward-declare cv::VideoCapture so this header compiles without OpenCV.
+// The actual #include is in localcameracapture.cpp only.
+namespace cv { class VideoCapture; }
+
 class LocalCameraCapture final : public CameraCapture
 {
 public:
-  /**
-   * @param device  Device index as string ("0") or path ("/dev/video0").
-   * @param fps     Target frame rate; best-effort, hardware dependent.
-   */
   LocalCameraCapture(const std::string& device, double fps);
+  ~LocalCameraCapture() override;  // needs to be in .cpp where cv:: is complete
 
   bool open()     override;
   uint32_t width()  const override { return m_width; }
@@ -42,14 +36,13 @@ public:
   void interrupt() override { m_interrupted = true; }
 
 private:
-  std::string          m_device;
-  double               m_fps;
-  cv::VideoCapture     m_cap;
-  uint32_t             m_width{0};
-  uint32_t             m_height{0};
-  std::atomic<bool>    m_interrupted{false};
+  std::string                      m_device;
+  double                           m_fps;
+  std::unique_ptr<cv::VideoCapture> m_cap;  // allocated in open()
+  uint32_t                         m_width{0};
+  uint32_t                         m_height{0};
+  std::atomic<bool>                m_interrupted{false};
 
-  // JPEG encoding quality 0–100
   static constexpr int k_jpegQuality = 75;
 };
 

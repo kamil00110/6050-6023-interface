@@ -9,26 +9,25 @@
 #include "ipcameracapture.hpp"
 #include <chrono>
 #include <thread>
+#include <opencv2/videoio.hpp>
 #include <opencv2/imgcodecs.hpp>
 
 IpCameraCapture::IpCameraCapture(const std::string& url, double fps)
   : m_url(url)
   , m_fps(fps)
+  , m_cap(std::make_unique<cv::VideoCapture>())
 {
 }
 
+IpCameraCapture::~IpCameraCapture() = default;  // cv::VideoCapture complete here
+
 bool IpCameraCapture::open()
 {
-  // Prefer FFmpeg backend for broader codec support.
-  // CAP_FFMPEG handles rtsp://, http:// MJPEG, and more.
-  if(!m_cap.open(m_url, cv::CAP_FFMPEG))
+  if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
     return false;
 
-  if(!m_cap.isOpened())
-    return false;
-
-  m_width  = static_cast<uint32_t>(m_cap.get(cv::CAP_PROP_FRAME_WIDTH));
-  m_height = static_cast<uint32_t>(m_cap.get(cv::CAP_PROP_FRAME_HEIGHT));
+  m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
+  m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
   return true;
 }
 
@@ -42,13 +41,12 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
   {
     const auto t0 = steady_clock::now();
 
-    if(!m_cap.read(frame) || frame.empty())
+    if(!m_cap->read(frame) || frame.empty())
     {
-      // Try to reconnect once
       if(m_interrupted) return false;
       std::this_thread::sleep_for(milliseconds(k_reconnectWaitMs));
-      m_cap.release();
-      if(!m_cap.open(m_url, cv::CAP_FFMPEG) || !m_cap.isOpened())
+      m_cap->release();
+      if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
         return false;
       continue;
     }

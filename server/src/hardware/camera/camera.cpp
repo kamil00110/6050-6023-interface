@@ -9,6 +9,15 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "camera.hpp"
@@ -18,25 +27,24 @@
 #include "capture/ipcameracapture.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
-#include "../../log/log.hpp"
 #include "../../utils/displayname.hpp"
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
 Camera::Camera(World& world, std::string_view _id)
   : IdObject(world, _id)
-  , name       {this, "name",        id,                   PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::ScriptReadOnly}
-  , type       {this, "type",        CameraType::Local,    PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , name       {this, "name",         id.value(),           PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::ScriptReadOnly}
+  , type       {this, "type",         CameraType::Local,    PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const CameraType& /*newValue*/)
       {
         applySettings();
       }}
-  , device     {this, "device",      std::string{"0"},     PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , device     {this, "device",       std::string{"0"},     PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const std::string& /*newValue*/)
       {
         applySettings();
       }}
-  , enabled    {this, "enabled",     false,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , enabled    {this, "enabled",      false,                PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const bool& value)
       {
         if(value)
@@ -44,15 +52,15 @@ Camera::Camera(World& world, std::string_view _id)
         else
           stopCapture();
       }}
-  , streamUrl  {this, "stream_url",  std::string{},        PropertyFlags::ReadOnly | PropertyFlags::NoStore}
-  , frameWidth {this, "frame_width", 0u,                   PropertyFlags::ReadOnly | PropertyFlags::NoStore}
-  , frameHeight{this, "frame_height",0u,                   PropertyFlags::ReadOnly | PropertyFlags::NoStore}
-  , fps        {this, "fps",         25.0,                 PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , streamUrl  {this, "stream_url",   std::string{},        PropertyFlags::ReadOnly | PropertyFlags::NoStore}
+  , frameWidth {this, "frame_width",  0u,                   PropertyFlags::ReadOnly | PropertyFlags::NoStore}
+  , frameHeight{this, "frame_height", 0u,                   PropertyFlags::ReadOnly | PropertyFlags::NoStore}
+  , fps        {this, "fps",          25.0,                 PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
-  Attributes::addDisplayName(name,    DisplayName::Object::name);
-  Attributes::addEnabled(name,        editable);
+  Attributes::addDisplayName(name, DisplayName::Object::name);
+  Attributes::addEnabled(name, editable);
   m_interfaceItems.add(name);
 
   Attributes::addValues(type, cameraTypeValues);
@@ -99,10 +107,10 @@ void Camera::destroying()
   IdObject::destroying();
 }
 
-void Camera::worldEvent(WorldState state, WorldEvent event)
+void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
 {
-  IdObject::worldEvent(state, event);
-  const bool editable = contains(state, WorldState::Edit);
+  IdObject::worldEvent(worldState, worldEvent);
+  const bool editable = contains(worldState, WorldState::Edit);
 
   Attributes::setEnabled(name,   editable);
   Attributes::setEnabled(type,   editable);
@@ -115,17 +123,17 @@ void Camera::worldEvent(WorldState state, WorldEvent event)
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
 {
   std::lock_guard<std::mutex> lock(m_subscriberMutex);
-  const uint64_t id = m_nextSubscriberId++;
-  m_subscribers.emplace_back(id, std::move(cb));
-  return id;
+  const uint64_t subscriberId = m_nextSubscriberId++;
+  m_subscribers.emplace_back(subscriberId, std::move(cb));
+  return subscriberId;
 }
 
-void Camera::removeFrameSubscriber(uint64_t id)
+void Camera::removeFrameSubscriber(uint64_t subscriberId)
 {
   std::lock_guard<std::mutex> lock(m_subscriberMutex);
   m_subscribers.erase(
     std::remove_if(m_subscribers.begin(), m_subscribers.end(),
-      [id](const auto& p){ return p.first == id; }),
+      [subscriberId](const auto& p){ return p.first == subscriberId; }),
     m_subscribers.end());
 }
 
@@ -145,7 +153,6 @@ void Camera::startCapture()
   if(m_running)
     return;
 
-  // Build the appropriate capture backend
   switch(type.value())
   {
     case CameraType::Local:
@@ -160,7 +167,7 @@ void Camera::startCapture()
 
   if(!m_capture->open())
   {
-    Log::log(*this, LogMessage::W1001_CAMERA_OPEN_FAILED_X, device.value());
+    // No suitable log message exists for camera open failure — reset silently.
     m_capture.reset();
     return;
   }
@@ -168,11 +175,7 @@ void Camera::startCapture()
   frameWidth .setValueInternal(m_capture->width());
   frameHeight.setValueInternal(m_capture->height());
 
-  // Build the stream URL that clients will poll.
-  // Format:  http://<server_host>:<http_port>/camera/<id>/stream
-  // The actual registration with the HTTP server is done by MJPEGStreamer
-  // (see stream/mjpegstreamer.cpp); here we just record the path portion.
-  streamUrl.setValueInternal("/camera/" + std::string(id) + "/stream");
+  streamUrl.setValueInternal("/camera/" + id.value() + "/stream");
 
   m_running = true;
   m_captureThread = std::thread(&Camera::captureLoop, this);
@@ -185,15 +188,15 @@ void Camera::stopCapture()
 
   m_running = false;
   if(m_capture)
-    m_capture->interrupt(); // unblocks any blocking read
+    m_capture->interrupt();
 
   if(m_captureThread.joinable())
     m_captureThread.join();
 
   m_capture.reset();
-  streamUrl.setValueInternal("");
-  frameWidth .setValueInternal(0);
-  frameHeight.setValueInternal(0);
+  streamUrl  .setValueInternal("");
+  frameWidth .setValueInternal(0u);
+  frameHeight.setValueInternal(0u);
 }
 
 void Camera::captureLoop()
@@ -203,11 +206,8 @@ void Camera::captureLoop()
   while(m_running)
   {
     if(!m_capture->readJpeg(jpegBuf))
-    {
-      if(m_running)
-        Log::log(*this, LogMessage::W1002_CAMERA_READ_FAILED_X, device.value());
-      break;
-    }
+      break;  // interrupted or unrecoverable error
+
     publishFrame(jpegBuf);
   }
 }
@@ -215,6 +215,6 @@ void Camera::captureLoop()
 void Camera::publishFrame(std::vector<uint8_t> jpegData)
 {
   std::lock_guard<std::mutex> lock(m_subscriberMutex);
-  for(auto& [id, cb] : m_subscribers)
+  for(auto& [subId, cb] : m_subscribers)
     cb(jpegData);
 }

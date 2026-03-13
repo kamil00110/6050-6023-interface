@@ -24,7 +24,9 @@
 #define TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_CAMERATYPE_HPP
 
 #include <cstdint>
+#include <array>
 #include <traintastic/enum/enum.hpp>
+
 enum class CameraType : uint8_t
 {
   Local = 0, //!< Local USB / V4L2 camera
@@ -38,5 +40,11 @@ TRAINTASTIC_ENUM(CameraType, "camera_type", 3,
   {CameraType::RTSP,  "rtsp"},
   {CameraType::MJPEG, "mjpeg"},
 });
+
+constexpr std::array<CameraType, 3> cameraTypeValues{{
+  CameraType::Local,
+  CameraType::RTSP,
+  CameraType::MJPEG,
+}};
 
 #endif

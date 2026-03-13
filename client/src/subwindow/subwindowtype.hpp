@@ -30,6 +30,7 @@ enum class SubWindowType
   Object,
   Board,
   Throttle,
+  Camera,
 };
 
 inline QString toString(SubWindowType value)
@@ -44,6 +45,8 @@ inline QString toString(SubWindowType value)
 
     case SubWindowType::Throttle:
       return QStringLiteral("throttle");
+    case SubWindowType::Camera:  
+      return QStringLiteral("camera");
   }
   Q_ASSERT(false);
   return QString();

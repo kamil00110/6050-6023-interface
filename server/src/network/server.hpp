@@ -27,6 +27,7 @@
 #include <list>
 #include <thread>
 #include <filesystem>
+#include <unordered_map>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -36,6 +37,7 @@
 
 class WebSocketConnection;
 class Message;
+class CameraStreamConnection;
 
 class Server : public std::enable_shared_from_this<Server>
 {
@@ -55,6 +57,7 @@ class Server : public std::enable_shared_from_this<Server>
     const bool m_localhostOnly;
     std::list<std::shared_ptr<WebSocketConnection>> m_connections;
     std::filesystem::path m_manualPath;
+    std::unordered_map<CameraStreamConnection*, std::shared_ptr<CameraStreamConnection>> m_cameraStreams;
 
     void doReceive();
     static std::unique_ptr<Message> processMessage(const Message& message);
@@ -62,6 +65,7 @@ class Server : public std::enable_shared_from_this<Server>
 
     boost::beast::http::message_generator handleHTTPRequest(boost::beast::http::request<boost::beast::http::string_body>&& request);
     bool handleWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
+    bool handleCameraStreamRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
     template<class T>
     bool acceptWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
 

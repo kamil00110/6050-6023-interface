@@ -366,6 +366,13 @@ if(BUILD_TESTING)
   target_link_libraries(traintastic-server-test PRIVATE ${LUA_LIBRARIES})
 endif()
 
+# OpenCV (camera)
+find_package(OpenCV REQUIRED COMPONENTS core videoio imgcodecs)
+target_link_libraries(traintastic-server PRIVATE ${OpenCV_LIBS})
+if(BUILD_TESTING)
+  target_link_libraries(traintastic-server-test PRIVATE ${OpenCV_LIBS})
+endif()
+
 ### LIBRARIES END ###
 
 target_sources(traintastic-server PRIVATE ${SOURCES})

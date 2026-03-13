@@ -12,6 +12,7 @@
 #include "../core/eventloop.hpp"
 #include "../log/log.hpp"
 #include <sstream>
+#include <boost/asio/post.hpp>
 
 static const std::string k_httpHeader =
   "HTTP/1.1 200 OK\r\n"
@@ -43,12 +44,10 @@ void CameraStreamConnection::start()
     {
       if(auto self = weak.lock())
       {
-        self->m_stream.get_executor().post(
-          [self, data = std::move(jpegData)]() mutable
-          {
-            self->enqueueFrame(std::move(data));
-          },
-          std::allocator<void>{});
+        boost::asio::post(self->m_stream.get_executor(), [self, data = std::move(jpegData)]() mutable
+        {
+          self->enqueueFrame(std::move(data));
+        });
       }
     });
 

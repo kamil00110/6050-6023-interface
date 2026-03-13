@@ -16,16 +16,11 @@
 
 #include "subwindow.hpp"
 #include <memory>
+#include <QString>
 
 class Connection;
 class CameraWidget;
 
-/**
- * @brief MDI sub-window hosting a single CameraWidget.
- *
- * Can be opened from the Cameras list in the Objects > Hardware menu, or
- * programmatically (e.g., from a loco tab in the future).
- */
 class CameraSubWindow : public SubWindow
 {
   Q_OBJECT
@@ -41,8 +36,15 @@ public:
 
   CameraWidget* cameraWidget() const { return m_cameraWidget; }
 
+protected:
+  // SubWindow pure virtual — camera sets its widget directly, not via this path
+  QWidget* createWidget(const ObjectPtr& /*object*/) override { return nullptr; }
+
 private:
+  std::shared_ptr<Connection> m_connection;
+  QString       m_cameraObjectId;
   CameraWidget* m_cameraWidget;
+  int           m_objectRequestId{-1};
 };
 
 #endif

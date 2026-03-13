@@ -5,15 +5,13 @@
  *
  * Copyright (C) 2025 Reinder Feenstra
  */
-#include "../traintastic/traintastic.hpp"
+
 #include "camerastreamconnection.hpp"
 #include "server.hpp"
 #include "../hardware/camera/camera.hpp"
 #include "../core/eventloop.hpp"
 #include "../log/log.hpp"
 #include <sstream>
-
-// ─── MJPEG HTTP header sent once when the connection opens ───────────────────
 
 static const std::string k_httpHeader =
   "HTTP/1.1 200 OK\r\n"
@@ -22,8 +20,6 @@ static const std::string k_httpHeader =
   "Pragma: no-cache\r\n"
   "Connection: close\r\n"
   "\r\n";
-
-// ─── Constructor / Destructor ─────────────────────────────────────────────────
 
 CameraStreamConnection::CameraStreamConnection(Server& server,
                                                boost::asio::ip::tcp::socket&& socket,
@@ -40,27 +36,23 @@ CameraStreamConnection::~CameraStreamConnection()
     m_camera->removeFrameSubscriber(m_subscriberId);
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
-
 void CameraStreamConnection::start()
 {
-  // Resolve camera from world (runs on event loop thread via EventLoop::call)
-  if(!Traintastic::instance || !Traintastic::instance->world.value())
-  {
-    close();
-    return;
-  }
+  m_subscriberId = m_camera->addFrameSubscriber(
+    [weak = weak_from_this()](std::vector<uint8_t> jpegData)
+    {
+      if(auto self = weak.lock())
+      {
+        self->m_stream.get_executor().post(
+          [self, data = std::move(jpegData)]() mutable
+          {
+            self->enqueueFrame(std::move(data));
+          },
+          std::allocator<void>{});
+      }
+    });
 
-  m_camera = std::dynamic_pointer_cast<Camera>(
-    Traintastic::instance->world.value()->getObjectById(m_cameraId));
-
-  if(!m_camera || !m_camera->enabled.value())
-  {
-    close();
-    return;
-  }
-
-  // ... rest of start() as before (subscribe + sendHttpHeader)
+  sendHttpHeader();
 }
 
 void CameraStreamConnection::close()
@@ -74,29 +66,20 @@ void CameraStreamConnection::close()
   m_stream.socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
 }
 
-// ─── Private helpers ─────────────────────────────────────────────────────────
-
 void CameraStreamConnection::sendHttpHeader()
 {
-  // Ownership of the header string is captured in the lambda so it lives
-  // until the async write completes.
   auto header = std::make_shared<std::string>(k_httpHeader);
   boost::asio::async_write(m_stream.socket(),
     boost::asio::buffer(*header),
     [self = shared_from_this(), header](boost::system::error_code ec, std::size_t)
     {
       if(ec)
-      {
         self->close();
-        return;
-      }
-      // Header sent — frame writes will now flow through enqueueFrame / doWrite
     });
 }
 
 void CameraStreamConnection::enqueueFrame(std::vector<uint8_t> jpegData)
 {
-  // Already on IO thread via the post() in the subscriber lambda.
   std::lock_guard<std::mutex> lock(m_writeMutex);
   m_writeQueue.push(buildMjpegChunk(jpegData));
   if(!m_writing)
@@ -108,16 +91,12 @@ void CameraStreamConnection::enqueueFrame(std::vector<uint8_t> jpegData)
 
 void CameraStreamConnection::doWrite()
 {
-  // Must be called with m_writeMutex held, then immediately releases it.
-  // Safe because doWrite() is always posted back to the same IO thread.
-
   if(m_writeQueue.empty())
   {
     m_writing = false;
     return;
   }
 
-  // Take the front chunk by move to avoid holding the mutex across async_write
   std::vector<uint8_t> chunk;
   {
     std::lock_guard<std::mutex> lock(m_writeMutex);
@@ -142,8 +121,6 @@ void CameraStreamConnection::doWrite()
         self->m_writing = false;
     });
 }
-
-// ─── Static helpers ──────────────────────────────────────────────────────────
 
 std::vector<uint8_t> CameraStreamConnection::buildMjpegChunk(const std::vector<uint8_t>& jpeg)
 {

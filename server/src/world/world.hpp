@@ -50,6 +50,7 @@ class DecoderList;
 class InputList;
 class OutputList;
 class IdentificationList;
+class CameraList;
 class BoosterList;
 class BoardList;
 class ZoneList;
@@ -139,6 +140,7 @@ class World : public Object
     ObjectProperty<InputList> inputs;
     ObjectProperty<OutputList> outputs;
     ObjectProperty<IdentificationList> identifications;
+    ObjectProperty<CameraList> cameras;
     ObjectProperty<BoosterList> boosters;
     ObjectProperty<BoardList> boards;
     ObjectProperty<ZoneList> zones;

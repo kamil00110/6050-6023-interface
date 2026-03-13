@@ -48,6 +48,7 @@ class AddInterfaceWizard;
 class NewBoardWizard;
 class WorldListDialog;
 class BlockHighlight;
+class CameraSubWindow;
 
 class MainWindow final : public QMainWindow
 {
@@ -112,6 +113,7 @@ class MainWindow final : public QMainWindow
     QAction* m_actionServerLog;
     QMenu* m_menuProgramming;
     QAction* m_actionAddInterfaceWizard;
+    QAction* m_actionCameras;
     // Main toolbar:
     QToolBar* m_toolbar;
     QToolButton* m_worldOnlineOfflineToolButton;
@@ -163,6 +165,7 @@ class MainWindow final : public QMainWindow
     void connectToServer(const QString& url = QString());
     void showObject(const ObjectPtr& object, SubWindowType flags = SubWindowType::Object);
     void showObject(const QString& id, const QString& title = "", SubWindowType flags = SubWindowType::Object);
+    void showCameraWindow(const QString& cameraObjectId);
 
   signals:
     void worldClockChanged();

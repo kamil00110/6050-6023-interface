@@ -31,6 +31,7 @@
 #include "clientconnection.hpp"
 #include "httpconnection.hpp"
 #include "webthrottleconnection.hpp"
+#include "camerastreamconnection.hpp"
 #include "../core/eventloop.hpp"
 #include "../log/log.hpp"
 #include "../log/logmessageexception.hpp"
@@ -514,6 +515,28 @@ http::message_generator Server::handleHTTPRequest(http::request<http::string_bod
       manualAllowedExtensions);
   }
   return notFound(request);
+}
+
+bool Server::handleCameraStreamRequest(http::request<http::string_body>&& request, beast::tcp_stream& stream)
+{
+  const auto target = request.target();
+
+  if(!startsWith(target, "/camera/") || !endsWith(target, "/stream"))
+    return false;
+
+  const std::string cameraId(
+    target.data() + 8,           // skip "/camera/"
+    target.size() - 8 - 7);      // strip "/stream"
+
+  beast::get_lowest_layer(stream).expires_never();
+
+  auto conn = std::make_shared<CameraStreamConnection>(
+    *this, beast::get_lowest_layer(stream).release_socket(), cameraId);
+
+  conn->start();
+
+  EventLoop::call([this, conn](){ m_cameraStreams.emplace(conn.get(), conn); });
+  return true;
 }
 
 bool Server::handleWebSocketUpgradeRequest(http::request<http::string_body>&& request, beast::tcp_stream& stream)

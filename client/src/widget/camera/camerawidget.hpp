@@ -71,6 +71,7 @@ private:
 
   QByteArray                  m_buffer;       ///< accumulates raw bytes from reply
   bool                        m_active{true};
+  int                         m_objectRequestId{-1};
 
   void startStream();
   void stopStream();

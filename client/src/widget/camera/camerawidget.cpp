@@ -18,6 +18,7 @@
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
+#include "../../network/error.hpp"
 #include <traintastic/locale/locale.hpp>
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
   showStatus(Locale::tr("camera:connecting"));
 
   // Fetch the camera object so we can read and watch its stream_url property.
-  m_connection->getObject(m_cameraObjectId,
+  m_objectRequestId = m_connection->getObject(m_cameraObjectId,
     [this](const ObjectPtr& obj, std::optional<const Error> /*err*/)
     {
       if(!obj)

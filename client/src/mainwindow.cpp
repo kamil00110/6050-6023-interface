@@ -51,6 +51,7 @@
 #include "network/error.hpp"
 #include "network/callmethod.hpp"
 #include "programming/lncv/lncvprogrammer.hpp"
+#include "subwindow/camerasubwindow.hpp"
 #include "subwindow/objectsubwindow.hpp"
 #include "subwindow/boardsubwindow.hpp"
 #include "subwindow/throttlesubwindow.hpp"
@@ -407,6 +408,7 @@ MainWindow::MainWindow(QWidget* parent) :
     menu->addAction(Locale::tr("world:inputs") + "...", [this](){ showObject("world.inputs", Locale::tr("world:inputs")); });
     menu->addAction(Locale::tr("world:outputs") + "...", [this](){ showObject("world.outputs", Locale::tr("world:outputs")); });
     menu->addAction(Locale::tr("hardware:identifications") + "...", [this](){ showObject("world.identifications", Locale::tr("hardware:identifications")); });
+    m_actionCameras = menu->addAction(Locale::tr("hardware:cameras") + "...", [this](){ showObject("world.cameras", Locale::tr("hardware:cameras")); });
     menu->addAction(Locale::tr("hardware:boosters").append("..."),
       [this]()
       {

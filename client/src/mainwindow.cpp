@@ -1000,6 +1000,15 @@ void MainWindow::showAddInterfaceWizard()
   }
 }
 
+void MainWindow::showCameraWindow(const QString& cameraObjectId)
+   {
+     const QString windowId = SubWindow::windowId(SubWindowType::Camera, cameraObjectId);
+     if(!m_subWindows.contains(windowId))
+       addSubWindow(windowId, CameraSubWindow::create(m_connection, cameraObjectId));
+     else
+       m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
+   }
+
 NewBoardWizard* MainWindow::showNewBoardWizard(const ObjectPtr& board)
 {
   if(!board) /*[[unlikely]]*/

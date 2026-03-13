@@ -49,6 +49,7 @@
 #include "../hardware/input/list/inputlist.hpp"
 #include "../hardware/identification/identification.hpp"
 #include "../hardware/identification/list/identificationlist.hpp"
+#include "../hardware/camera/list/cameralist.hpp"
 #include "../hardware/output/keyboard/outputkeyboard.hpp"
 #include "../hardware/output/list/outputlist.hpp"
 #include "../hardware/interface/interfacelist.hpp"
@@ -83,6 +84,7 @@ constexpr auto decoderListColumns = DecoderListColumn::Id | DecoderListColumn::N
 constexpr auto inputListColumns = InputListColumn::Interface | InputListColumn::Channel | InputListColumn::Address;
 constexpr auto outputListColumns = OutputListColumn::Interface | OutputListColumn::Channel | OutputListColumn::Address;
 constexpr auto identificationListColumns = IdentificationListColumn::Id | IdentificationListColumn::Name | IdentificationListColumn::Interface /*| IdentificationListColumn::Channel*/ | IdentificationListColumn::Address;
+constexpr auto cameraListColumns = CameraListColumn::Id | CameraListColumn::Name | CameraListColumn::Type | CameraListColumn::Device | CameraListColumn::Enabled;
 constexpr auto throttleListColumns = ThrottleListColumn::Name | ThrottleListColumn::Train | ThrottleListColumn::Interface;
 
 template<class T>
@@ -132,6 +134,7 @@ void World::init(World& world)
   world.inputs.setValueInternal(std::make_shared<InputList>(world, world.inputs.name(), inputListColumns));
   world.outputs.setValueInternal(std::make_shared<OutputList>(world, world.outputs.name(), outputListColumns));
   world.identifications.setValueInternal(std::make_shared<IdentificationList>(world, world.outputs.name(), identificationListColumns));
+  world.cameras.setValueInternal(std::make_shared<CameraList>(world, world.cameras.name(), cameraListColumns));
   world.boosters.setValueInternal(std::make_shared<BoosterList>(world, world.boosters.name()));
   world.boards.setValueInternal(std::make_shared<BoardList>(world, world.boards.name()));
   world.zones.setValueInternal(std::make_shared<ZoneList>(world, world.zones.name()));
@@ -193,6 +196,7 @@ World::World(Private /*unused*/) :
   inputs{this, "inputs", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   outputs{this, "outputs", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   identifications{this, "identifications", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
+  cameras{this, "cameras", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   boosters{this, "boosters", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore},
   boards{this, "boards", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore | PropertyFlags::ScriptReadOnly},
   zones{this, "zones", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject | PropertyFlags::NoStore | PropertyFlags::ScriptReadOnly},
@@ -411,6 +415,8 @@ World::World(Private /*unused*/) :
   m_interfaceItems.add(outputs);
   Attributes::addObjectEditor(identifications, false);
   m_interfaceItems.add(identifications);
+  Attributes::addObjectEditor(cameras, false);
+  m_interfaceItems.add(cameras);
   Attributes::addObjectEditor(boosters, false);
   m_interfaceItems.add(boosters);
   Attributes::addObjectEditor(throttles, false);

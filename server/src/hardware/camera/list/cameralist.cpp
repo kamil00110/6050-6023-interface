@@ -14,9 +14,9 @@
 #include "../../../core/method.tpp"
 #include "../../../utils/displayname.hpp"
 
-CameraList::CameraList(Object& parent, std::string_view parentPropertyName, CameraListColumn columns_)
-  : ObjectList<Camera>(parent, parentPropertyName)
-  , columns(columns_)
+CameraList::CameraList(Object& _parent, std::string_view parentPropertyName, CameraListColumn columns_)
+  : ObjectList<Camera>(_parent, parentPropertyName)
+  , columns{columns_}
   , create{*this, "create",
       [this]()
       {

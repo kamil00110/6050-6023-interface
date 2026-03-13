@@ -39,6 +39,8 @@
 #include "../utils/setthreadname.hpp"
 #include "../utils/startswith.hpp"
 #include "../utils/stripprefix.hpp"
+#include "../hardware/camera/camera.hpp"
+#include "../traintastic/traintastic.hpp"
 
 //#define SERVE_FROM_FS // Development option, NOT for production!
 #ifdef SERVE_FROM_FS
@@ -521,21 +523,34 @@ bool Server::handleCameraStreamRequest(http::request<http::string_body>&& reques
 {
   const auto target = request.target();
 
-  if(!startsWith(target, "/camera/") || !endsWith(target, "/stream"))
+  static constexpr std::string_view prefix = "/camera/";
+  static constexpr std::string_view suffix = "/stream";
+
+  if(!startsWith(target, prefix) || !endsWith(target, suffix))
     return false;
 
   const std::string cameraId(
-    target.data() + 8,           // skip "/camera/"
-    target.size() - 8 - 7);      // strip "/stream"
+    target.data() + prefix.size(),
+    target.size() - prefix.size() - suffix.size());
+
+  if(!Traintastic::instance || !Traintastic::instance->world.value())
+    return false;
+
+  auto camera = std::dynamic_pointer_cast<Camera>(
+    Traintastic::instance->world.value()->getObjectById(cameraId));
+
+  if(!camera || !camera->enabled.value())
+    return false;
 
   beast::get_lowest_layer(stream).expires_never();
+  auto socket = beast::get_lowest_layer(stream).release_socket();
 
-  auto conn = std::make_shared<CameraStreamConnection>(
-    *this, beast::get_lowest_layer(stream).release_socket(), cameraId);
-
+  auto conn = std::make_shared<CameraStreamConnection>(*this, std::move(socket), camera);
   conn->start();
 
-  EventLoop::call([this, conn](){ m_cameraStreams.emplace(conn.get(), conn); });
+  EventLoop::call([this, conn](){
+    m_cameraStreams.emplace(conn.get(), conn);
+  });
   return true;
 }
 

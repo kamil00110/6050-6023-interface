@@ -22,6 +22,7 @@
 
 #include "camera.hpp"
 #include "list/cameralist.hpp"
+#include "list/cameralisttablemodel.hpp"
 #include "capture/cameracapture.hpp"
 #include "capture/localcameracapture.hpp"
 #include "capture/ipcameracapture.hpp"

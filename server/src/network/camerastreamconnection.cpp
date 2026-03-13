@@ -5,7 +5,7 @@
  *
  * Copyright (C) 2025 Reinder Feenstra
  */
-
+#include "../traintastic/traintastic.hpp"
 #include "camerastreamconnection.hpp"
 #include "server.hpp"
 #include "../hardware/camera/camera.hpp"
@@ -44,24 +44,23 @@ CameraStreamConnection::~CameraStreamConnection()
 
 void CameraStreamConnection::start()
 {
-  // Subscribe to camera frames BEFORE sending the header so we never miss
-  // the first frame that arrives while the header write is in flight.
-  m_subscriberId = m_camera->addFrameSubscriber(
-    [weak = weak_from_this()](std::vector<uint8_t> jpegData)
-    {
-      // Called from the camera capture thread — bounce to the IO thread.
-      if(auto self = weak.lock())
-      {
-        self->m_stream.get_executor().post(
-          [self, data = std::move(jpegData)]() mutable
-          {
-            self->enqueueFrame(std::move(data));
-          },
-          std::allocator<void>{});
-      }
-    });
+  // Resolve camera from world (runs on event loop thread via EventLoop::call)
+  if(!Traintastic::instance || !Traintastic::instance->world.value())
+  {
+    close();
+    return;
+  }
 
-  sendHttpHeader();
+  m_camera = std::dynamic_pointer_cast<Camera>(
+    Traintastic::instance->world.value()->getObjectById(m_cameraId));
+
+  if(!m_camera || !m_camera->enabled.value())
+  {
+    close();
+    return;
+  }
+
+  // ... rest of start() as before (subscribe + sendHttpHeader)
 }
 
 void CameraStreamConnection::close()

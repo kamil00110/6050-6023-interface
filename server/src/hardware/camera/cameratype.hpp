@@ -24,8 +24,7 @@
 #define TRAINTASTIC_SHARED_TRAINTASTIC_ENUM_CAMERATYPE_HPP
 
 #include <cstdint>
-#include "enum.hpp"
-
+#include <traintastic/enum/enum.hpp>
 enum class CameraType : uint8_t
 {
   Local = 0, //!< Local USB / V4L2 camera

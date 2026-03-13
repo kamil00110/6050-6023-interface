@@ -16,7 +16,7 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
-#include <traintastic/enum/cameratype.hpp>
+#include "cameratype.hpp"
 #include <memory>
 #include <atomic>
 #include <thread>

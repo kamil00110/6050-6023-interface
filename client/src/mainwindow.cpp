@@ -1069,6 +1069,7 @@ void MainWindow::updateActions()
   m_actionCloseWorld->setEnabled(haveWorld);
   m_actionImportWorld->setEnabled(connected);
   m_actionExportWorld->setEnabled(haveWorld);
+  m_actionCameras->setEnabled(haveWorld);
 
   m_actionClock->setEnabled(haveWorld);
   m_actionServerLog->setEnabled(connected);

@@ -6,6 +6,7 @@
     "boost-signals2",
     "boost-uuid",
     "boost-url",
+    "opencv",
     {
       "name": "libarchive",
       "default-features": false,

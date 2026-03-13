@@ -34,7 +34,7 @@ public:
   Method<std::shared_ptr<Camera>()>                        create;
   Method<void(const std::shared_ptr<Camera>&)>             delete_;
 
-  CameraList(Object& parent, std::string_view parentPropertyName, CameraListColumn columns);
+  CameraList(Object& _parent, std::string_view parentPropertyName, CameraListColumn columns);
 
   TableModelPtr getModel() final;
 };

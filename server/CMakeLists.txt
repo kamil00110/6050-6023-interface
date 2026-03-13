@@ -89,6 +89,8 @@ file(GLOB SOURCES
   "src/hardware/booster/list/*.cpp"
   "src/hardware/camera/*.hpp"
   "src/hardware/camera/*.cpp"
+  "src/hardware/camera/capture/*.hpp"
+  "src/hardware/camera/capture/*.cpp"
   "src/hardware/camera/list/*.hpp"
   "src/hardware/camera/list/*.cpp"
   "src/hardware/decoder/*.hpp"

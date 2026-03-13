@@ -49,6 +49,7 @@
 #include "../hardware/input/list/inputlist.hpp"
 #include "../hardware/identification/identification.hpp"
 #include "../hardware/identification/list/identificationlist.hpp"
+#include "../hardware/camera/camera.hpp"
 #include "../hardware/camera/list/cameralist.hpp"
 #include "../hardware/output/keyboard/outputkeyboard.hpp"
 #include "../hardware/output/list/outputlist.hpp"

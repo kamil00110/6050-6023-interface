@@ -47,10 +47,12 @@ class Camera;
 class CameraStreamConnection : public std::enable_shared_from_this<CameraStreamConnection>
 {
 public:
-  CameraStreamConnection(Server& server,
-                         boost::asio::ip::tcp::socket&& socket,
-                         std::shared_ptr<Camera> camera);
-  ~CameraStreamConnection();
+  // camerastreamconnection.hpp
+CameraStreamConnection(Server& server,
+                       boost::asio::ip::tcp::socket&& socket,
+                       std::string cameraId);   // ← id, not shared_ptr
+
+
 
   /** Send the HTTP 200 header and start reading frames. */
   void start();
@@ -67,7 +69,7 @@ private:
   std::mutex                    m_writeMutex;
   std::queue<std::vector<uint8_t>> m_writeQueue;
   bool                          m_writing{false};
-
+  std::string             m_cameraId;         
   void sendHttpHeader();
   void enqueueFrame(std::vector<uint8_t> jpegData);
   void doWrite();

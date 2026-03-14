@@ -18,6 +18,10 @@
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"
 
+#ifdef _WIN32
+  #include <windows.h>  // for CreateThread with custom stack size
+#endif
+
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
 Camera::Camera(World& world, std::string_view _id)
@@ -27,12 +31,8 @@ Camera::Camera(World& world, std::string_view _id)
       [this](const CameraType& /*newValue*/)
       {
         updateDeviceAttribute();
-        // Don't call applySettings here — the device value may not be valid
-        // for the new type yet. Let the user explicitly re-enable.
         if(enabled)
-        {
           stopCapture();
-        }
       }}
   , device     {this, "device",       std::string{"0"},  PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const std::string& /*newValue*/)
@@ -197,11 +197,6 @@ void Camera::startCapture()
       return;
     }
   }
-  catch(const std::exception& /*e*/)
-  {
-    m_capture.reset();
-    return;
-  }
   catch(...)
   {
     m_capture.reset();
@@ -213,7 +208,48 @@ void Camera::startCapture()
   streamUrl.setValueInternal("/camera/" + id.value() + "/stream");
 
   m_running = true;
+
+#ifdef _WIN32
+  // On Windows, OpenCV's DirectShow/MSMF backends need a larger stack than
+  // the default 1 MB — use 4 MB to prevent stack cookie corruption (BEX64).
+  // std::thread does not expose stack size, so use CreateThread directly.
+  struct ThreadArgs
+  {
+    Camera* self;
+  };
+  auto* args = new ThreadArgs{this};
+  HANDLE h = CreateThread(
+    nullptr,
+    4 * 1024 * 1024,  // 4 MB stack
+    [](LPVOID param) -> DWORD
+    {
+      auto* a = static_cast<ThreadArgs*>(param);
+      a->self->captureLoop();
+      delete a;
+      return 0;
+    },
+    args,
+    0,
+    nullptr);
+
+  if(h)
+  {
+    // Wrap the native HANDLE in a std::thread via detach trick —
+    // store handle for joining in stopCapture.
+    m_captureThreadHandle = h;
+  }
+  else
+  {
+    delete args;
+    m_running = false;
+    m_capture.reset();
+    streamUrl  .setValueInternal("");
+    frameWidth .setValueInternal(0u);
+    frameHeight.setValueInternal(0u);
+  }
+#else
   m_captureThread = std::thread(&Camera::captureLoop, this);
+#endif
 }
 
 void Camera::stopCapture()
@@ -225,8 +261,17 @@ void Camera::stopCapture()
   if(m_capture)
     m_capture->interrupt();
 
+#ifdef _WIN32
+  if(m_captureThreadHandle)
+  {
+    WaitForSingleObject(m_captureThreadHandle, INFINITE);
+    CloseHandle(m_captureThreadHandle);
+    m_captureThreadHandle = nullptr;
+  }
+#else
   if(m_captureThread.joinable())
     m_captureThread.join();
+#endif
 
   m_capture.reset();
   streamUrl  .setValueInternal("");
@@ -248,7 +293,7 @@ void Camera::captureLoop()
   }
   catch(...)
   {
-    // Capture thread must never throw — swallow any unexpected exception.
+    // Capture thread must never propagate exceptions.
   }
 }
 

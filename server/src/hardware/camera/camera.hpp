@@ -21,6 +21,13 @@
 #include <string_view>
 #include <functional>
 
+#ifdef _WIN32
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
+  #include <windows.h>
+#endif
+
 class CameraList;
 class CameraCapture;
 
@@ -59,26 +66,27 @@ private:
   // ── Capture ────────────────────────────────────────────────────────────
   std::unique_ptr<CameraCapture>                    m_capture;
   std::atomic<bool>                                 m_running{false};
+
+#ifdef _WIN32
+  HANDLE                                            m_captureThreadHandle{nullptr};
+#else
   std::thread                                       m_captureThread;
+#endif
 
   std::mutex                                        m_subscriberMutex;
   std::vector<std::pair<uint64_t, FrameCallback>>  m_subscribers;
   uint64_t                                          m_nextSubscriberId{1};
 
   // ── Local-camera device attribute data ────────────────────────────────
-  // Populated once at construction; stable thereafter so string_views are safe.
-  std::vector<std::string>       m_deviceValues;    ///< ["0", "1", …]
-  std::vector<std::string>       m_deviceNamesStr;  ///< owns display-name strings
-  std::vector<std::string_view>  m_deviceNames;     ///< views into m_deviceNamesStr
+  std::vector<std::string>       m_deviceValues;
+  std::vector<std::string>       m_deviceNamesStr;
+  std::vector<std::string_view>  m_deviceNames;
 
   void startCapture();
   void stopCapture();
   void captureLoop();
   void publishFrame(std::vector<uint8_t> jpegData);
   void applySettings();
-
-  /// Push or clear the Values / AliasKeys / AliasValues attributes on
-  /// the `device` property based on the current camera type.
   void updateDeviceAttribute();
 };
 

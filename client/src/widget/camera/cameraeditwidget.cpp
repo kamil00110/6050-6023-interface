@@ -27,7 +27,7 @@
 #include "../createwidget.hpp"
 #include <traintastic/locale/locale.hpp>
 
-// CameraType::Local == 0, keep in sync with server shared/src/traintastic/enum/cameratype.hpp
+// CameraType::Local == 0  (keep in sync with shared/src/traintastic/enum/cameratype.hpp)
 static constexpr int64_t kCameraTypeLocal = 0;
 
 CameraEditWidget::CameraEditWidget(const ObjectPtr& object, QWidget* parent)
@@ -62,7 +62,7 @@ void CameraEditWidget::buildForm()
   mainLayout->addWidget(formContainer);
   mainLayout->addStretch(1);
 
-  // Generic helper for standard property rows
+  // Generic helper for standard rows
   const auto addRow = [&](const char* propName)
   {
     AbstractProperty* ap = m_object->getProperty(propName);
@@ -76,15 +76,13 @@ void CameraEditWidget::buildForm()
   addRow("name");
   addRow("type");
 
-  // ── device: two rows, one enabled at a time based on type ────────────
+  // ── device — two rows, one enabled at a time ─────────────────────────
   //
-  // Row 1 — Local camera dropdown:
-  //   Bound to the device property. Server fills Values/AliasKeys/AliasValues
-  //   with discovered camera names when type is Local.
+  // Row "Local camera": PropertyComboBox bound to device.
+  //   Server pushes Values/AliasKeys/AliasValues when type == Local.
   //   Disabled when type is RTSP or MJPEG.
   //
-  // Row 2 — IP camera URL:
-  //   Plain QLineEdit manually synced to device property.
+  // Row "URL": plain QLineEdit manually synced to device.
   //   Enabled only when type is RTSP or MJPEG.
   //   Disabled when type is Local.
 
@@ -96,24 +94,27 @@ void CameraEditWidget::buildForm()
 
   if(deviceProp)
   {
-    // Row 1: local camera selector
+    // Row 1 — local camera selector
     deviceCombo = new PropertyComboBox(*deviceProp, formContainer);
     form->addRow(new QLabel(Locale::tr("camera:local_camera"), formContainer), deviceCombo);
 
-    // Row 2: IP camera URL — plain QLineEdit to avoid signal conflicts
-    // with PropertyComboBox being bound to the same property.
+    // Row 2 — IP camera URL
+    // Plain QLineEdit to avoid signal conflicts with the PropertyComboBox
+    // above being bound to the same underlying property.
     urlEdit = new QLineEdit(formContainer);
     urlEdit->setPlaceholderText(QStringLiteral("rtsp://user:pass@192.168.1.100/stream"));
+
+    // Initialise with current value — toString() returns QString on client
     urlEdit->setText(deviceProp->toString());
-    
-    // User finishes editing → push value to server
+
+    // User finishes editing → push to server
     connect(urlEdit, &QLineEdit::editingFinished,
       [urlEdit, deviceProp]()
       {
         deviceProp->setValueString(urlEdit->text());
       });
 
-    // Server updates value (e.g. loaded from file) → update text field
+    // Server sends a new value (e.g. loaded from file) → reflect in field
     connect(deviceProp, &Property::valueChangedString,
       [urlEdit](const QString& value)
       {
@@ -124,8 +125,7 @@ void CameraEditWidget::buildForm()
     form->addRow(new QLabel(Locale::tr("camera:url"), formContainer), urlEdit);
   }
 
-  // Enable/disable the two device rows based on current type and the
-  // server-side Enabled attribute (which is false outside edit mode).
+  // ── Enable / disable device rows based on type and edit mode ─────────
   const auto applyTypeState = [deviceCombo, urlEdit](int64_t typeValue, bool serverEnabled)
   {
     const bool isLocal = (typeValue == kCameraTypeLocal);
@@ -137,11 +137,11 @@ void CameraEditWidget::buildForm()
 
   if(deviceProp && typeProp)
   {
-    // Apply immediately with current values
+    // Initial state
     const bool serverEnabled = deviceProp->getAttributeBool(AttributeName::Enabled, true);
     applyTypeState(typeProp->toInt64(), serverEnabled);
 
-    // React to type changes
+    // Type changed
     connect(typeProp, &Property::valueChangedInt64,
       [applyTypeState, deviceProp](int64_t newType)
       {
@@ -149,7 +149,7 @@ void CameraEditWidget::buildForm()
         applyTypeState(newType, en);
       });
 
-    // React to edit mode toggling (server sets Enabled on/off)
+    // Edit mode toggled (server sets Enabled on/off)
     connect(deviceProp, &Property::attributeChanged,
       [applyTypeState, typeProp](AttributeName name, const QVariant& value)
       {
@@ -162,7 +162,7 @@ void CameraEditWidget::buildForm()
   addRow("fps");
   addRow("enabled");
 
-  // Read-only status properties
+  // Read-only status
   const auto addReadOnlyRow = [&](const char* propName)
   {
     AbstractProperty* ap = m_object->getProperty(propName);
@@ -177,5 +177,7 @@ void CameraEditWidget::buildForm()
   addReadOnlyRow("frame_width");
   addReadOnlyRow("frame_height");
 
+  setLayout(mainLayout);
+}
   setLayout(mainLayout);
 }

@@ -4,20 +4,6 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2024 Reinder Feenstra
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "httpconnection.hpp"
@@ -38,7 +24,7 @@ void HTTPConnection::start()
 
 void HTTPConnection::doRead()
 {
-  m_request = {}; // clear request, otherwise the operation behavior is undefined
+  m_request = {};
   m_stream.expires_after(std::chrono::seconds(30));
   boost::beast::http::async_read(m_stream, m_buffer, m_request,
     [this, self = shared_from_this()](boost::beast::error_code readError, size_t /*bytesTransferred*/)
@@ -55,16 +41,14 @@ void HTTPConnection::doRead()
       if(boost::beast::websocket::is_upgrade(m_request))
       {
         if(!m_server->handleWebSocketUpgradeRequest(std::move(m_request), m_stream))
-          self->doRead(); // no upgrade, handle next request
+          self->doRead();
         return;
       }
 
-      // ── Camera MJPEG stream ──────────────────────────────────────────
-      // Must be checked before handleHTTPRequest since it takes ownership
-      // of the socket and must not touch m_stream afterwards.
+      // Camera MJPEG stream — must be before handleHTTPRequest because it
+      // takes ownership of the socket. Do not touch m_stream after this returns true.
       if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
         return;
-      // ────────────────────────────────────────────────────────────────
 
       auto response = m_server->handleHTTPRequest(std::move(m_request));
       boost::beast::async_write(m_stream, std::move(response),
@@ -74,7 +58,7 @@ void HTTPConnection::doRead()
             return;
           if(!keepAlive)
             return self->doClose();
-          self->doRead(); // handle next request
+          self->doRead();
         });
     });
 }

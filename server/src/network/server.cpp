@@ -33,6 +33,7 @@
 #include "webthrottleconnection.hpp"
 #include "camerastreamconnection.hpp"
 #include "../core/eventloop.hpp"
+#include "../core/objectproperty.tpp"
 #include "../log/log.hpp"
 #include "../log/logmessageexception.hpp"
 #include "../utils/endswith.hpp"

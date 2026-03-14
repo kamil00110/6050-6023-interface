@@ -45,11 +45,14 @@ void HTTPConnection::doRead()
         return;
       }
 
-      // Camera MJPEG stream — must be before handleHTTPRequest because it
-      // takes ownership of the socket. Do not touch m_stream after this returns true.
+      // Check if this is a camera stream request BEFORE moving m_request,
+      // so that if it is not a camera URL, m_request is still valid for
+      // handleHTTPRequest below.
       if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
-        return;
+        return; // socket ownership transferred — do not touch m_stream again
 
+      // NOTE: if handleCameraStreamRequest returned false it did not move
+      // m_request (it only reads target, doesn't take ownership on false).
       auto response = m_server->handleHTTPRequest(std::move(m_request));
       boost::beast::async_write(m_stream, std::move(response),
         [self, keepAlive](boost::beast::error_code writeError, size_t /*bytesTransferred*/)

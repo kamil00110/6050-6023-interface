@@ -88,7 +88,7 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
 
       IMFActivate** ppDevices = nullptr;
       UINT32 count = 0;
-      if(SUCCEEDED(MFEnumDevSources(pConfig, &ppDevices, &count)))
+      if(SUCCEEDED(MFEnumDeviceSources(pConfig, &ppDevices, &count)))  // fixed name
       {
         for(UINT32 i = 0; i < count; i++)
         {
@@ -100,7 +100,6 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
                 MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
                 &szFriendlyName, &cchName)) && szFriendlyName)
           {
-            // Convert wide string to UTF-8
             int utf8Len = WideCharToMultiByte(CP_UTF8, 0,
               szFriendlyName, -1, nullptr, 0, nullptr, nullptr);
             if(utf8Len > 0)
@@ -134,7 +133,6 @@ fallback:
     result.push_back({std::to_string(i), "Camera " + std::to_string(i)});
   return result;
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // macOS and other POSIX — index probing fallback
 // ─────────────────────────────────────────────────────────────────────────────

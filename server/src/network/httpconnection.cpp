@@ -39,18 +39,14 @@ void HTTPConnection::start()
 void HTTPConnection::doRead()
 {
   m_request = {}; // clear request, otherwise the operation behavior is undefined
-
   m_stream.expires_after(std::chrono::seconds(30));
-
   boost::beast::http::async_read(m_stream, m_buffer, m_request,
     [this, self = shared_from_this()](boost::beast::error_code readError, size_t /*bytesTransferred*/)
     {
       if(readError)
       {
         if(readError == boost::beast::http::error::end_of_stream)
-        {
           return doClose();
-        }
         return;
       }
 
@@ -59,32 +55,28 @@ void HTTPConnection::doRead()
       if(boost::beast::websocket::is_upgrade(m_request))
       {
         if(!m_server->handleWebSocketUpgradeRequest(std::move(m_request), m_stream))
-        {
           self->doRead(); // no upgrade, handle next request
-        }
         return;
       }
+
+      // ── Camera MJPEG stream ──────────────────────────────────────────
+      // Must be checked before handleHTTPRequest since it takes ownership
+      // of the socket and must not touch m_stream afterwards.
       if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
-        return; // socket ownership transferred to CameraStreamConnection
+        return;
+      // ────────────────────────────────────────────────────────────────
 
       auto response = m_server->handleHTTPRequest(std::move(m_request));
-
       boost::beast::async_write(m_stream, std::move(response),
         [self, keepAlive](boost::beast::error_code writeError, size_t /*bytesTransferred*/)
         {
           if(writeError)
-          {
             return;
-          }
-
           if(!keepAlive)
-          {
             return self->doClose();
-          }
-
           self->doRead(); // handle next request
         });
-  });
+    });
 }
 
 void HTTPConnection::doClose()

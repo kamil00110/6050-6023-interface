@@ -10,6 +10,7 @@
 
 #include <QVBoxLayout>
 #include <QFormLayout>
+#include <QLabel>
 
 #include "camerawidget.hpp"
 #include "../../mainwindow.hpp"
@@ -24,6 +25,10 @@
 #include "../propertylineedit.hpp"
 #include "../propertyvaluelabel.hpp"
 #include "../createwidget.hpp"
+#include <traintastic/locale/locale.hpp>
+
+// CameraType::Local == 0, keep in sync with server enum
+static constexpr int64_t kCameraTypeLocal = 0;
 
 CameraEditWidget::CameraEditWidget(const ObjectPtr& object, QWidget* parent)
   : AbstractEditWidget(object, parent)
@@ -41,11 +46,10 @@ void CameraEditWidget::buildForm()
 
   // ── Live stream preview ──────────────────────────────────────────────
   {
-    auto conn = MainWindow::instance->connection();
-   const QString objectId = m_object->getProperty("id")
-                           ? m_object->getProperty("id")->toString()
-                           : QString();
-    auto* preview = new CameraWidget(conn, objectId, this);
+    const QString objectId = m_object->getProperty("id")
+                               ? m_object->getProperty("id")->toString()
+                               : QString();
+    auto* preview = new CameraWidget(MainWindow::instance->connection(), objectId, this);
     preview->setMinimumHeight(200);
     preview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     mainLayout->addWidget(preview);
@@ -58,40 +62,78 @@ void CameraEditWidget::buildForm()
   mainLayout->addWidget(formContainer);
   mainLayout->addStretch(1);
 
-  // Helper: add a row if the property exists and is a plain (non-object) Property.
-  // Uses the standard createWidget() logic for all properties except device.
   const auto addRow = [&](const char* propName)
   {
     AbstractProperty* ap = m_object->getProperty(propName);
     if(!ap)
       return;
-    auto* label = new InterfaceItemNameLabel(*ap, formContainer);
     if(Property* p = dynamic_cast<Property*>(ap))
-      form->addRow(label, createWidget(*p, formContainer));
+      form->addRow(new InterfaceItemNameLabel(*ap, formContainer),
+                   createWidget(*p, formContainer));
   };
 
   addRow("name");
   addRow("type");
 
-  // ── device ─ always a PropertyComboBox ──────────────────────────────
-  // For Local type the server fills Values/AliasKeys/AliasValues with
-  // discovered cameras; PropertyComboBox picks these up via attributeChanged.
-  // For RTSP / MJPEG the server clears those attributes; because String
-  // properties are always editable the user can type a URL directly.
-  if(AbstractProperty* ap = m_object->getProperty("device"))
+  // ── device: dropdown for Local, text field for IP ────────────────────
+  // Both rows are always present. The one that doesn't apply to the
+  // current type is disabled so the user clearly sees both options.
+  Property* deviceProp = dynamic_cast<Property*>(m_object->getProperty("device"));
+  Property* typeProp   = dynamic_cast<Property*>(m_object->getProperty("type"));
+
+  PropertyComboBox* deviceCombo = nullptr;
+  PropertyLineEdit* deviceEdit  = nullptr;
+
+  if(deviceProp)
   {
-    if(Property* p = dynamic_cast<Property*>(ap))
-    {
-      auto* label = new InterfaceItemNameLabel(*ap, formContainer);
-      auto* combo = new PropertyComboBox(*p, formContainer);
-      form->addRow(label, combo);
-    }
+    // Row 1: dropdown — server fills Values/AliasKeys/AliasValues when Local
+    deviceCombo = new PropertyComboBox(*deviceProp, formContainer);
+    form->addRow(new QLabel(Locale::tr("camera:local_camera"), formContainer), deviceCombo);
+
+    // Row 2: free-text URL — used for RTSP / MJPEG
+    deviceEdit = new PropertyLineEdit(*deviceProp, formContainer);
+    deviceEdit->setPlaceholderText(QStringLiteral("rtsp://user:pass@192.168.1.100/stream"));
+    form->addRow(new QLabel(Locale::tr("camera:url"), formContainer), deviceEdit);
   }
 
+  // ── Enable/disable rows based on type ────────────────────────────────
+  // baseEnabled tracks the server-side Enabled attribute so we respect it.
+  const auto applyTypeState = [deviceCombo, deviceEdit](int64_t typeValue, bool serverEnabled)
+  {
+    const bool isLocal = (typeValue == kCameraTypeLocal);
+    if(deviceCombo)
+      deviceCombo->setEnabled(serverEnabled && isLocal);
+    if(deviceEdit)
+      deviceEdit->setEnabled(serverEnabled && !isLocal);
+  };
+
+  if(deviceProp && typeProp)
+  {
+    // Initial state
+    const bool serverEnabled = deviceProp->getAttributeBool(AttributeName::Enabled, true);
+    applyTypeState(typeProp->toInt64(), serverEnabled);
+
+    // React to type changes
+    connect(typeProp, &Property::valueChangedInt64,
+      [applyTypeState, deviceProp](int64_t newType)
+      {
+        const bool en = deviceProp->getAttributeBool(AttributeName::Enabled, true);
+        applyTypeState(newType, en);
+      });
+
+    // React to the server toggling the Enabled attribute (edit mode on/off)
+    connect(deviceProp, &Property::attributeChanged,
+      [applyTypeState, typeProp](AttributeName name, const QVariant& value)
+      {
+        if(name == AttributeName::Enabled)
+          applyTypeState(typeProp->toInt64(), value.toBool());
+      });
+  }
+
+  // ── Remaining properties ──────────────────────────────────────────────
   addRow("fps");
   addRow("enabled");
 
-  // ── Read-only status properties ──────────────────────────────────────
   const auto addReadOnlyRow = [&](const char* propName)
   {
     AbstractProperty* ap = m_object->getProperty(propName);

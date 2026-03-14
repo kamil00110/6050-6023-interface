@@ -179,5 +179,3 @@ void CameraEditWidget::buildForm()
 
   setLayout(mainLayout);
 }
-  setLayout(mainLayout);
-}

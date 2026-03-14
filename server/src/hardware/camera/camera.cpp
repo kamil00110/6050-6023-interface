@@ -26,6 +26,7 @@
 #include "capture/cameracapture.hpp"
 #include "capture/localcameracapture.hpp"
 #include "capture/ipcameracapture.hpp"
+#include "../../core/objectproperty.tpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"

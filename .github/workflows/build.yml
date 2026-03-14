@@ -206,7 +206,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: false
-          defines: ""
+          defines: "-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
           ccov: false
 
         - name: "ubuntu_24.04"

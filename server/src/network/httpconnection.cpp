@@ -64,6 +64,8 @@ void HTTPConnection::doRead()
         }
         return;
       }
+      if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
+        return; // socket ownership transferred to CameraStreamConnection
 
       auto response = m_server->handleHTTPRequest(std::move(m_request));
 

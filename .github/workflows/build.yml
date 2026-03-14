@@ -325,8 +325,8 @@ jobs:
       shell: powershell
       run: |
         choco install sccache -y
-        $env:SCCACHE_DIR = "C:\sccache"
-        [System.Environment]::SetEnvironmentVariable("SCCACHE_DIR", "C:\sccache", "Machine")
+        New-Item -ItemType Directory -Force -Path "C:\sccache"
+        echo "SCCACHE_DIR=C:\sccache" >> $env:GITHUB_ENV
         sccache --start-server
           
    

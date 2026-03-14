@@ -193,8 +193,6 @@ jobs:
   build-server:
     name: server ${{matrix.config.name}}
     runs-on: ${{matrix.config.os}}
-    env:
-      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     strategy:
       fail-fast: false
       matrix:

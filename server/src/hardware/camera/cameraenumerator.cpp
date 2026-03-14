@@ -8,6 +8,9 @@
 
 #include "cameraenumerator.hpp"
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Linux — V4L2
+// ─────────────────────────────────────────────────────────────────────────────
 #ifdef __linux__
 
 #include <fcntl.h>
@@ -30,43 +33,117 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
     if(::ioctl(fd, VIDIOC_QUERYCAP, &cap) == 0 &&
        (cap.device_caps & V4L2_CAP_VIDEO_CAPTURE))
     {
-      // cap.card may be empty on some systems — fall back to the device path
       const std::string cardName = reinterpret_cast<const char*>(cap.card);
       const std::string displayName = cardName.empty()
         ? path
         : cardName + " (" + path + ")";
-
       result.push_back({std::to_string(i), displayName});
     }
     ::close(fd);
   }
 
-  // If V4L2 found nothing (e.g. no cameras attached), offer index 0 as a
-  // generic fallback so the user can still try to open a camera.
   if(result.empty())
     result.push_back({"0", "/dev/video0"});
 
   return result;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Windows — Media Foundation
+// ─────────────────────────────────────────────────────────────────────────────
 #elif defined(_WIN32)
 
-// Windows: enumerate via simple index probing — no extra SDK needed.
-// OpenCV will try to open each index; we just offer them as options.
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <mfapi.h>
+#include <mfidl.h>
+#include <mfreadwrite.h>
+#include <combaseapi.h>
+
+#pragma comment(lib, "mf.lib")
+#pragma comment(lib, "mfplat.lib")
+#pragma comment(lib, "mfreadwrite.lib")
+
 std::vector<LocalCameraInfo> enumerateLocalCameras()
 {
   std::vector<LocalCameraInfo> result;
-  for(int i = 0; i < 10; i++)
+
+  if(FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
+    goto fallback;
+
+  if(FAILED(MFStartup(MF_VERSION, MFSTARTUP_NOSOCKET)))
+  {
+    CoUninitialize();
+    goto fallback;
+  }
+
+  {
+    IMFAttributes* pConfig = nullptr;
+    if(SUCCEEDED(MFCreateAttributes(&pConfig, 1)))
+    {
+      pConfig->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+                       MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
+
+      IMFActivate** ppDevices = nullptr;
+      UINT32 count = 0;
+      if(SUCCEEDED(MFEnumDevSources(pConfig, &ppDevices, &count)))
+      {
+        for(UINT32 i = 0; i < count; i++)
+        {
+          WCHAR* szFriendlyName = nullptr;
+          UINT32 cchName = 0;
+          std::string displayName = "Camera " + std::to_string(i);
+
+          if(SUCCEEDED(ppDevices[i]->GetAllocatedString(
+                MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME,
+                &szFriendlyName, &cchName)) && szFriendlyName)
+          {
+            // Convert wide string to UTF-8
+            int utf8Len = WideCharToMultiByte(CP_UTF8, 0,
+              szFriendlyName, -1, nullptr, 0, nullptr, nullptr);
+            if(utf8Len > 0)
+            {
+              std::string utf8(utf8Len - 1, '\0');
+              WideCharToMultiByte(CP_UTF8, 0, szFriendlyName, -1,
+                utf8.data(), utf8Len, nullptr, nullptr);
+              displayName = utf8;
+            }
+            CoTaskMemFree(szFriendlyName);
+          }
+
+          result.push_back({std::to_string(i), displayName});
+          ppDevices[i]->Release();
+        }
+        CoTaskMemFree(ppDevices);
+      }
+      pConfig->Release();
+    }
+  }
+
+  MFShutdown();
+  CoUninitialize();
+
+  if(!result.empty())
+    return result;
+
+fallback:
+  result.clear();
+  for(int i = 0; i < 4; i++)
     result.push_back({std::to_string(i), "Camera " + std::to_string(i)});
   return result;
 }
 
-#else // macOS and other POSIX
+// ─────────────────────────────────────────────────────────────────────────────
+// macOS and other POSIX — index probing fallback
+// ─────────────────────────────────────────────────────────────────────────────
+#else
 
 std::vector<LocalCameraInfo> enumerateLocalCameras()
 {
   std::vector<LocalCameraInfo> result;
-  for(int i = 0; i < 10; i++)
+  for(int i = 0; i < 4; i++)
     result.push_back({std::to_string(i), "Camera " + std::to_string(i)});
   return result;
 }

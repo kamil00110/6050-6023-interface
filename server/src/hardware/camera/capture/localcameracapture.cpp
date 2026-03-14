@@ -4,11 +4,6 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2025 Reinder Feenstra
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
  */
 
 #include "localcameracapture.hpp"
@@ -24,7 +19,7 @@ LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps)
 {
 }
 
-LocalCameraCapture::~LocalCameraCapture() = default;  // cv::VideoCapture complete here
+LocalCameraCapture::~LocalCameraCapture() = default;
 
 bool LocalCameraCapture::open()
 {
@@ -32,11 +27,25 @@ bool LocalCameraCapture::open()
   try
   {
     const int idx = std::stoi(m_device);
+
+#ifdef _WIN32
+    // Use DirectShow on Windows — MSMF (the default CAP_ANY backend on Windows)
+    // causes stack corruption (BEX64 / 0xc0000409) with some drivers.
+    ok = m_cap->open(idx, cv::CAP_DSHOW);
+    if(!ok)
+      ok = m_cap->open(idx, cv::CAP_MSMF); // fallback to MSMF if DSHOW fails
+#else
     ok = m_cap->open(idx, cv::CAP_ANY);
+#endif
   }
   catch(const std::invalid_argument&)
   {
+    // device is a path string rather than an index
     ok = m_cap->open(m_device, cv::CAP_V4L2);
+  }
+  catch(const std::exception&)
+  {
+    return false;
   }
 
   if(!ok || !m_cap->isOpened())

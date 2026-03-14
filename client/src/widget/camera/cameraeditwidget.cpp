@@ -42,7 +42,9 @@ void CameraEditWidget::buildForm()
   // ── Live stream preview ──────────────────────────────────────────────
   {
     auto conn = MainWindow::instance->connection();
-    const QString objectId = QString::fromStdString(m_object->getObjectId());
+   const QString objectId = m_object->getProperty("id")
+                           ? m_object->getProperty("id")->toString()
+                           : QString();
     auto* preview = new CameraWidget(conn, objectId, this);
     preview->setMinimumHeight(200);
     preview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);

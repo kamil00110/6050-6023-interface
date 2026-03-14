@@ -315,7 +315,7 @@ jobs:
       if: startswith(matrix.config.os, 'windows')
       uses: actions/cache@v4
       with:
-        path: C:\Users\runneradmin\AppData\Local\Mozilla\sccache
+        path: C:\sccache
         key: sccache-${{ matrix.config.name }}-${{ github.sha }}
         restore-keys: |
           sccache-${{ matrix.config.name }}-
@@ -325,6 +325,8 @@ jobs:
       shell: powershell
       run: |
         choco install sccache -y
+        $env:SCCACHE_DIR = "C:\sccache"
+        [System.Environment]::SetEnvironmentVariable("SCCACHE_DIR", "C:\sccache", "Machine")
         sccache --start-server
           
    

@@ -49,13 +49,14 @@ Camera::Camera(World& world, std::string_view _id)
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
-  // ── Build local-camera device lists (used by the device attribute) ────
+  // ── Build local-camera device lists ──────────────────────────────────
+  // These vectors are built once and never modified, so string_view into
+  // m_deviceNamesStr remains valid for the lifetime of this object.
   for(const auto& cam : enumerateLocalCameras())
   {
     m_deviceValues.push_back(cam.device);
     m_deviceNamesStr.push_back(cam.name);
   }
-  // Build stable string_view vector after all push_backs are done.
   m_deviceNames.reserve(m_deviceNamesStr.size());
   for(const auto& s : m_deviceNamesStr)
     m_deviceNames.emplace_back(s);
@@ -71,13 +72,20 @@ Camera::Camera(World& world, std::string_view _id)
   m_interfaceItems.add(type);
 
   // ── device ───────────────────────────────────────────────────────────
-  // Initialise with local-camera list when type starts as Local, null otherwise.
+  // For Local: Values = device indices, AliasKeys = same indices,
+  //            AliasValues = human-readable camera names.
+  // For RTSP/MJPEG: all three are null → PropertyComboBox shows nothing,
+  //                 the URL QLineEdit in the client takes over.
+  //
+  // Signature used:
+  //   addValues (Property<string>&, const vector<string>*)
+  //   addAliases(Property<string>&, const vector<string>*, const vector<string_view>*)
   {
     const bool isLocal = (type.value() == CameraType::Local);
-    const auto* valPtr  = isLocal ? &m_deviceValues : nullptr;
-    const auto* namePtr = isLocal ? &m_deviceNames  : nullptr;
-    Attributes::addValues (device, valPtr);
-    Attributes::addAliases(device, valPtr, namePtr);
+    const std::vector<std::string>*      vp = isLocal ? &m_deviceValues : nullptr;
+    const std::vector<std::string_view>* np = isLocal ? &m_deviceNames  : nullptr;
+    Attributes::addValues (device, vp);
+    Attributes::addAliases(device, vp, np);
   }
   Attributes::addEnabled(device, editable);
   m_interfaceItems.add(device);
@@ -124,7 +132,6 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
 {
   IdObject::worldEvent(worldState, worldEvent);
   const bool editable = contains(worldState, WorldState::Edit);
-
   Attributes::setEnabled(name,   editable);
   Attributes::setEnabled(type,   editable);
   Attributes::setEnabled(device, editable);
@@ -154,11 +161,14 @@ void Camera::removeFrameSubscriber(uint64_t subscriberId)
 
 void Camera::updateDeviceAttribute()
 {
+  // Signature:
+  //   setValues (Property<string>&, const vector<string>*)
+  //   setAliases(Property<string>&, const vector<string>*, const vector<string_view>*)
   const bool isLocal = (type.value() == CameraType::Local);
-  const auto* valPtr  = isLocal ? &m_deviceValues : nullptr;
-  const auto* namePtr = isLocal ? &m_deviceNames  : nullptr;
-  Attributes::setValues (device, valPtr);
-  Attributes::setAliases(device, valPtr, namePtr);
+  const std::vector<std::string>*      vp = isLocal ? &m_deviceValues : nullptr;
+  const std::vector<std::string_view>* np = isLocal ? &m_deviceNames  : nullptr;
+  Attributes::setValues (device, vp);
+  Attributes::setAliases(device, vp, np);
 }
 
 void Camera::applySettings()

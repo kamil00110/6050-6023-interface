@@ -104,8 +104,8 @@ void CameraEditWidget::buildForm()
     // with PropertyComboBox being bound to the same property.
     urlEdit = new QLineEdit(formContainer);
     urlEdit->setPlaceholderText(QStringLiteral("rtsp://user:pass@192.168.1.100/stream"));
-    urlEdit->setText(QString::fromStdString(deviceProp->toString()));
-
+    urlEdit->setText(deviceProp->toString());
+    
     // User finishes editing → push value to server
     connect(urlEdit, &QLineEdit::editingFinished,
       [urlEdit, deviceProp]()

@@ -310,6 +310,23 @@ jobs:
         key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
         restore-keys: |
           vcpkg-${{ runner.os }}-
+
+    - name: Cache sccache
+      if: startswith(matrix.config.os, 'windows')
+      uses: actions/cache@v4
+      with:
+        path: C:\Users\runneradmin\AppData\Local\Mozilla\sccache
+        key: sccache-${{ matrix.config.name }}-${{ github.sha }}
+        restore-keys: |
+          sccache-${{ matrix.config.name }}-
+
+    - name: Install and start sccache
+      if: startswith(matrix.config.os, 'windows')
+      shell: powershell
+      run: |
+        choco install sccache -y
+        sccache --start-server
+          
    
     - name: Set VCPKG_ROOT
       if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')

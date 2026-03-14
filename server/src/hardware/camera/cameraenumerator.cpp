@@ -30,15 +30,38 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
     if(::ioctl(fd, VIDIOC_QUERYCAP, &cap) == 0 &&
        (cap.device_caps & V4L2_CAP_VIDEO_CAPTURE))
     {
+      // cap.card may be empty on some systems — fall back to the device path
       const std::string cardName = reinterpret_cast<const char*>(cap.card);
-      result.push_back({std::to_string(i), cardName + " (" + path + ")"});
+      const std::string displayName = cardName.empty()
+        ? path
+        : cardName + " (" + path + ")";
+
+      result.push_back({std::to_string(i), displayName});
     }
     ::close(fd);
   }
+
+  // If V4L2 found nothing (e.g. no cameras attached), offer index 0 as a
+  // generic fallback so the user can still try to open a camera.
+  if(result.empty())
+    result.push_back({"0", "/dev/video0"});
+
   return result;
 }
 
-#else // Windows / macOS — no lightweight enumeration without platform SDKs
+#elif defined(_WIN32)
+
+// Windows: enumerate via simple index probing — no extra SDK needed.
+// OpenCV will try to open each index; we just offer them as options.
+std::vector<LocalCameraInfo> enumerateLocalCameras()
+{
+  std::vector<LocalCameraInfo> result;
+  for(int i = 0; i < 10; i++)
+    result.push_back({std::to_string(i), "Camera " + std::to_string(i)});
+  return result;
+}
+
+#else // macOS and other POSIX
 
 std::vector<LocalCameraInfo> enumerateLocalCameras()
 {

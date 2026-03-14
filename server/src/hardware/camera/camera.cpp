@@ -27,7 +27,12 @@ Camera::Camera(World& world, std::string_view _id)
       [this](const CameraType& /*newValue*/)
       {
         updateDeviceAttribute();
-        applySettings();
+        // Don't call applySettings here — the device value may not be valid
+        // for the new type yet. Let the user explicitly re-enable.
+        if(enabled)
+        {
+          stopCapture();
+        }
       }}
   , device     {this, "device",       std::string{"0"},  PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const std::string& /*newValue*/)
@@ -50,8 +55,6 @@ Camera::Camera(World& world, std::string_view _id)
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
   // ── Build local-camera device lists ──────────────────────────────────
-  // These vectors are built once and never modified, so string_view into
-  // m_deviceNamesStr remains valid for the lifetime of this object.
   for(const auto& cam : enumerateLocalCameras())
   {
     m_deviceValues.push_back(cam.device);
@@ -72,14 +75,6 @@ Camera::Camera(World& world, std::string_view _id)
   m_interfaceItems.add(type);
 
   // ── device ───────────────────────────────────────────────────────────
-  // For Local: Values = device indices, AliasKeys = same indices,
-  //            AliasValues = human-readable camera names.
-  // For RTSP/MJPEG: all three are null → PropertyComboBox shows nothing,
-  //                 the URL QLineEdit in the client takes over.
-  //
-  // Signature used:
-  //   addValues (Property<string>&, const vector<string>*)
-  //   addAliases(Property<string>&, const vector<string>*, const vector<string_view>*)
   {
     const bool isLocal = (type.value() == CameraType::Local);
     const std::vector<std::string>*      vp = isLocal ? &m_deviceValues : nullptr;
@@ -161,9 +156,6 @@ void Camera::removeFrameSubscriber(uint64_t subscriberId)
 
 void Camera::updateDeviceAttribute()
 {
-  // Signature:
-  //   setValues (Property<string>&, const vector<string>*)
-  //   setAliases(Property<string>&, const vector<string>*, const vector<string_view>*)
   const bool isLocal = (type.value() == CameraType::Local);
   const std::vector<std::string>*      vp = isLocal ? &m_deviceValues : nullptr;
   const std::vector<std::string_view>* np = isLocal ? &m_deviceNames  : nullptr;
@@ -185,19 +177,32 @@ void Camera::startCapture()
   if(m_running)
     return;
 
-  switch(type.value())
+  try
   {
-    case CameraType::Local:
-      m_capture = std::make_unique<LocalCameraCapture>(device.value(), fps.value());
-      break;
+    switch(type.value())
+    {
+      case CameraType::Local:
+        m_capture = std::make_unique<LocalCameraCapture>(device.value(), fps.value());
+        break;
 
-    case CameraType::RTSP:
-    case CameraType::MJPEG:
-      m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value());
-      break;
+      case CameraType::RTSP:
+      case CameraType::MJPEG:
+        m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value());
+        break;
+    }
+
+    if(!m_capture->open())
+    {
+      m_capture.reset();
+      return;
+    }
   }
-
-  if(!m_capture->open())
+  catch(const std::exception& /*e*/)
+  {
+    m_capture.reset();
+    return;
+  }
+  catch(...)
   {
     m_capture.reset();
     return;
@@ -231,12 +236,19 @@ void Camera::stopCapture()
 
 void Camera::captureLoop()
 {
-  std::vector<uint8_t> jpegBuf;
-  while(m_running)
+  try
   {
-    if(!m_capture->readJpeg(jpegBuf))
-      break;
-    publishFrame(jpegBuf);
+    std::vector<uint8_t> jpegBuf;
+    while(m_running)
+    {
+      if(!m_capture->readJpeg(jpegBuf))
+        break;
+      publishFrame(jpegBuf);
+    }
+  }
+  catch(...)
+  {
+    // Capture thread must never throw — swallow any unexpected exception.
   }
 }
 

@@ -116,16 +116,22 @@ void CameraWidget::setActive(bool active)
 void CameraWidget::resizeEvent(QResizeEvent* event)
 {
   QWidget::resizeEvent(event);
-  // Re-scale the last shown pixmap to new size (no re-fetch needed)
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+  const QPixmap px = m_videoLabel->pixmap();
+  if(!px.isNull())
+  {
+    m_videoLabel->setPixmap(
+      px.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+  }
+#else
   const QPixmap* px = m_videoLabel->pixmap();
   if(px && !px->isNull())
   {
-    const QPixmap scaled = px->scaled(
-      m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    m_videoLabel->setPixmap(scaled);
+    m_videoLabel->setPixmap(
+      px->scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
   }
+#endif
 }
-
 // ─── Private ─────────────────────────────────────────────────────────────────
 
 void CameraWidget::startStream()

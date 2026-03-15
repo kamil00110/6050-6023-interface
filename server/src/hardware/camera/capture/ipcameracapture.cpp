@@ -10,8 +10,8 @@
 #include <thread>
 #include <sstream>
 #include <opencv2/videoio.hpp>
-#include <opencv2/imgcodecs.hpp>
 #include <opencv2/videoio/registry.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/core.hpp>
 #include "../../../log/log.hpp"
 
@@ -39,24 +39,12 @@ namespace
             url.substr(0, 8) == "rtsps://");
   }
 
-  void setFfmpegRtspOptions()
+  bool isMjpeg(const std::string& url)
   {
-#ifdef _WIN32
-    _putenv_s("OPENCV_FFMPEG_CAPTURE_OPTIONS",
-              "rtsp_transport;tcp|timeout;10000000");
-#else
-    setenv("OPENCV_FFMPEG_CAPTURE_OPTIONS",
-           "rtsp_transport;tcp|timeout;10000000", 1);
-#endif
-  }
-
-  void clearFfmpegOptions()
-  {
-#ifdef _WIN32
-    _putenv_s("OPENCV_FFMPEG_CAPTURE_OPTIONS", "");
-#else
-    unsetenv("OPENCV_FFMPEG_CAPTURE_OPTIONS");
-#endif
+    // Simple heuristic — MJPEG streams are typically HTTP
+    return url.size() >= 7 &&
+           (url.substr(0, 7) == "http://" ||
+            url.substr(0, 8) == "https://");
   }
 
   std::string availableBackends()
@@ -103,7 +91,6 @@ namespace
     if(WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
       return "WSAStartup failed";
 #endif
-
     struct addrinfo hints{}, *res = nullptr;
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -114,24 +101,15 @@ namespace
 #endif
       return "DNS resolution failed for " + host;
     }
-
 #ifdef _WIN32
     SOCKET sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if(sock == INVALID_SOCKET)
-    {
-      freeaddrinfo(res);
-      WSACleanup();
-      return "socket() failed";
-    }
-    u_long mode = 1;
-    ioctlsocket(sock, FIONBIO, &mode);
+    if(sock == INVALID_SOCKET) { freeaddrinfo(res); WSACleanup(); return "socket() failed"; }
+    u_long mode = 1; ioctlsocket(sock, FIONBIO, &mode);
     connect(sock, res->ai_addr, static_cast<int>(res->ai_addrlen));
     fd_set wset; FD_ZERO(&wset); FD_SET(sock, &wset);
     struct timeval tv{3, 0};
     int sel = select(0, nullptr, &wset, nullptr, &tv);
-    closesocket(sock);
-    freeaddrinfo(res);
-    WSACleanup();
+    closesocket(sock); freeaddrinfo(res); WSACleanup();
 #else
     int sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     if(sock < 0) { freeaddrinfo(res); return "socket() failed"; }
@@ -140,13 +118,41 @@ namespace
     fd_set wset; FD_ZERO(&wset); FD_SET(sock, &wset);
     struct timeval tv{3, 0};
     int sel = select(sock + 1, nullptr, &wset, nullptr, &tv);
-    close(sock);
-    freeaddrinfo(res);
+    close(sock); freeaddrinfo(res);
 #endif
     if(sel <= 0)
       return "TCP connection to " + host + ":" + std::to_string(port) +
-             " timed out or refused — try adding the correct port to the URL";
+             " timed out or refused";
     return "";
+  }
+
+  // Build a GStreamer pipeline string for an RTSP URL.
+  // Forces TCP transport and a 10-second connection timeout.
+  std::string gstreamerRtspPipeline(const std::string& url)
+  {
+    // rtspsrc handles RTSP natively via GStreamer, no FFmpeg needed.
+    // protocols=4 forces TCP (GST_RTSP_LOWER_TRANS_TCP = 4).
+    // timeout is in nanoseconds (10s = 10000000000).
+    return "rtspsrc location=" + url +
+           " protocols=4"
+           " latency=200"
+           " timeout=10000000000"
+           " ! decodebin"
+           " ! videoconvert"
+           " ! video/x-raw,format=BGR"
+           " ! appsink max-buffers=2 drop=true";
+  }
+
+  // Build a GStreamer pipeline for an MJPEG HTTP stream.
+  std::string gstreamerMjpegPipeline(const std::string& url)
+  {
+    return "souphttpsrc location=" + url +
+           " ! multipartdemux"
+           " ! image/jpeg"
+           " ! jpegdec"
+           " ! videoconvert"
+           " ! video/x-raw,format=BGR"
+           " ! appsink max-buffers=2 drop=true";
   }
 }
 
@@ -173,73 +179,143 @@ bool IpCameraCapture::open()
   // ── TCP reachability probe ────────────────────────────────────────────
   if(isRtsp(m_url))
   {
-    std::string host;
-    int port = 554;
+    std::string host; int port = 554;
     if(parseRtspHostPort(m_url, host, port))
     {
       Log::log(m_logObject, LogMessage::I9999_X,
         std::string("TCP probe -> ") + host + ":" + std::to_string(port));
-
       const std::string probeErr = tcpProbe(host, port);
       if(!probeErr.empty())
         Log::log(m_logObject, LogMessage::W9999_X,
           std::string("TCP probe FAILED: ") + probeErr);
       else
         Log::log(m_logObject, LogMessage::I9999_X,
-          std::string("TCP probe OK: ") + host + ":" + std::to_string(port) + " is reachable");
+          std::string("TCP probe OK: ") + host + ":" + std::to_string(port) + " reachable");
     }
-    else
+  }
+
+  // ── Attempt 1: GStreamer (most reliable for RTSP on Linux/Windows) ────
+  const bool gstreamerAvailable = cv::videoio_registry::hasBackend(cv::CAP_GSTREAMER);
+  if(gstreamerAvailable && (isRtsp(m_url) || isMjpeg(m_url)))
+  {
+    const std::string pipeline = isRtsp(m_url)
+      ? gstreamerRtspPipeline(m_url)
+      : gstreamerMjpegPipeline(m_url);
+
+    Log::log(m_logObject, LogMessage::I9999_X,
+      std::string("trying CAP_GSTREAMER pipeline: ") + pipeline);
+
+    if(m_cap->open(pipeline, cv::CAP_GSTREAMER) && m_cap->isOpened())
     {
-      Log::log(m_logObject, LogMessage::W9999_X,
-        std::string("could not parse host/port from URL: ") + m_url);
+      m_backend = cv::CAP_GSTREAMER;
+      Log::log(m_logObject, LogMessage::I9999_X,
+        std::string("CAP_GSTREAMER open() succeeded"));
+      goto success;
     }
+    Log::log(m_logObject, LogMessage::W9999_X,
+      std::string("CAP_GSTREAMER open() failed"));
+    m_cap->release();
   }
-
-  // ── CAP_FFMPEG with TCP transport ─────────────────────────────────────
-  if(isRtsp(m_url))
-  {
-    setFfmpegRtspOptions();
-    Log::log(m_logObject, LogMessage::I9999_X,
-      std::string("trying CAP_FFMPEG with rtsp_transport=tcp timeout=10s"));
-  }
-  else
-  {
-    Log::log(m_logObject, LogMessage::I9999_X,
-      std::string("trying CAP_FFMPEG"));
-  }
-
-  bool ok = m_cap->open(m_url, cv::CAP_FFMPEG) && m_cap->isOpened();
-  clearFfmpegOptions();
-
-  if(ok)
-  {
-    Log::log(m_logObject, LogMessage::I9999_X,
-      std::string("CAP_FFMPEG open() succeeded"));
-  }
-  else
+  else if(isRtsp(m_url))
   {
     Log::log(m_logObject, LogMessage::W9999_X,
-      std::string("CAP_FFMPEG open() failed, trying CAP_ANY fallback"));
-    m_cap->release();
-    ok = m_cap->open(m_url, cv::CAP_ANY) && m_cap->isOpened();
-    if(ok)
-      Log::log(m_logObject, LogMessage::I9999_X,
-        std::string("CAP_ANY open() succeeded"));
-    else
+      std::string("GStreamer backend not available — skipping"));
+  }
+
+  // ── Attempt 2: FFmpeg with explicit timeout property ──────────────────
+  {
+    Log::log(m_logObject, LogMessage::I9999_X,
+      std::string("trying CAP_FFMPEG with open timeout 10s"));
+
+    // Use the params-vector overload available in OpenCV 4.x.
+    // CAP_PROP_OPEN_TIMEOUT_MSEC sets the FFmpeg connection timeout.
+    const std::vector<int> params{
+      cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 10000,
+      cv::CAP_PROP_READ_TIMEOUT_MSEC, 10000,
+    };
+    if(m_cap->open(m_url, cv::CAP_FFMPEG, params) && m_cap->isOpened())
     {
-      Log::log(m_logObject, LogMessage::E9999_X,
-        std::string("CAP_ANY open() failed — all backends exhausted for url=[") + m_url + "]");
-      return false;
+      m_backend = cv::CAP_FFMPEG;
+      Log::log(m_logObject, LogMessage::I9999_X,
+        std::string("CAP_FFMPEG open() succeeded"));
+      goto success;
+    }
+    Log::log(m_logObject, LogMessage::W9999_X,
+      std::string("CAP_FFMPEG open() failed"));
+    m_cap->release();
+  }
+
+  // ── Attempt 3: FFmpeg with URL containing explicit port ───────────────
+  if(isRtsp(m_url))
+  {
+    std::string host; int port = 554;
+    if(parseRtspHostPort(m_url, host, port))
+    {
+      // Rebuild URL with explicit port if not already present
+      const std::string explicitUrl = [&]() -> std::string
+      {
+        // Check if port already in URL
+        const size_t schemeEnd = m_url.find("://");
+        if(schemeEnd == std::string::npos) return m_url;
+        const std::string afterScheme = m_url.substr(schemeEnd + 3);
+        // Find host portion end
+        const size_t slash = afterScheme.find('/');
+        const std::string authority = (slash != std::string::npos)
+          ? afterScheme.substr(0, slash) : afterScheme;
+        // If authority already has a colon (port), don't add again
+        if(authority.rfind(':') != std::string::npos)
+          return m_url;
+        // Insert :port
+        const std::string path = (slash != std::string::npos)
+          ? afterScheme.substr(slash) : "/";
+        return m_url.substr(0, schemeEnd + 3) + host + ":" +
+               std::to_string(port) + path;
+      }();
+
+      if(explicitUrl != m_url)
+      {
+        Log::log(m_logObject, LogMessage::I9999_X,
+          std::string("trying CAP_FFMPEG with explicit port url=[") + explicitUrl + "]");
+        const std::vector<int> params{
+          cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 10000,
+          cv::CAP_PROP_READ_TIMEOUT_MSEC, 10000,
+        };
+        if(m_cap->open(explicitUrl, cv::CAP_FFMPEG, params) && m_cap->isOpened())
+        {
+          m_backend = cv::CAP_FFMPEG;
+          Log::log(m_logObject, LogMessage::I9999_X,
+            std::string("CAP_FFMPEG with explicit port succeeded"));
+          goto success;
+        }
+        Log::log(m_logObject, LogMessage::W9999_X,
+          std::string("CAP_FFMPEG with explicit port failed"));
+        m_cap->release();
+      }
     }
   }
 
+  // ── Attempt 4: CAP_ANY last resort ───────────────────────────────────
+  Log::log(m_logObject, LogMessage::I9999_X,
+    std::string("trying CAP_ANY last resort"));
+  if(m_cap->open(m_url, cv::CAP_ANY) && m_cap->isOpened())
+  {
+    m_backend = cv::CAP_ANY;
+    Log::log(m_logObject, LogMessage::I9999_X,
+      std::string("CAP_ANY open() succeeded"));
+    goto success;
+  }
+
+  Log::log(m_logObject, LogMessage::E9999_X,
+    std::string("all backends exhausted for url=[") + m_url + "]");
+  return false;
+
+success:
   m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
   m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
-
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("open() success: ") +
-    std::to_string(m_width) + "x" + std::to_string(m_height));
-
+    std::to_string(m_width) + "x" + std::to_string(m_height) +
+    " backend=" + cv::videoio_registry::getBackendName(m_backend));
   return true;
 }
 
@@ -262,42 +338,41 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       std::this_thread::sleep_for(milliseconds(k_reconnectWaitMs));
       m_cap->release();
 
-      if(isRtsp(m_url))
-        setFfmpegRtspOptions();
-
-      bool ok = m_cap->open(m_url, cv::CAP_FFMPEG) && m_cap->isOpened();
-      clearFfmpegOptions();
-
-      if(!ok)
+      // Reconnect using whichever backend succeeded at open()
+      bool ok = false;
+      if(m_backend == cv::CAP_GSTREAMER)
       {
-        Log::log(m_logObject, LogMessage::W9999_X,
-          std::string("readJpeg: CAP_FFMPEG reconnect failed, trying CAP_ANY"));
-        m_cap->release();
-        if(!m_cap->open(m_url, cv::CAP_ANY) || !m_cap->isOpened())
-        {
-          Log::log(m_logObject, LogMessage::E9999_X,
-            std::string("readJpeg: CAP_ANY reconnect failed — stopping capture"));
-          return false;
-        }
-        Log::log(m_logObject, LogMessage::I9999_X,
-          std::string("readJpeg: CAP_ANY reconnect succeeded"));
+        const std::string pipeline = isRtsp(m_url)
+          ? gstreamerRtspPipeline(m_url)
+          : gstreamerMjpegPipeline(m_url);
+        ok = m_cap->open(pipeline, cv::CAP_GSTREAMER) && m_cap->isOpened();
       }
       else
       {
-        Log::log(m_logObject, LogMessage::I9999_X,
-          std::string("readJpeg: CAP_FFMPEG reconnect succeeded"));
+        const std::vector<int> params{
+          cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 10000,
+          cv::CAP_PROP_READ_TIMEOUT_MSEC, 10000,
+        };
+        ok = m_cap->open(m_url, m_backend, params) && m_cap->isOpened();
       }
+
+      if(!ok)
+      {
+        Log::log(m_logObject, LogMessage::E9999_X,
+          std::string("readJpeg: reconnect failed — stopping capture"));
+        return false;
+      }
+      Log::log(m_logObject, LogMessage::I9999_X,
+        std::string("readJpeg: reconnect succeeded"));
       continue;
     }
 
     const std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, k_jpegQuality};
     if(!cv::imencode(".jpg", frame, jpegOut, params))
     {
-      Log::log(m_logObject, LogMessage::E9999_X,
-        std::string("readJpeg: imencode failed"));
+      Log::log(m_logObject, LogMessage::E9999_X, std::string("readJpeg: imencode failed"));
       return false;
     }
-
     const auto elapsed = steady_clock::now() - t0;
     if(elapsed < framePeriod)
       std::this_thread::sleep_for(framePeriod - elapsed);

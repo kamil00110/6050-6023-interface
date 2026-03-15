@@ -45,14 +45,25 @@ void HTTPConnection::doRead()
         return;
       }
 
-      // Check if this is a camera stream request BEFORE moving m_request,
-      // so that if it is not a camera URL, m_request is still valid for
-      // handleHTTPRequest below.
-      if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
-        return; // socket ownership transferred — do not touch m_stream again
+      // Only move m_request into handleCameraStreamRequest if the URL
+      // actually matches — std::move transfers ownership unconditionally
+      // so we must check before moving, not after.
+      const auto target = m_request.target();
+      if(target.starts_with("/camera/") && target.ends_with("/stream"))
+      {
+        if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
+          return;
+        // Camera URL but camera not found/enabled — return 404
+        auto response = m_server->handleHTTPRequest(std::move(m_request));
+        boost::beast::async_write(m_stream, std::move(response),
+          [self, keepAlive](boost::beast::error_code writeError, size_t)
+          {
+            if(writeError || !keepAlive) return self->doClose();
+            self->doRead();
+          });
+        return;
+      }
 
-      // NOTE: if handleCameraStreamRequest returned false it did not move
-      // m_request (it only reads target, doesn't take ownership on false).
       auto response = m_server->handleHTTPRequest(std::move(m_request));
       boost::beast::async_write(m_stream, std::move(response),
         [self, keepAlive](boost::beast::error_code writeError, size_t /*bytesTransferred*/)

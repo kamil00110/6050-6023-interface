@@ -69,6 +69,9 @@ private:
   // ── Capture ────────────────────────────────────────────────────────────
   std::unique_ptr<CameraCapture>                    m_capture;
   std::atomic<bool>                                 m_running{false};
+  std::promise<bool>    m_openPromise;     // ← add
+  uint32_t              m_captureWidth{0}; // ← add
+  uint32_t              m_captureHeight{0};// ← add
 
 #ifdef _WIN32
   HANDLE                                            m_captureThreadHandle{nullptr};

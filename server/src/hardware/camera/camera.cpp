@@ -299,7 +299,6 @@ void Camera::captureLoop()
       std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
 #endif
 
-  // ── open() on the capture thread so the DirectShow graph lives here ──
   bool openOk = false;
   try { openOk = m_capture && m_capture->open(); }
   catch(const std::exception& e)
@@ -316,34 +315,30 @@ void Camera::captureLoop()
 
   m_openPromise.set_value(openOk);
 
-  if(!openOk)
-  {
-#ifdef _WIN32
-    CoUninitialize();
-#endif
-    return;
-  }
+  if(openOk)
+    captureLoopBody();
 
-  // ── Force creation of the STA message queue ───────────────────────────
+#ifdef _WIN32
+  CoUninitialize();
+#endif
+}
+
+void Camera::captureLoopBody()
+{
 #ifdef _WIN32
   MSG msg{};
   PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
-#endif
 
-  // ── Frame loop — wrapped in SEH on Windows to catch driver crashes ────
-#ifdef _WIN32
+  std::vector<uint8_t> jpegBuf;
   __try
   {
-    std::vector<uint8_t> jpegBuf;
     while(m_running)
     {
-      // Drain the STA message queue — DirectShow needs this for callbacks
       while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
       {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
       }
-
       if(!m_capture->readJpeg(jpegBuf))
       {
         Log::log(*this, LogMessage::E9999_X,
@@ -386,14 +381,4 @@ void Camera::captureLoop()
       std::string("capture loop unknown exception for camera: ") + id.value());
   }
 #endif
-
-#ifdef _WIN32
-  CoUninitialize();
-#endif
-}
-void Camera::publishFrame(std::vector<uint8_t> jpegData)
-{
-  std::lock_guard<std::mutex> lock(m_subscriberMutex);
-  for(auto& [subId, cb] : m_subscribers)
-    cb(jpegData);
 }

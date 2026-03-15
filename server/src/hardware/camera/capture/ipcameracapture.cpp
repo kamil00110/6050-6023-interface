@@ -13,7 +13,6 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/core.hpp>
 #include "../../../log/log.hpp"
-#include "../../../log/logmessage.hpp"
 
 #ifdef _WIN32
   #include <winsock2.h>

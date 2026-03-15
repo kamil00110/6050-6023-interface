@@ -185,6 +185,9 @@ void Camera::startCapture()
   if(m_running)
     return;
 
+  m_openPromise = {};  // reset promise each time
+
+  // Create capture object here (sets params) but don't call open() yet
   try
   {
     switch(type.value())
@@ -192,18 +195,10 @@ void Camera::startCapture()
       case CameraType::Local:
         m_capture = std::make_unique<LocalCameraCapture>(device.value(), fps.value());
         break;
-
       case CameraType::RTSP:
       case CameraType::MJPEG:
         m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value());
         break;
-    }
-
-    if(!m_capture->open())
-    {
-      Log::log(*this, LogMessage::E9999_X, std::string("camera open failed for device: ") + device.value());
-      m_capture.reset();
-      return;
     }
   }
   catch(const std::exception& e)
@@ -212,56 +207,60 @@ void Camera::startCapture()
     m_capture.reset();
     return;
   }
-  catch(...)
-  {
-    Log::log(*this, LogMessage::E9999_X, std::string("camera init unknown exception for device: ") + device.value());
-    m_capture.reset();
-    return;
-  }
-
-  frameWidth .setValueInternal(m_capture->width());
-  frameHeight.setValueInternal(m_capture->height());
-  streamUrl.setValueInternal("/camera/" + id.value() + "/stream");
 
   m_running = true;
 
+  auto openFuture = m_openPromise.get_future();
+
 #ifdef _WIN32
-  // On Windows, OpenCV's DirectShow/MSMF backends need a larger stack than
-  // the default 1 MB — use 4 MB to prevent stack corruption (BEX64).
-  // std::thread does not expose stack size so use CreateThread directly.
   struct ThreadArgs { Camera* self; };
   auto* args = new ThreadArgs{this};
-  HANDLE h = CreateThread(
-    nullptr,
-    4 * 1024 * 1024, // 4 MB stack
-    [](LPVOID param) -> DWORD
-    {
+  HANDLE h = CreateThread(nullptr, 4 * 1024 * 1024,
+    [](LPVOID param) -> DWORD {
       auto* a = static_cast<ThreadArgs*>(param);
       a->self->captureLoop();
       delete a;
       return 0;
-    },
-    args,
-    0,
-    nullptr);
+    }, args, 0, nullptr);
 
-  if(h)
-  {
-    m_captureThreadHandle = h;
-  }
-  else
+  if(!h)
   {
     delete args;
     m_running = false;
     m_capture.reset();
-    streamUrl  .setValueInternal("");
-    frameWidth .setValueInternal(0u);
-    frameHeight.setValueInternal(0u);
+    m_openPromise.set_value(false);  // unblock wait below
     Log::log(*this, LogMessage::E9999_X, std::string("CreateThread failed for camera: ") + id.value());
+    return;
   }
+  m_captureThreadHandle = h;
 #else
   m_captureThread = std::thread(&Camera::captureLoop, this);
 #endif
+
+  // Wait for open() result — done on the capture thread with correct COM init
+  const bool ok = openFuture.get();
+  if(!ok)
+  {
+    m_running = false;
+    // Thread will exit immediately after setting the promise to false
+#ifdef _WIN32
+    WaitForSingleObject(m_captureThreadHandle, INFINITE);
+    CloseHandle(m_captureThreadHandle);
+    m_captureThreadHandle = nullptr;
+#else
+    if(m_captureThread.joinable())
+      m_captureThread.join();
+#endif
+    m_capture.reset();
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("camera open failed for device: ") + device.value());
+    return;
+  }
+
+  // open() succeeded — capture thread reported the dimensions back
+  frameWidth .setValueInternal(m_captureWidth);
+  frameHeight.setValueInternal(m_captureHeight);
+  streamUrl.setValueInternal("/camera/" + id.value() + "/stream");
 }
 
 void Camera::stopCapture()
@@ -294,12 +293,45 @@ void Camera::stopCapture()
 void Camera::captureLoop()
 {
 #ifdef _WIN32
-  // DirectShow and MSMF both require COM to be initialised on the
-  // calling thread. Failure here is non-fatal — OpenCV may still work
-  // via a different backend, but we log it so it's visible.
-  const HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  // DirectShow REQUIRES STA (apartment-threaded), NOT MTA.
+  // open() must happen on THIS thread after COM is initialised correctly.
+  const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);  // ← was MULTITHREADED
   if(FAILED(hr) && hr != RPC_E_CHANGED_MODE)
-    Log::log(*this, LogMessage::E9999_X, std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
+#endif
+
+  // ── open() on the capture thread so the DirectShow graph lives here ──
+  bool openOk = false;
+  try { openOk = m_capture && m_capture->open(); }
+  catch(const std::exception& e)
+  {
+    Log::log(*this, LogMessage::E9999_X, std::string("camera open exception: ") + e.what());
+  }
+  catch(...) {}
+
+  if(openOk)
+  {
+    m_captureWidth  = m_capture->width();
+    m_captureHeight = m_capture->height();
+  }
+
+  m_openPromise.set_value(openOk);  // unblock startCapture()
+
+  if(!openOk)
+  {
+#ifdef _WIN32
+    CoUninitialize();
+#endif
+    return;
+  }
+
+  // ── Frame loop ────────────────────────────────────────────────────────
+#ifdef _WIN32
+  // STA requires a message pump for COM callbacks. Run a minimal one.
+  // We use PeekMessage to drain the queue each iteration without blocking.
+  MSG msg{};
+  PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE); // force queue creation
 #endif
 
   try
@@ -307,9 +339,18 @@ void Camera::captureLoop()
     std::vector<uint8_t> jpegBuf;
     while(m_running)
     {
+#ifdef _WIN32
+      // Drain the STA message queue — DirectShow needs this for callbacks
+      while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+      {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+      }
+#endif
       if(!m_capture->readJpeg(jpegBuf))
       {
-        Log::log(*this, LogMessage::E9999_X, std::string("camera readJpeg failed, stopping capture for: ") + id.value());
+        Log::log(*this, LogMessage::E9999_X,
+          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
         break;
       }
       publishFrame(jpegBuf);
@@ -321,7 +362,8 @@ void Camera::captureLoop()
   }
   catch(...)
   {
-    Log::log(*this, LogMessage::E9999_X, std::string("capture loop unknown exception for camera: ") + id.value());
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("capture loop unknown exception for camera: ") + id.value());
   }
 
 #ifdef _WIN32

@@ -191,7 +191,7 @@ void Camera::startCapture()
         break;
       case CameraType::RTSP:
       case CameraType::MJPEG:
-        m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value());
+        m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value(), *this);
         break;
     }
   }

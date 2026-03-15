@@ -8,7 +8,7 @@
     "boost-url",
     {
       "name": "opencv",
-      "features": ["ffmpeg", "jpeg", "gstreamer"]
+      "features": ["ffmpeg", "jpeg"]
     },
     {
       "name": "libarchive",

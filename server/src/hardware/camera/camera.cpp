@@ -17,9 +17,17 @@
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"
+#include "../../log/log.hpp"
 
 #ifdef _WIN32
-  #include <windows.h>  // for CreateThread with custom stack size
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
+  #ifndef NOMINMAX
+  #define NOMINMAX
+  #endif
+  #include <windows.h>
+  #include <objbase.h>  // CoInitializeEx / CoUninitialize
 #endif
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
@@ -193,12 +201,20 @@ void Camera::startCapture()
 
     if(!m_capture->open())
     {
+      Log::log(*this, LogMessage::E9999_X, std::string("camera open failed for device: ") + device.value());
       m_capture.reset();
       return;
     }
   }
+  catch(const std::exception& e)
+  {
+    Log::log(*this, LogMessage::E9999_X, std::string("camera init exception: ") + e.what());
+    m_capture.reset();
+    return;
+  }
   catch(...)
   {
+    Log::log(*this, LogMessage::E9999_X, std::string("camera init unknown exception for device: ") + device.value());
     m_capture.reset();
     return;
   }
@@ -211,16 +227,13 @@ void Camera::startCapture()
 
 #ifdef _WIN32
   // On Windows, OpenCV's DirectShow/MSMF backends need a larger stack than
-  // the default 1 MB — use 4 MB to prevent stack cookie corruption (BEX64).
-  // std::thread does not expose stack size, so use CreateThread directly.
-  struct ThreadArgs
-  {
-    Camera* self;
-  };
+  // the default 1 MB — use 4 MB to prevent stack corruption (BEX64).
+  // std::thread does not expose stack size so use CreateThread directly.
+  struct ThreadArgs { Camera* self; };
   auto* args = new ThreadArgs{this};
   HANDLE h = CreateThread(
     nullptr,
-    4 * 1024 * 1024,  // 4 MB stack
+    4 * 1024 * 1024, // 4 MB stack
     [](LPVOID param) -> DWORD
     {
       auto* a = static_cast<ThreadArgs*>(param);
@@ -234,8 +247,6 @@ void Camera::startCapture()
 
   if(h)
   {
-    // Wrap the native HANDLE in a std::thread via detach trick —
-    // store handle for joining in stopCapture.
     m_captureThreadHandle = h;
   }
   else
@@ -246,6 +257,7 @@ void Camera::startCapture()
     streamUrl  .setValueInternal("");
     frameWidth .setValueInternal(0u);
     frameHeight.setValueInternal(0u);
+    Log::log(*this, LogMessage::E9999_X, std::string("CreateThread failed for camera: ") + id.value());
   }
 #else
   m_captureThread = std::thread(&Camera::captureLoop, this);
@@ -281,20 +293,40 @@ void Camera::stopCapture()
 
 void Camera::captureLoop()
 {
+#ifdef _WIN32
+  // DirectShow and MSMF both require COM to be initialised on the
+  // calling thread. Failure here is non-fatal — OpenCV may still work
+  // via a different backend, but we log it so it's visible.
+  const HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+  if(FAILED(hr) && hr != RPC_E_CHANGED_MODE)
+    Log::log(*this, LogMessage::E9999_X, std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
+#endif
+
   try
   {
     std::vector<uint8_t> jpegBuf;
     while(m_running)
     {
       if(!m_capture->readJpeg(jpegBuf))
+      {
+        Log::log(*this, LogMessage::E9999_X, std::string("camera readJpeg failed, stopping capture for: ") + id.value());
         break;
+      }
       publishFrame(jpegBuf);
     }
   }
+  catch(const std::exception& e)
+  {
+    Log::log(*this, LogMessage::E9999_X, std::string("capture loop exception: ") + e.what());
+  }
   catch(...)
   {
-    // Capture thread must never propagate exceptions.
+    Log::log(*this, LogMessage::E9999_X, std::string("capture loop unknown exception for camera: ") + id.value());
   }
+
+#ifdef _WIN32
+  CoUninitialize();
+#endif
 }
 
 void Camera::publishFrame(std::vector<uint8_t> jpegData)

@@ -5,7 +5,6 @@
  *
  * Copyright (C) 2025 Reinder Feenstra
  */
-
 #include "ipcameracapture.hpp"
 #include <chrono>
 #include <thread>
@@ -19,12 +18,17 @@ IpCameraCapture::IpCameraCapture(const std::string& url, double fps)
 {
 }
 
-IpCameraCapture::~IpCameraCapture() = default;  // cv::VideoCapture complete here
+IpCameraCapture::~IpCameraCapture() = default;
 
 bool IpCameraCapture::open()
 {
+  // Try FFmpeg first (best RTSP/MJPEG support), fall back to any available backend
   if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
-    return false;
+  {
+    m_cap->release();
+    if(!m_cap->open(m_url, cv::CAP_ANY) || !m_cap->isOpened())
+      return false;
+  }
 
   m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
   m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
@@ -44,7 +48,6 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       if(m_interrupted) return false;
       std::this_thread::sleep_for(milliseconds(k_reconnectWaitMs));
       m_cap->release();
-      // Same two-stage open as in open()
       if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
       {
         m_cap->release();
@@ -62,19 +65,4 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
     return true;
   }
   return false;
-}
-
-bool IpCameraCapture::open()
-{
-  // Try FFmpeg first (best RTSP support), fall back to any available backend
-  if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
-  {
-    m_cap->release();
-    if(!m_cap->open(m_url, cv::CAP_ANY) || !m_cap->isOpened())
-      return false;
-  }
-
-  m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
-  m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
-  return true;
 }

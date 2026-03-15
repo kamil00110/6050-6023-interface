@@ -11,6 +11,7 @@
 #include <sstream>
 #include <opencv2/videoio.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio/registry.hpp>
 #include <opencv2/core.hpp>
 #include "../../../log/log.hpp"
 

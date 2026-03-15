@@ -4,13 +4,7 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2025 Reinder Feenstra
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
  */
-
 #ifndef TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_IPCAMERACAPTURE_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_IPCAMERACAPTURE_HPP
 
@@ -19,14 +13,14 @@
 #include <memory>
 #include <atomic>
 
-// Forward-declare cv::VideoCapture — OpenCV included in .cpp only.
+class Object;
 namespace cv { class VideoCapture; }
 
 class IpCameraCapture final : public CameraCapture
 {
 public:
-  IpCameraCapture(const std::string& url, double fps);
-  ~IpCameraCapture() override;  // needs to be in .cpp where cv:: is complete
+  IpCameraCapture(const std::string& url, double fps, Object& logObject);
+  ~IpCameraCapture() override;
 
   bool     open()    override;
   uint32_t width()   const override { return m_width;  }
@@ -35,15 +29,15 @@ public:
   void     interrupt() override { m_interrupted = true; }
 
 private:
-  std::string                      m_url;
-  double                           m_fps;
-  std::unique_ptr<cv::VideoCapture> m_cap;  // allocated in open()
-  uint32_t                         m_width{0};
-  uint32_t                         m_height{0};
-  std::atomic<bool>                m_interrupted{false};
+  std::string                       m_url;
+  double                            m_fps;
+  std::unique_ptr<cv::VideoCapture> m_cap;
+  Object&                           m_logObject;
+  uint32_t                          m_width{0};
+  uint32_t                          m_height{0};
+  std::atomic<bool>                 m_interrupted{false};
 
   static constexpr int k_jpegQuality     = 75;
   static constexpr int k_reconnectWaitMs = 2000;
 };
-
 #endif

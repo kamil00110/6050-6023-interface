@@ -6,7 +6,10 @@
     "boost-signals2",
     "boost-uuid",
     "boost-url",
-    "opencv",
+    {
+      "name": "opencv",
+      "features": ["ffmpeg", "jpeg", "gstreamer"]
+    },
     {
       "name": "libarchive",
       "default-features": false,

@@ -397,13 +397,6 @@ jobs:
       working-directory: ${{github.workspace}}/server/build
       run: ctest --output-on-failure
 
-    - name: Stop sccache
-      if: startswith(matrix.config.os, 'windows') && always()
-      shell: powershell
-      run: |
-        sccache --show-stats
-        sccache --stop-server
-
     # Linux only:
     - name: Build debian package
       if: matrix.config.build_deb

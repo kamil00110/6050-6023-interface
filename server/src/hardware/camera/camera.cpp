@@ -391,3 +391,9 @@ void Camera::captureLoop()
   CoUninitialize();
 #endif
 }
+void Camera::publishFrame(std::vector<uint8_t> jpegData)
+{
+  std::lock_guard<std::mutex> lock(m_subscriberMutex);
+  for(auto& [subId, cb] : m_subscribers)
+    cb(jpegData);
+}

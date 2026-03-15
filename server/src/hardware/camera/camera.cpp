@@ -14,10 +14,12 @@
 #include "capture/localcameracapture.hpp"
 #include "capture/ipcameracapture.hpp"
 #include "../../core/objectproperty.tpp"
+#include "../../core/eventloop.hpp"
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"
 #include "../../log/log.hpp"
+#include <sstream>
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -27,7 +29,7 @@
   #define NOMINMAX
   #endif
   #include <windows.h>
-  #include <objbase.h>  // CoInitializeEx / CoUninitialize
+  #include <objbase.h>
 #endif
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
@@ -62,7 +64,6 @@ Camera::Camera(World& world, std::string_view _id)
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
-  // ── Build local-camera device lists ──────────────────────────────────
   for(const auto& cam : enumerateLocalCameras())
   {
     m_deviceValues.push_back(cam.device);
@@ -72,17 +73,14 @@ Camera::Camera(World& world, std::string_view _id)
   for(const auto& s : m_deviceNamesStr)
     m_deviceNames.emplace_back(s);
 
-  // ── name ─────────────────────────────────────────────────────────────
   Attributes::addDisplayName(name, DisplayName::Object::name);
   Attributes::addEnabled(name, editable);
   m_interfaceItems.add(name);
 
-  // ── type ─────────────────────────────────────────────────────────────
   Attributes::addValues(type, cameraTypeValues);
   Attributes::addEnabled(type, editable);
   m_interfaceItems.add(type);
 
-  // ── device ───────────────────────────────────────────────────────────
   {
     const bool isLocal = (type.value() == CameraType::Local);
     const std::vector<std::string>*      vp = isLocal ? &m_deviceValues : nullptr;
@@ -93,7 +91,6 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addEnabled(device, editable);
   m_interfaceItems.add(device);
 
-  // ── fps ──────────────────────────────────────────────────────────────
   Attributes::addEnabled(fps, editable);
   Attributes::addMinMax(fps, 1.0, 60.0);
   m_interfaceItems.add(fps);
@@ -280,7 +277,7 @@ void Camera::captureLoop()
       std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
 #endif
 
-  // open() lives here — correct COM apartment, event loop stays unblocked
+  // open() on the capture thread — correct COM apartment, event loop stays unblocked
   bool openOk = false;
   try { openOk = m_capture && m_capture->open(); }
   catch(const std::exception& e)
@@ -301,17 +298,19 @@ void Camera::captureLoop()
     return;
   }
 
-  // Post width/height/streamUrl back to the event loop thread
+  // Post width/height/streamUrl back to the event loop — use a typed weak_ptr
+  // because weak_from_this() returns weak_ptr<Object>, not weak_ptr<Camera>.
   const uint32_t    w    = m_capture->width();
   const uint32_t    h    = m_capture->height();
   const std::string path = "/camera/" + id.value() + "/stream";
 
   EventLoop::call(
-    [weak = weak_from_this(), w, h, path]()
+    [weak = std::weak_ptr<Camera>(std::static_pointer_cast<Camera>(shared_from_this())),
+     w, h, path]()
     {
       if(auto self = weak.lock())
       {
-        if(!self->m_running)  // stopped before this ran
+        if(!self->m_running)
           return;
         self->frameWidth .setValueInternal(w);
         self->frameHeight.setValueInternal(h);
@@ -319,62 +318,7 @@ void Camera::captureLoop()
       }
     });
 
-#ifdef _WIN32
-  MSG msg{};
-  PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
-
-  std::vector<uint8_t> jpegBuf;
-  __try
-  {
-    while(m_running)
-    {
-      while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
-      {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-      }
-      if(!m_capture->readJpeg(jpegBuf))
-      {
-        Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
-        break;
-      }
-      publishFrame(jpegBuf);
-    }
-  }
-  __except(EXCEPTION_EXECUTE_HANDLER)
-  {
-    std::ostringstream oss;
-    oss << std::hex << GetExceptionCode();
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop SEH exception 0x") + oss.str()
-      + " for camera: " + id.value());
-  }
-#else
-  try
-  {
-    std::vector<uint8_t> jpegBuf;
-    while(m_running)
-    {
-      if(!m_capture->readJpeg(jpegBuf))
-      {
-        Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
-        break;
-      }
-      publishFrame(jpegBuf);
-    }
-  }
-  catch(const std::exception& e)
-  {
-    Log::log(*this, LogMessage::E9999_X, std::string("capture loop exception: ") + e.what());
-  }
-  catch(...)
-  {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop unknown exception for camera: ") + id.value());
-  }
-#endif
+  captureLoopBody();
 
 #ifdef _WIN32
   CoUninitialize();

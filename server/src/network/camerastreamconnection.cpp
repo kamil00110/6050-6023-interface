@@ -79,29 +79,30 @@ void CameraStreamConnection::sendHttpHeader()
 
 void CameraStreamConnection::enqueueFrame(std::vector<uint8_t> jpegData)
 {
-  std::lock_guard<std::mutex> lock(m_writeMutex);
-  m_writeQueue.push(buildMjpegChunk(jpegData));
-  if(!m_writing)
   {
+    std::lock_guard<std::mutex> lock(m_writeMutex);
+    m_writeQueue.push(buildMjpegChunk(std::move(jpegData)));
+    if(m_writing)
+      return;   // doWrite() will pick it up after the current send completes
     m_writing = true;
-    doWrite();
   }
+  doWrite();    // called WITHOUT the lock held
 }
 
 void CameraStreamConnection::doWrite()
 {
-  if(m_writeQueue.empty())
-  {
-    m_writing = false;
-    return;
-  }
-
+  // Must NOT be called while holding m_writeMutex.
   std::vector<uint8_t> chunk;
   {
     std::lock_guard<std::mutex> lock(m_writeMutex);
+    if(m_writeQueue.empty())
+    {
+      m_writing = false;
+      return;
+    }
     chunk = std::move(m_writeQueue.front());
     m_writeQueue.pop();
-  }
+  }  // lock released before async_write
 
   auto buf = std::make_shared<std::vector<uint8_t>>(std::move(chunk));
   boost::asio::async_write(m_stream.socket(),
@@ -113,11 +114,7 @@ void CameraStreamConnection::doWrite()
         self->close();
         return;
       }
-      std::lock_guard<std::mutex> lock(self->m_writeMutex);
-      if(!self->m_writeQueue.empty())
-        self->doWrite();
-      else
-        self->m_writing = false;
+      self->doWrite();  // recurse — no lock held here either
     });
 }
 

@@ -206,7 +206,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: false
-          defines: "-DCMAKE_VS_GLOBALS=CLToolExe=sccache.exe;CLToolAdditionalFlags=--driver-mode=cl"
+          defines: "-DCMAKE_VS_GLOBALS=CLToolExe=sccache.exe\\;CLToolAdditionalFlags=--driver-mode=cl"
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -396,6 +396,13 @@ jobs:
       if: matrix.config.name != 'windows_x64_mingw'
       working-directory: ${{github.workspace}}/server/build
       run: ctest --output-on-failure
+
+    - name: Stop sccache
+      if: startswith(matrix.config.os, 'windows') && always()
+      shell: powershell
+      run: |
+        sccache --show-stats
+        sccache --stop-server
 
     # Linux only:
     - name: Build debian package

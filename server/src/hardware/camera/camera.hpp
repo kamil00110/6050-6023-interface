@@ -92,6 +92,7 @@ private:
   void startCapture();
   void stopCapture();
   void captureLoop();
+  void captureLoopBody();
   void publishFrame(std::vector<uint8_t> jpegData);
   void applySettings();
   void updateDeviceAttribute();

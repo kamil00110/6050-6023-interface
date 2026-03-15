@@ -373,6 +373,14 @@ if(BUILD_TESTING)
   target_link_libraries(traintastic-server-test PRIVATE ${OpenCV_LIBS})
 endif()
 
+# DirectShow (Windows virtual camera enumeration — OBS, NVIDIA Broadcast, etc.)
+if(WIN32)
+  target_link_libraries(traintastic-server PRIVATE strmiids)
+  if(BUILD_TESTING)
+    target_link_libraries(traintastic-server-test PRIVATE strmiids)
+  endif()
+endif()
+
 ### LIBRARIES END ###
 
 target_sources(traintastic-server PRIVATE ${SOURCES})

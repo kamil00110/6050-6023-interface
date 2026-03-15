@@ -12,6 +12,7 @@
 #include <string>
 #include <memory>
 #include <atomic>
+#include <opencv2/videoio.hpp>
 
 class Object;
 namespace cv { class VideoCapture; }
@@ -33,6 +34,7 @@ private:
   double                            m_fps;
   std::unique_ptr<cv::VideoCapture> m_cap;
   Object&                           m_logObject;
+  cv::VideoCaptureAPIs              m_backend{cv::CAP_ANY};
   uint32_t                          m_width{0};
   uint32_t                          m_height{0};
   std::atomic<bool>                 m_interrupted{false};

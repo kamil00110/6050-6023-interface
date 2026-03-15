@@ -293,9 +293,7 @@ void Camera::stopCapture()
 void Camera::captureLoop()
 {
 #ifdef _WIN32
-  // DirectShow REQUIRES STA (apartment-threaded), NOT MTA.
-  // open() must happen on THIS thread after COM is initialised correctly.
-  const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);  // ← was MULTITHREADED
+  const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if(FAILED(hr) && hr != RPC_E_CHANGED_MODE)
     Log::log(*this, LogMessage::E9999_X,
       std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
@@ -316,7 +314,7 @@ void Camera::captureLoop()
     m_captureHeight = m_capture->height();
   }
 
-  m_openPromise.set_value(openOk);  // unblock startCapture()
+  m_openPromise.set_value(openOk);
 
   if(!openOk)
   {
@@ -326,27 +324,49 @@ void Camera::captureLoop()
     return;
   }
 
-  // ── Frame loop ────────────────────────────────────────────────────────
+  // ── Force creation of the STA message queue ───────────────────────────
 #ifdef _WIN32
-  // STA requires a message pump for COM callbacks. Run a minimal one.
-  // We use PeekMessage to drain the queue each iteration without blocking.
   MSG msg{};
-  PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE); // force queue creation
+  PeekMessage(&msg, nullptr, 0, 0, PM_NOREMOVE);
 #endif
 
-  try
+  // ── Frame loop — wrapped in SEH on Windows to catch driver crashes ────
+#ifdef _WIN32
+  __try
   {
     std::vector<uint8_t> jpegBuf;
     while(m_running)
     {
-#ifdef _WIN32
       // Drain the STA message queue — DirectShow needs this for callbacks
       while(PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
       {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
       }
-#endif
+
+      if(!m_capture->readJpeg(jpegBuf))
+      {
+        Log::log(*this, LogMessage::E9999_X,
+          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
+        break;
+      }
+      publishFrame(jpegBuf);
+    }
+  }
+  __except(EXCEPTION_EXECUTE_HANDLER)
+  {
+    std::ostringstream oss;
+    oss << std::hex << GetExceptionCode();
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("capture loop SEH exception 0x") + oss.str()
+      + " for camera: " + id.value());
+  }
+#else
+  try
+  {
+    std::vector<uint8_t> jpegBuf;
+    while(m_running)
+    {
       if(!m_capture->readJpeg(jpegBuf))
       {
         Log::log(*this, LogMessage::E9999_X,
@@ -365,15 +385,9 @@ void Camera::captureLoop()
     Log::log(*this, LogMessage::E9999_X,
       std::string("capture loop unknown exception for camera: ") + id.value());
   }
+#endif
 
 #ifdef _WIN32
   CoUninitialize();
 #endif
-}
-
-void Camera::publishFrame(std::vector<uint8_t> jpegData)
-{
-  std::lock_guard<std::mutex> lock(m_subscriberMutex);
-  for(auto& [subId, cb] : m_subscribers)
-    cb(jpegData);
 }

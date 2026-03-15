@@ -35,31 +35,46 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
 {
   using namespace std::chrono;
   const auto framePeriod = duration_cast<microseconds>(duration<double>(1.0 / m_fps));
-
   cv::Mat frame;
   while(!m_interrupted)
   {
     const auto t0 = steady_clock::now();
-
     if(!m_cap->read(frame) || frame.empty())
     {
       if(m_interrupted) return false;
       std::this_thread::sleep_for(milliseconds(k_reconnectWaitMs));
       m_cap->release();
+      // Same two-stage open as in open()
       if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
-        return false;
+      {
+        m_cap->release();
+        if(!m_cap->open(m_url, cv::CAP_ANY) || !m_cap->isOpened())
+          return false;
+      }
       continue;
     }
-
     const std::vector<int> params = {cv::IMWRITE_JPEG_QUALITY, k_jpegQuality};
     if(!cv::imencode(".jpg", frame, jpegOut, params))
       return false;
-
     const auto elapsed = steady_clock::now() - t0;
     if(elapsed < framePeriod)
       std::this_thread::sleep_for(framePeriod - elapsed);
-
     return true;
   }
   return false;
+}
+
+bool IpCameraCapture::open()
+{
+  // Try FFmpeg first (best RTSP support), fall back to any available backend
+  if(!m_cap->open(m_url, cv::CAP_FFMPEG) || !m_cap->isOpened())
+  {
+    m_cap->release();
+    if(!m_cap->open(m_url, cv::CAP_ANY) || !m_cap->isOpened())
+      return false;
+  }
+
+  m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
+  m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
+  return true;
 }

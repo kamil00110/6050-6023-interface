@@ -206,7 +206,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: false
-          defines: "-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache"
+          defines: "-DCMAKE_VS_GLOBALS=CLToolExe=sccache.exe;CLToolAdditionalFlags=--driver-mode=cl"
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -328,6 +328,7 @@ jobs:
         New-Item -ItemType Directory -Force -Path "C:\sccache"
         echo "SCCACHE_DIR=C:\sccache" >> $env:GITHUB_ENV
         sccache --start-server
+        sccache --show-stats
           
    
     - name: Set VCPKG_ROOT

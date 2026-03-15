@@ -326,6 +326,7 @@ jobs:
       run: |
         choco install sccache -y
         New-Item -ItemType Directory -Force -Path "C:\sccache"
+        $env:SCCACHE_DIR = "C:\sccache"
         echo "SCCACHE_DIR=C:\sccache" >> $env:GITHUB_ENV
         sccache --start-server
         sccache --show-stats

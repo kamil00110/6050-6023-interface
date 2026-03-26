@@ -1,29 +1,27 @@
 /**
- * server/src/hardware/camera/capture/ipcameracapture.hpp
+ * server/src/hardware/camera/capture/localcameracapture.hpp
  *
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2025 Reinder Feenstra
  */
-#ifndef TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_IPCAMERACAPTURE_HPP
-#define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_IPCAMERACAPTURE_HPP
+#ifndef TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_LOCALCAMERACAPTURE_HPP
+#define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_LOCALCAMERACAPTURE_HPP
 
 #include "cameracapture.hpp"
 #include <string>
 #include <memory>
 #include <atomic>
-#include <opencv2/videoio.hpp>
 
-class Object;
 namespace cv { class VideoCapture; }
 
-class IpCameraCapture final : public CameraCapture
+class LocalCameraCapture final : public CameraCapture
 {
 public:
-  IpCameraCapture(const std::string& url, double fps,
-                  uint32_t maxWidth, uint32_t maxHeight,
-                  int jpegQuality, Object& logObject);
-  ~IpCameraCapture() override;
+  LocalCameraCapture(const std::string& device, double fps,
+                     uint32_t maxWidth, uint32_t maxHeight,
+                     int jpegQuality);
+  ~LocalCameraCapture() override;
 
   bool     open()    override;
   uint32_t width()   const override { return m_width;  }
@@ -32,17 +30,11 @@ public:
   void     interrupt() override { m_interrupted = true; }
 
 private:
-  std::string                       m_url;
+  std::string                       m_device;
   double                            m_fps;
   std::unique_ptr<cv::VideoCapture> m_cap;
-  Object&                           m_logObject;
-  cv::VideoCaptureAPIs              m_backend{cv::CAP_ANY};
   uint32_t                          m_width{0};
   uint32_t                          m_height{0};
   std::atomic<bool>                 m_interrupted{false};
-
-  static constexpr int k_reconnectWaitMs = 2000;
-
-  bool tryOpenHlsVariant();
 };
 #endif

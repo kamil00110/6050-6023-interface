@@ -37,7 +37,30 @@ namespace
 {
   // ── URL helpers ──────────────────────────────────────────────────────────
 
-  bool isRtsp(const std::string& url)
+  bool isRtmp(const std::string& url)
+  {
+    return url.size() >= 7 &&
+           (url.substr(0, 7) == "rtmp://"  ||
+            url.substr(0, 8) == "rtmps://" ||
+            url.substr(0, 8) == "rtmpe://" ||
+            url.substr(0, 8) == "rtmpt://");
+  }
+
+  bool isHls(const std::string& url)
+  {
+    if(url.size() < 5) return false;
+    const std::string ext = url.substr(url.size() - 5);
+    return (ext == ".m3u8" || ext == ".M3U8");
+  }
+
+  bool isNetworkStream(const std::string& url)
+  {
+    return isRtsp(url) || isRtmp(url) || isHls(url) ||
+           url.substr(0, 7) == "http://" ||
+           url.substr(0, 8) == "https://";
+  }
+
+bool isRtsp(const std::string& url)
   {
     return url.size() >= 7 &&
            (url.substr(0, 7) == "rtsp://" ||

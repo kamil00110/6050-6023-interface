@@ -1,3 +1,5 @@
+
+
 /**
  * server/src/hardware/camera/cameratype.hpp
  *
@@ -29,22 +31,13 @@ constexpr std::array<CameraType, 5> cameraTypeValues = {
   CameraType::HLS,
 };
 
-template<>
-struct EnumName<CameraType>
+TRAINTASTIC_ENUM(CameraType, "camera_type", 5,
 {
-  static constexpr std::string_view value = "camera_type";
-};
-
-template<>
-struct EnumValues<CameraType>
-{
-  static constexpr std::array<std::pair<std::string_view, CameraType>, 5> value = {{
-    {"local", CameraType::Local},
-    {"rtsp",  CameraType::RTSP},
-    {"mjpeg", CameraType::MJPEG},
-    {"rtmp",  CameraType::RTMP},
-    {"hls",   CameraType::HLS},
-  }};
-};
+  {CameraType::Local, "local"},
+  {CameraType::RTSP,  "rtsp"},
+  {CameraType::MJPEG, "mjpeg"},
+  {CameraType::RTMP,  "rtmp"},
+  {CameraType::HLS,   "hls"},
+});
 
 #endif

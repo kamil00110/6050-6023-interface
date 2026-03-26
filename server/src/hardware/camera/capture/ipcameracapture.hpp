@@ -12,6 +12,9 @@
 #include <string>
 #include <memory>
 #include <atomic>
+
+// cv::VideoCaptureAPIs is an enum so we need the real header, but only
+// in this header to type m_backend. Keep it isolated here.
 #include <opencv2/videoio.hpp>
 
 class Object;
@@ -20,7 +23,9 @@ namespace cv { class VideoCapture; }
 class IpCameraCapture final : public CameraCapture
 {
 public:
-  IpCameraCapture(const std::string& url, double fps, Object& logObject);
+  IpCameraCapture(const std::string& url, double fps,
+                  uint32_t maxWidth, uint32_t maxHeight,
+                  int jpegQuality, Object& logObject);
   ~IpCameraCapture() override;
 
   bool     open()    override;
@@ -39,7 +44,6 @@ private:
   uint32_t                          m_height{0};
   std::atomic<bool>                 m_interrupted{false};
 
-  static constexpr int k_jpegQuality     = 75;
   static constexpr int k_reconnectWaitMs = 2000;
 };
 #endif

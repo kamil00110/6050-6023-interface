@@ -7,7 +7,7 @@
  */
 
 #include "camera.hpp"
-#include "cameraenumerator.hpp"
+#include "cameratype.hpp"
 #include "list/cameralist.hpp"
 #include "list/cameralisttablemodel.hpp"
 #include "capture/cameracapture.hpp"

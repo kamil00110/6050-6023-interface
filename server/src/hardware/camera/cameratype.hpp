@@ -12,7 +12,7 @@
 #include <array>
 #include <traintastic/enum/enum.hpp>
 
-class CameraType : uint8_t
+enum class CameraType : uint8_t
 {
   Local = 0,
   RTSP  = 1,

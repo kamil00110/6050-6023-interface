@@ -38,9 +38,16 @@ Camera::Camera(World& world, std::string_view _id)
   : IdObject(world, _id)
   , name       {this, "name",         id.value(),        PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::ScriptReadOnly}
   , type       {this, "type",         CameraType::Local, PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const CameraType& /*newValue*/)
+      [this](const CameraType& newValue)
       {
         updateDeviceAttribute();
+        if(newValue == CameraType::Local)
+        {
+          // Reset device to first local camera index so the combo box
+          // never sees a URL string as its current value.
+          device.setValueInternal(
+            m_deviceValues.empty() ? std::string{"0"} : m_deviceValues.front());
+        }
         if(enabled)
           stopCapture();
       }}

@@ -10,9 +10,9 @@
 
 #include <cstdint>
 #include <array>
-#include "../../../shared/src/traintastic/enum/enum.hpp"
+#include <traintastic/enum/enum.hpp>
 
-enum class CameraType : uint8_t
+class CameraType : uint8_t
 {
   Local = 0,
   RTSP  = 1,

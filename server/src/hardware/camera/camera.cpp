@@ -32,8 +32,6 @@
   #include <objbase.h>
 #endif
 
-// ─── Constructor ─────────────────────────────────────────────────────────────
-
 Camera::Camera(World& world, std::string_view _id)
   : IdObject(world, _id)
   , name       {this, "name",         id.value(),        PropertyFlags::ReadWrite | PropertyFlags::Store | PropertyFlags::ScriptReadOnly}
@@ -43,8 +41,6 @@ Camera::Camera(World& world, std::string_view _id)
         updateDeviceAttribute();
         if(newValue == CameraType::Local)
         {
-          // Reset device to first local camera index so the combo box
-          // never sees a URL string as its current value.
           device.setValueInternal(
             m_deviceValues.empty() ? std::string{"0"} : m_deviceValues.front());
         }
@@ -68,6 +64,9 @@ Camera::Camera(World& world, std::string_view _id)
   , frameWidth {this, "frame_width",  0u,                PropertyFlags::ReadOnly | PropertyFlags::NoStore}
   , frameHeight{this, "frame_height", 0u,                PropertyFlags::ReadOnly | PropertyFlags::NoStore}
   , fps        {this, "fps",          25.0,              PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , maxWidth   {this, "max_width",    0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , maxHeight  {this, "max_height",   0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , jpegQuality{this, "jpeg_quality", 75,                PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
@@ -102,13 +101,25 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addMinMax(fps, 1.0, 60.0);
   m_interfaceItems.add(fps);
 
+  // max_width / max_height: 0 means no scaling
+  Attributes::addEnabled(maxWidth, editable);
+  Attributes::addMinMax(maxWidth, 0u, 3840u);
+  m_interfaceItems.add(maxWidth);
+
+  Attributes::addEnabled(maxHeight, editable);
+  Attributes::addMinMax(maxHeight, 0u, 2160u);
+  m_interfaceItems.add(maxHeight);
+
+  // jpeg_quality: 1-100
+  Attributes::addEnabled(jpegQuality, editable);
+  Attributes::addMinMax(jpegQuality, 1, 100);
+  m_interfaceItems.add(jpegQuality);
+
   m_interfaceItems.add(enabled);
   m_interfaceItems.add(streamUrl);
   m_interfaceItems.add(frameWidth);
   m_interfaceItems.add(frameHeight);
 }
-
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 Camera::~Camera()
 {
@@ -139,13 +150,14 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
 {
   IdObject::worldEvent(worldState, worldEvent);
   const bool editable = contains(worldState, WorldState::Edit);
-  Attributes::setEnabled(name,   editable);
-  Attributes::setEnabled(type,   editable);
-  Attributes::setEnabled(device, editable);
-  Attributes::setEnabled(fps,    editable);
+  Attributes::setEnabled(name,        editable);
+  Attributes::setEnabled(type,        editable);
+  Attributes::setEnabled(device,      editable);
+  Attributes::setEnabled(fps,         editable);
+  Attributes::setEnabled(maxWidth,    editable);
+  Attributes::setEnabled(maxHeight,   editable);
+  Attributes::setEnabled(jpegQuality, editable);
 }
-
-// ─── Frame subscriber API ────────────────────────────────────────────────────
 
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
 {
@@ -163,8 +175,6 @@ void Camera::removeFrameSubscriber(uint64_t subscriberId)
       [subscriberId](const auto& p){ return p.first == subscriberId; }),
     m_subscribers.end());
 }
-
-// ─── Private helpers ─────────────────────────────────────────────────────────
 
 void Camera::updateDeviceAttribute()
 {
@@ -194,17 +204,27 @@ void Camera::startCapture()
     switch(type.value())
     {
       case CameraType::Local:
-        m_capture = std::make_unique<LocalCameraCapture>(device.value(), fps.value());
+        m_capture = std::make_unique<LocalCameraCapture>(
+          device.value(), fps.value(),
+          maxWidth.value(), maxHeight.value(),
+          jpegQuality.value());
         break;
+
       case CameraType::RTSP:
       case CameraType::MJPEG:
-        m_capture = std::make_unique<IpCameraCapture>(device.value(), fps.value(), *this);
+      case CameraType::RTMP:
+      case CameraType::HLS:
+        m_capture = std::make_unique<IpCameraCapture>(
+          device.value(), fps.value(),
+          maxWidth.value(), maxHeight.value(),
+          jpegQuality.value(), *this);
         break;
     }
   }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X, std::string("camera init exception: ") + e.what());
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("camera init exception: ") + e.what());
     m_capture.reset();
     return;
   }
@@ -232,9 +252,7 @@ void Camera::startCapture()
     args, 0, nullptr);
 
   if(h)
-  {
     m_captureThreadHandle = h;
-  }
   else
   {
     delete args;
@@ -281,23 +299,24 @@ void Camera::captureLoop()
   const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if(FAILED(hr) && hr != RPC_E_CHANGED_MODE)
     Log::log(*this, LogMessage::E9999_X,
-      std::string("CoInitializeEx failed on capture thread, HRESULT: ") + std::to_string(hr));
+      std::string("CoInitializeEx failed on capture thread, HRESULT: ") +
+      std::to_string(hr));
 #endif
 
-  // open() on the capture thread — correct COM apartment, event loop stays unblocked
   bool openOk = false;
   try { openOk = m_capture && m_capture->open(); }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X, std::string("camera open exception: ") + e.what());
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("camera open exception: ") + e.what());
   }
   catch(...) {}
 
   if(!openOk)
   {
     Log::log(*this, LogMessage::E9999_X,
-      std::string("camera open failed for: [") + device.value()
-      + "] type=" + std::to_string(static_cast<int>(type.value())));
+      std::string("camera open failed for: [") + device.value() +
+      "] type=" + std::to_string(static_cast<int>(type.value())));
     m_running = false;
 #ifdef _WIN32
     CoUninitialize();
@@ -305,20 +324,18 @@ void Camera::captureLoop()
     return;
   }
 
-  // Post width/height/streamUrl back to the event loop — use a typed weak_ptr
-  // because weak_from_this() returns weak_ptr<Object>, not weak_ptr<Camera>.
   const uint32_t    w    = m_capture->width();
   const uint32_t    h    = m_capture->height();
   const std::string path = "/camera/" + id.value() + "/stream";
 
   EventLoop::call(
-    [weak = std::weak_ptr<Camera>(std::static_pointer_cast<Camera>(shared_from_this())),
+    [weak = std::weak_ptr<Camera>(
+        std::static_pointer_cast<Camera>(shared_from_this())),
      w, h, path]()
     {
       if(auto self = weak.lock())
       {
-        if(!self->m_running)
-          return;
+        if(!self->m_running) return;
         self->frameWidth .setValueInternal(w);
         self->frameHeight.setValueInternal(h);
         self->streamUrl  .setValueInternal(path);
@@ -351,7 +368,8 @@ void Camera::captureLoopBody()
       if(!m_capture->readJpeg(jpegBuf))
       {
         Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
+          std::string("camera readJpeg failed, stopping capture for: ") +
+          id.value());
         break;
       }
       publishFrame(jpegBuf);
@@ -362,8 +380,8 @@ void Camera::captureLoopBody()
     std::ostringstream oss;
     oss << std::hex << GetExceptionCode();
     Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop SEH exception 0x") + oss.str()
-      + " for camera: " + id.value());
+      std::string("capture loop SEH exception 0x") + oss.str() +
+      " for camera: " + id.value());
   }
 #else
   try
@@ -374,7 +392,8 @@ void Camera::captureLoopBody()
       if(!m_capture->readJpeg(jpegBuf))
       {
         Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") + id.value());
+          std::string("camera readJpeg failed, stopping capture for: ") +
+          id.value());
         break;
       }
       publishFrame(jpegBuf);
@@ -382,7 +401,8 @@ void Camera::captureLoopBody()
   }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X, std::string("capture loop exception: ") + e.what());
+    Log::log(*this, LogMessage::E9999_X,
+      std::string("capture loop exception: ") + e.what());
   }
   catch(...)
   {

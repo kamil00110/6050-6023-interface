@@ -28,25 +28,38 @@
 #include <traintastic/locale/locale.hpp>
 #include <traintastic/enum/cameratype.hpp>
 
-// CameraType enum values — keep in sync with
-// shared/src/traintastic/enum/cameratype.hpp
 static constexpr int64_t kCameraTypeLocal = 0;
 static constexpr int64_t kCameraTypeRTSP  = 1;
 static constexpr int64_t kCameraTypeMJPEG = 2;
+static constexpr int64_t kCameraTypeRTMP  = 3;
+static constexpr int64_t kCameraTypeHLS   = 4;
 
-// Detect camera type from URL prefix.
-// Returns -1 if the prefix is not recognised (leave type unchanged).
 static int64_t detectTypeFromUrl(const QString& url)
 {
-  if(url.startsWith(QStringLiteral("rtsp://"), Qt::CaseInsensitive) ||
+  // RTSP / RTSPS
+  if(url.startsWith(QStringLiteral("rtsp://"),  Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("rtsps://"), Qt::CaseInsensitive))
     return kCameraTypeRTSP;
 
-  if(url.startsWith(QStringLiteral("http://"), Qt::CaseInsensitive) ||
+  // RTMP / RTMPS / RTMPE / RTMPT
+  if(url.startsWith(QStringLiteral("rtmp://"),  Qt::CaseInsensitive) ||
+     url.startsWith(QStringLiteral("rtmps://"), Qt::CaseInsensitive) ||
+     url.startsWith(QStringLiteral("rtmpe://"), Qt::CaseInsensitive) ||
+     url.startsWith(QStringLiteral("rtmpt://"), Qt::CaseInsensitive))
+    return kCameraTypeRTMP;
+
+  // HLS — m3u8 playlist over HTTP/HTTPS
+  if((url.startsWith(QStringLiteral("http://"),  Qt::CaseInsensitive) ||
+      url.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) &&
+     url.endsWith(QStringLiteral(".m3u8"), Qt::CaseInsensitive))
+    return kCameraTypeHLS;
+
+  // MJPEG — plain HTTP/HTTPS without m3u8
+  if(url.startsWith(QStringLiteral("http://"),  Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive))
     return kCameraTypeMJPEG;
 
-  return -1;
+  return -1; // unrecognised — leave type unchanged
 }
 
 CameraEditWidget::CameraEditWidget(const ObjectPtr& object, QWidget* parent)

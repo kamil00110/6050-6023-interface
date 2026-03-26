@@ -26,7 +26,6 @@
 #include "../propertyvaluelabel.hpp"
 #include "../createwidget.hpp"
 #include <traintastic/locale/locale.hpp>
-#include <traintastic/enum/cameratype.hpp>
 
 static constexpr int64_t kCameraTypeLocal = 0;
 static constexpr int64_t kCameraTypeRTSP  = 1;

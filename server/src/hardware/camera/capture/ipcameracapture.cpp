@@ -9,10 +9,11 @@
 #include <chrono>
 #include <thread>
 #include <sstream>
-#include <iomanip>
+#include <algorithm>
 #include <opencv2/videoio.hpp>
 #include <opencv2/videoio/registry.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
 #include <opencv2/core.hpp>
 #include "../../../log/log.hpp"
 
@@ -35,7 +36,14 @@
 
 namespace
 {
-  // ── URL helpers ──────────────────────────────────────────────────────────
+  // ── URL classification ───────────────────────────────────────────────────
+
+  bool isRtsp(const std::string& url)
+  {
+    return url.size() >= 7 &&
+           (url.substr(0, 7) == "rtsp://"  ||
+            url.substr(0, 8) == "rtsps://");
+  }
 
   bool isRtmp(const std::string& url)
   {
@@ -49,8 +57,9 @@ namespace
   bool isHls(const std::string& url)
   {
     if(url.size() < 5) return false;
-    const std::string ext = url.substr(url.size() - 5);
-    return (ext == ".m3u8" || ext == ".M3U8");
+    std::string ext = url.substr(url.size() - 5);
+    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+    return ext == ".m3u8";
   }
 
   bool isNetworkStream(const std::string& url)
@@ -60,24 +69,23 @@ namespace
            url.substr(0, 8) == "https://";
   }
 
-bool isRtsp(const std::string& url)
+  // ── Backend list ─────────────────────────────────────────────────────────
+
+  std::string availableBackends()
   {
-    return url.size() >= 7 &&
-           (url.substr(0, 7) == "rtsp://" ||
-            url.substr(0, 8) == "rtsps://");
+    std::ostringstream oss;
+    oss << "available backends:";
+    for(auto b : cv::videoio_registry::getBackends())
+      oss << " " << cv::videoio_registry::getBackendName(b);
+    return oss.str();
   }
 
-  bool isMjpeg(const std::string& url)
-  {
-    return url.size() >= 7 &&
-           (url.substr(0, 7) == "http://" ||
-            url.substr(0, 8) == "https://");
-  }
+  // ── URL parsing ──────────────────────────────────────────────────────────
 
-  bool parseRtspHostPort(const std::string& url,
-                         std::string& host,
-                         int& port,
-                         std::string& path)
+  bool parseHostPort(const std::string& url,
+                     std::string& host,
+                     int& port,
+                     std::string& path)
   {
     const size_t schemeEnd = url.find("://");
     if(schemeEnd == std::string::npos) return false;
@@ -103,20 +111,15 @@ bool isRtsp(const std::string& url)
     else
     {
       host = authority;
-      port = 554;
+      // Default ports per scheme
+      if(url.substr(0, 7) == "rtsp://")        port = 554;
+      else if(url.substr(0, 8) == "rtsps://")  port = 322;
+      else if(url.substr(0, 7) == "rtmp://")   port = 1935;
+      else if(url.substr(0, 7) == "http://")   port = 80;
+      else if(url.substr(0, 8) == "https://")  port = 443;
+      else                                      port = 554;
     }
     return !host.empty();
-  }
-
-  // ── Backend list ─────────────────────────────────────────────────────────
-
-  std::string availableBackends()
-  {
-    std::ostringstream oss;
-    oss << "available backends:";
-    for(auto b : cv::videoio_registry::getBackends())
-      oss << " " << cv::videoio_registry::getBackendName(b);
-    return oss.str();
   }
 
   // ── Socket helpers ───────────────────────────────────────────────────────
@@ -131,19 +134,19 @@ bool isRtsp(const std::string& url)
   void closeSocket(SocketType s) { close(s); }
 #endif
 
-  // Connect to host:port with a 3-second timeout.
-  // Returns kInvalidSocket on failure, sets errOut to a description.
-  SocketType connectTcp(const std::string& host, int port, std::string& errOut)
+  // Connect to host:port with 3s timeout.
+  // On success returns valid socket and stores DNS info in infoOut.
+  // On failure returns kInvalidSocket and stores error in infoOut.
+  SocketType connectTcp(const std::string& host, int port, std::string& infoOut)
   {
 #ifdef _WIN32
     WSADATA wsaData;
     if(WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
     {
-      errOut = "WSAStartup failed";
+      infoOut = "WSAStartup failed";
       return kInvalidSocket;
     }
 #endif
-
     struct addrinfo hints{}, *res = nullptr;
     hints.ai_family   = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -151,14 +154,14 @@ bool isRtsp(const std::string& url)
       host.c_str(), std::to_string(port).c_str(), &hints, &res);
     if(gaErr != 0 || !res)
     {
-      errOut = std::string("DNS resolution failed: ") + gai_strerror(gaErr);
+      infoOut = std::string("DNS resolution failed: ") + gai_strerror(gaErr);
 #ifdef _WIN32
       WSACleanup();
 #endif
       return kInvalidSocket;
     }
 
-    // Log all resolved addresses
+    // Collect resolved addresses for logging
     {
       std::ostringstream oss;
       oss << "DNS resolved " << host << " -> ";
@@ -176,7 +179,7 @@ bool isRtsp(const std::string& url)
         oss << buf;
         if(ai->ai_next) oss << ", ";
       }
-      errOut = oss.str(); // temporarily used as info output
+      infoOut = oss.str();
     }
 
     const SocketType sock = socket(
@@ -187,11 +190,10 @@ bool isRtsp(const std::string& url)
 #ifdef _WIN32
       WSACleanup();
 #endif
-      errOut = "socket() failed";
+      infoOut = "socket() failed";
       return kInvalidSocket;
     }
 
-    // Non-blocking connect with 3s timeout
 #ifdef _WIN32
     u_long mode = 1;
     ioctlsocket(sock, FIONBIO, &mode);
@@ -216,12 +218,12 @@ bool isRtsp(const std::string& url)
 #ifdef _WIN32
       WSACleanup();
 #endif
-      errOut = "TCP connect to " + host + ":" + std::to_string(port) +
-               " timed out or refused";
+      infoOut = "TCP connect to " + host + ":" + std::to_string(port) +
+                " timed out or refused";
       return kInvalidSocket;
     }
 
-    // Restore blocking mode
+    // Restore blocking
 #ifdef _WIN32
     mode = 0;
     ioctlsocket(sock, FIONBIO, &mode);
@@ -231,7 +233,6 @@ bool isRtsp(const std::string& url)
     return sock;
   }
 
-  // Send bytes on socket, return false on error
   bool sendAll(SocketType sock, const std::string& data)
   {
     size_t sent = 0;
@@ -251,16 +252,17 @@ bool isRtsp(const std::string& url)
     return true;
   }
 
-  // Read until CRLFCRLF or timeout (5s), return raw response
-  std::string recvHeaders(SocketType sock)
+  // Read headers then full body based on Content-Length
+  std::string recvResponse(SocketType sock)
   {
     std::string buf;
-    buf.reserve(2048);
+    buf.reserve(4096);
     char tmp[256];
 
-    fd_set rset;
-    while(true)
+    // Phase 1: read until end of headers
+    while(buf.find("\r\n\r\n") == std::string::npos)
     {
+      fd_set rset;
       FD_ZERO(&rset);
       FD_SET(sock, &rset);
       struct timeval tv{5, 0};
@@ -274,31 +276,68 @@ bool isRtsp(const std::string& url)
       if(n <= 0) break;
 #endif
       buf.append(tmp, static_cast<size_t>(n));
-      if(buf.find("\r\n\r\n") != std::string::npos)
-        break;
-      if(buf.size() > 8192)
-        break;
+      if(buf.size() > 8192) break;
     }
+
+    // Phase 2: parse Content-Length and read body
+    const size_t bodyStart = buf.find("\r\n\r\n");
+    if(bodyStart == std::string::npos)
+      return buf;
+
+    int contentLength = 0;
+    {
+      std::string lower = buf.substr(0, bodyStart);
+      std::transform(lower.begin(), lower.end(), lower.begin(), ::tolower);
+      const size_t clPos = lower.find("content-length:");
+      if(clPos != std::string::npos)
+      {
+        try { contentLength = std::stoi(buf.substr(clPos + 15)); }
+        catch(...) {}
+      }
+    }
+
+    if(contentLength <= 0)
+      return buf;
+
+    const size_t headerEnd = bodyStart + 4;
+    int remaining = contentLength -
+                    static_cast<int>(buf.size() - headerEnd);
+
+    while(remaining > 0)
+    {
+      fd_set rset;
+      FD_ZERO(&rset);
+      FD_SET(sock, &rset);
+      struct timeval tv{5, 0};
+      const int toRead = static_cast<int>(
+        std::min(static_cast<size_t>(remaining), sizeof(tmp)));
+#ifdef _WIN32
+      if(select(0, &rset, nullptr, nullptr, &tv) <= 0) break;
+      const int n = recv(sock, tmp, toRead, 0);
+      if(n <= 0) break;
+#else
+      if(select(sock + 1, &rset, nullptr, nullptr, &tv) <= 0) break;
+      const ssize_t n = recv(sock, tmp, static_cast<size_t>(toRead), 0);
+      if(n <= 0) break;
+#endif
+      buf.append(tmp, static_cast<size_t>(n));
+      remaining -= static_cast<int>(n);
+    }
+
     return buf;
   }
 
   // ── Raw RTSP DESCRIBE probe ───────────────────────────────────────────────
-  //
-  // Sends a minimal RTSP DESCRIBE request and returns the full server
-  // response. This tells us the exact status code and SDP body before
-  // OpenCV tries anything — auth failures (401), codec info, redirect
-  // targets (301/302), and server identification are all visible here.
 
   struct RtspProbeResult
   {
-    bool     connected{false};
-    bool     respondedToDescribe{false};
-    int      statusCode{0};
+    bool        connected{false};
+    bool        responded{false};
+    int         statusCode{0};
     std::string statusLine;
-    std::string headers;  // all response headers
-    std::string sdp;      // SDP body if present
-    std::string error;
-    std::string dnsInfo;
+    std::string headers;
+    std::string sdp;
+    std::string info;    // DNS info or error description
   };
 
   RtspProbeResult rtspDescribeProbe(const std::string& url,
@@ -307,16 +346,12 @@ bool isRtsp(const std::string& url)
   {
     RtspProbeResult result;
 
-    SocketType sock = connectTcp(host, port, result.error);
-    result.dnsInfo = result.error; // connectTcp stores DNS info in errOut on success
+    SocketType sock = connectTcp(host, port, result.info);
     if(sock == kInvalidSocket)
       return result;
 
     result.connected = true;
-    result.error.clear();
 
-    // Send RTSP DESCRIBE
-    // CSeq 1, no auth, Accept SDP
     const std::string req =
       "DESCRIBE " + url + " RTSP/1.0\r\n"
       "CSeq: 1\r\n"
@@ -326,7 +361,7 @@ bool isRtsp(const std::string& url)
 
     if(!sendAll(sock, req))
     {
-      result.error = "send() failed for DESCRIBE request";
+      result.info = "send() failed for DESCRIBE request";
       closeSocket(sock);
 #ifdef _WIN32
       WSACleanup();
@@ -334,7 +369,7 @@ bool isRtsp(const std::string& url)
       return result;
     }
 
-    const std::string response = recvHeaders(sock);
+    const std::string response = recvResponse(sock);
     closeSocket(sock);
 #ifdef _WIN32
     WSACleanup();
@@ -342,19 +377,17 @@ bool isRtsp(const std::string& url)
 
     if(response.empty())
     {
-      result.error = "no response to DESCRIBE (server closed connection immediately)";
+      result.info = "no response to DESCRIBE";
       return result;
     }
 
-    result.respondedToDescribe = true;
-    result.headers = response;
+    result.responded = true;
+    result.headers   = response;
 
-    // Parse status line: RTSP/1.0 200 OK
     const size_t crlf = response.find("\r\n");
     result.statusLine = (crlf != std::string::npos)
       ? response.substr(0, crlf) : response;
 
-    // Extract status code
     const size_t sp1 = result.statusLine.find(' ');
     if(sp1 != std::string::npos)
     {
@@ -362,7 +395,6 @@ bool isRtsp(const std::string& url)
       catch(...) {}
     }
 
-    // Extract SDP body (after CRLFCRLF)
     const size_t bodyStart = response.find("\r\n\r\n");
     if(bodyStart != std::string::npos)
       result.sdp = response.substr(bodyStart + 4);
@@ -398,12 +430,17 @@ bool isRtsp(const std::string& url)
 
 // ─── IpCameraCapture ─────────────────────────────────────────────────────────
 
-IpCameraCapture::IpCameraCapture(const std::string& url, double fps, Object& logObject)
+IpCameraCapture::IpCameraCapture(const std::string& url, double fps,
+                                  uint32_t maxWidth, uint32_t maxHeight,
+                                  int jpegQuality, Object& logObject)
   : m_url(url)
   , m_fps(fps)
   , m_cap(std::make_unique<cv::VideoCapture>())
   , m_logObject(logObject)
 {
+  m_maxWidth    = maxWidth;
+  m_maxHeight   = maxHeight;
+  m_jpegQuality = jpegQuality;
 }
 
 IpCameraCapture::~IpCameraCapture() = default;
@@ -412,17 +449,17 @@ bool IpCameraCapture::open()
 {
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("IpCameraCapture::open() url=[") + m_url +
-    "] fps=" + std::to_string(m_fps));
+    "] fps=" + std::to_string(m_fps) +
+    " maxW=" + std::to_string(m_maxWidth) +
+    " maxH=" + std::to_string(m_maxHeight) +
+    " quality=" + std::to_string(m_jpegQuality));
 
-  // ── OpenCV version and build info ─────────────────────────────────────
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("OpenCV version: ") + cv::getVersionString());
 
   Log::log(m_logObject, LogMessage::I9999_X, availableBackends());
 
-  // Log the Video I/O section of the build info only — the full string is
-  // very long, so we skip lines until we hit "Video I/O" then log until
-  // the next section header.
+  // Log Video I/O section of build info only
   {
     const std::string buildInfo = cv::getBuildInformation();
     std::istringstream ss(buildInfo);
@@ -431,22 +468,17 @@ bool IpCameraCapture::open()
     while(std::getline(ss, line))
     {
       if(line.find("Video I/O") != std::string::npos)
-      {
         inVideoIO = true;
-      }
-      else if(inVideoIO && !line.empty() && line[0] != ' ' && line[0] != '\t')
-      {
-        // Hit the next top-level section — stop
+      else if(inVideoIO && !line.empty() &&
+              line[0] != ' ' && line[0] != '\t')
         break;
-      }
-
       if(inVideoIO && !line.empty())
         Log::log(m_logObject, LogMessage::I9999_X,
           std::string("buildinfo: ") + line);
     }
   }
 
-  // ── Enable FFmpeg verbose stderr output ───────────────────────────────
+  // Enable FFmpeg verbose stderr output
 #ifdef _WIN32
   _putenv_s("OPENCV_FFMPEG_DEBUG",    "1");
   _putenv_s("OPENCV_FFMPEG_LOGLEVEL", "48");
@@ -455,121 +487,113 @@ bool IpCameraCapture::open()
   setenv("OPENCV_FFMPEG_LOGLEVEL", "48", 1);
 #endif
 
-  // ── URL parse diagnostics ─────────────────────────────────────────────
+  // ── TCP probe + RTSP DESCRIBE for RTSP streams ────────────────────────
   if(isRtsp(m_url))
   {
     std::string host, path;
     int port = 554;
-    if(parseRtspHostPort(m_url, host, port, path))
+    if(parseHostPort(m_url, host, port, path))
     {
       Log::log(m_logObject, LogMessage::I9999_X,
         std::string("URL parsed: host=[") + host +
         "] port=" + std::to_string(port) +
         " path=[" + path + "]");
 
-      // ── DNS + TCP connectivity ────────────────────────────────────────
-      std::string tcpErr;
-      const SocketType probe = connectTcp(host, port, tcpErr);
+      std::string tcpInfo;
+      const SocketType probe = connectTcp(host, port, tcpInfo);
       if(probe == kInvalidSocket)
       {
         Log::log(m_logObject, LogMessage::W9999_X,
-          std::string("TCP connect FAILED: ") + tcpErr);
+          std::string("TCP connect FAILED: ") + tcpInfo);
       }
       else
       {
-        // tcpErr contains DNS info on success
         Log::log(m_logObject, LogMessage::I9999_X,
-          std::string("TCP connect OK — ") + tcpErr);
+          std::string("TCP connect OK -- ") + tcpInfo);
         closeSocket(probe);
 #ifdef _WIN32
         WSACleanup();
 #endif
 
-        // ── Raw RTSP DESCRIBE handshake ───────────────────────────────
         Log::log(m_logObject, LogMessage::I9999_X,
-          std::string("sending raw RTSP DESCRIBE to check server response ..."));
+          std::string("sending raw RTSP DESCRIBE ..."));
 
         const RtspProbeResult rp = rtspDescribeProbe(m_url, host, port);
 
-        if(!rp.dnsInfo.empty())
-          Log::log(m_logObject, LogMessage::I9999_X, rp.dnsInfo);
+        if(!rp.info.empty())
+          Log::log(m_logObject, LogMessage::I9999_X, rp.info);
 
         if(!rp.connected)
         {
           Log::log(m_logObject, LogMessage::W9999_X,
-            std::string("RTSP probe: could not connect: ") + rp.error);
+            std::string("RTSP probe: could not connect"));
         }
-        else if(!rp.respondedToDescribe)
+        else if(!rp.responded)
         {
           Log::log(m_logObject, LogMessage::W9999_X,
-            std::string("RTSP probe: connected but no response to DESCRIBE: ") + rp.error);
+            std::string("RTSP probe: no response to DESCRIBE"));
         }
         else
         {
           Log::log(m_logObject, LogMessage::I9999_X,
-            std::string("RTSP DESCRIBE response status: [") + rp.statusLine + "]");
+            std::string("RTSP DESCRIBE status: [") + rp.statusLine + "]");
 
-          // Log each response header line individually
+          // Log each header line
           std::istringstream hss(rp.headers);
           std::string hline;
           while(std::getline(hss, hline))
           {
-            // Strip trailing \r
-            if(!hline.empty() && hline.back() == '\r')
-              hline.pop_back();
+            if(!hline.empty() && hline.back() == '\r') hline.pop_back();
             if(!hline.empty())
               Log::log(m_logObject, LogMessage::I9999_X,
                 std::string("RTSP header: ") + hline);
           }
 
-          // Log SDP if present
+          // Log SDP lines
           if(!rp.sdp.empty())
           {
             std::istringstream sss(rp.sdp);
             std::string sline;
             while(std::getline(sss, sline))
             {
-              if(!sline.empty() && sline.back() == '\r')
-                sline.pop_back();
+              if(!sline.empty() && sline.back() == '\r') sline.pop_back();
               if(!sline.empty())
                 Log::log(m_logObject, LogMessage::I9999_X,
                   std::string("SDP: ") + sline);
             }
           }
 
-          // Give a human-readable interpretation of the status code
           switch(rp.statusCode)
           {
             case 200:
               Log::log(m_logObject, LogMessage::I9999_X,
-                std::string("RTSP server accepted DESCRIBE (200 OK) — "
+                std::string("RTSP server accepted DESCRIBE (200 OK) -- "
                             "stream exists, codec details in SDP above"));
               break;
             case 401:
             case 403:
               Log::log(m_logObject, LogMessage::W9999_X,
-                std::string("RTSP server requires authentication (")
-                + std::to_string(rp.statusCode)
-                + ") — add credentials to URL: "
-                  "rtsp://user:password@host/path");
+                std::string("RTSP server requires authentication (") +
+                std::to_string(rp.statusCode) +
+                ") -- add credentials: rtsp://user:password@host/path");
               break;
             case 404:
               Log::log(m_logObject, LogMessage::W9999_X,
-                std::string("RTSP server says stream not found (404) — "
+                std::string("RTSP stream not found (404) -- "
                             "check the path in the URL"));
               break;
             case 301:
             case 302:
               Log::log(m_logObject, LogMessage::W9999_X,
-                std::string("RTSP server redirected (")
-                + std::to_string(rp.statusCode)
-                + ") — check Location header above");
+                std::string("RTSP server redirected (") +
+                std::to_string(rp.statusCode) +
+                ") -- check Location header above");
               break;
             default:
               if(rp.statusCode > 0)
                 Log::log(m_logObject, LogMessage::W9999_X,
-                  std::string("RTSP server returned unexpected status: ")
-                  + std::to_string(rp.statusCode));
+                  std::string("RTSP unexpected status: ") +
+                  std::to_string(rp.statusCode));
               break;
           }
         }
@@ -578,17 +602,22 @@ bool IpCameraCapture::open()
     else
     {
       Log::log(m_logObject, LogMessage::W9999_X,
-        std::string("could not parse host/port/path from URL: ") + m_url);
+        std::string("could not parse host/port from URL: ") + m_url);
     }
   }
 
   // ── Attempt 1: GStreamer ──────────────────────────────────────────────
-  const bool gstreamerAvailable = cv::videoio_registry::hasBackend(cv::CAP_GSTREAMER);
-  if(gstreamerAvailable && (isRtsp(m_url) || isMjpeg(m_url)))
+  const bool gstreamerAvailable =
+    cv::videoio_registry::hasBackend(cv::CAP_GSTREAMER);
+
+  if(gstreamerAvailable && isNetworkStream(m_url))
   {
-    const std::string pipeline = isRtsp(m_url)
-      ? gstreamerRtspPipeline(m_url)
-      : gstreamerMjpegPipeline(m_url);
+    // Build appropriate pipeline per protocol
+    std::string pipeline;
+    if(isRtsp(m_url))
+      pipeline = gstreamerRtspPipeline(m_url);
+    else
+      pipeline = gstreamerMjpegPipeline(m_url);
 
     Log::log(m_logObject, LogMessage::I9999_X,
       std::string("trying CAP_GSTREAMER pipeline: ") + pipeline);
@@ -604,10 +633,10 @@ bool IpCameraCapture::open()
       std::string("CAP_GSTREAMER open() failed"));
     m_cap->release();
   }
-  else if(isRtsp(m_url) || isMjpeg(m_url))
+  else if(isNetworkStream(m_url))
   {
     Log::log(m_logObject, LogMessage::W9999_X,
-      std::string("GStreamer backend not available — skipping"));
+      std::string("GStreamer backend not available -- skipping"));
   }
 
   // ── Attempt 2: FFmpeg with timeout properties ─────────────────────────
@@ -636,7 +665,7 @@ bool IpCameraCapture::open()
   {
     std::string host, path;
     int port = 554;
-    if(parseRtspHostPort(m_url, host, port, path))
+    if(parseHostPort(m_url, host, port, path))
     {
       const std::string explicitUrl = [&]() -> std::string
       {
@@ -657,6 +686,7 @@ bool IpCameraCapture::open()
         Log::log(m_logObject, LogMessage::I9999_X,
           std::string("trying CAP_FFMPEG with explicit port url=[")
           + explicitUrl + "]");
+
         const std::vector<int> params{
           cv::CAP_PROP_OPEN_TIMEOUT_MSEC, 10000,
           cv::CAP_PROP_READ_TIMEOUT_MSEC, 10000,
@@ -706,23 +736,37 @@ success:
   unsetenv("OPENCV_FFMPEG_DEBUG");
   unsetenv("OPENCV_FFMPEG_LOGLEVEL");
 #endif
+
+  // Request source resolution from backend as a hint --
+  // some RTSP cameras honour this in SDP negotiation.
+  // We always scale server-side anyway via encodeFrame().
+  if(m_maxWidth > 0)
+    m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_maxWidth));
+  if(m_maxHeight > 0)
+    m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_maxHeight));
+
   m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
   m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
+
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("open() success: ") +
     std::to_string(m_width) + "x" + std::to_string(m_height) +
     " backend=" + cv::videoio_registry::getBackendName(m_backend));
+
   return true;
 }
 
 bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
 {
   using namespace std::chrono;
-  const auto framePeriod = duration_cast<microseconds>(duration<double>(1.0 / m_fps));
+  const auto framePeriod =
+    duration_cast<microseconds>(duration<double>(1.0 / m_fps));
+
   cv::Mat frame;
   while(!m_interrupted)
   {
     const auto t0 = steady_clock::now();
+
     if(!m_cap->read(frame) || frame.empty())
     {
       if(m_interrupted) return false;
@@ -754,7 +798,7 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       if(!ok)
       {
         Log::log(m_logObject, LogMessage::E9999_X,
-          std::string("readJpeg: reconnect failed — stopping capture"));
+          std::string("readJpeg: reconnect failed -- stopping capture"));
         return false;
       }
       Log::log(m_logObject, LogMessage::I9999_X,
@@ -762,16 +806,17 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       continue;
     }
 
-    const std::vector<int> params{cv::IMWRITE_JPEG_QUALITY, k_jpegQuality};
-    if(!cv::imencode(".jpg", frame, jpegOut, params))
+    if(!encodeFrame(frame, jpegOut))
     {
       Log::log(m_logObject, LogMessage::E9999_X,
-        std::string("readJpeg: imencode failed"));
+        std::string("readJpeg: encodeFrame failed"));
       return false;
     }
+
     const auto elapsed = steady_clock::now() - t0;
     if(elapsed < framePeriod)
       std::this_thread::sleep_for(framePeriod - elapsed);
+
     return true;
   }
   return false;

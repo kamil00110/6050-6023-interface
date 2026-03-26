@@ -73,6 +73,8 @@ std::string CameraListTableModel::getText(uint32_t column, uint32_t row) const
         case CameraType::Local: return "Local";
         case CameraType::RTSP:  return "RTSP";
         case CameraType::MJPEG: return "MJPEG";
+        case CameraType::RTMP:  return "RTMP";
+        case CameraType::HLS:   return "HLS";
       }
       return "";
     }

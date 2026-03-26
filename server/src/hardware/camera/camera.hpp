@@ -5,7 +5,6 @@
  *
  * Copyright (C) 2025 Reinder Feenstra
  */
-
 #ifndef TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAMERA_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAMERA_HPP
 
@@ -16,11 +15,11 @@
 #include <atomic>
 #include <thread>
 #include <mutex>
+#include <future>
 #include <vector>
 #include <string>
 #include <string_view>
 #include <functional>
-#include <future> 
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -40,7 +39,6 @@ class Camera : public IdObject
   CLASS_ID("camera")
   DEFAULT_ID("camera")
   CREATE(Camera)
-
   friend class CameraList;
 
 public:
@@ -52,6 +50,9 @@ public:
   Property<uint32_t>     frameWidth;
   Property<uint32_t>     frameHeight;
   Property<double>       fps;
+  Property<uint32_t>     maxWidth;   ///< 0 = no limit, scale down if source is larger
+  Property<uint32_t>     maxHeight;  ///< 0 = no limit
+  Property<int>          jpegQuality; ///< 1-100, default 75
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
   uint64_t addFrameSubscriber(FrameCallback cb);
@@ -67,24 +68,17 @@ protected:
   void worldEvent(WorldState state, WorldEvent event) override;
 
 private:
-  // ── Capture ────────────────────────────────────────────────────────────
   std::unique_ptr<CameraCapture>                    m_capture;
   std::atomic<bool>                                 m_running{false};
-  std::promise<bool>    m_openPromise;     // ← add
-  uint32_t              m_captureWidth{0}; // ← add
-  uint32_t              m_captureHeight{0};// ← add
-
 #ifdef _WIN32
   HANDLE                                            m_captureThreadHandle{nullptr};
 #else
   std::thread                                       m_captureThread;
 #endif
-
   std::mutex                                        m_subscriberMutex;
   std::vector<std::pair<uint64_t, FrameCallback>>  m_subscribers;
   uint64_t                                          m_nextSubscriberId{1};
 
-  // ── Local-camera device attribute data ────────────────────────────────
   std::vector<std::string>       m_deviceValues;
   std::vector<std::string>       m_deviceNamesStr;
   std::vector<std::string_view>  m_deviceNames;
@@ -97,5 +91,4 @@ private:
   void applySettings();
   void updateDeviceAttribute();
 };
-
 #endif

@@ -18,6 +18,12 @@
 #include "../../../log/log.hpp"
 
 #ifdef _WIN32
+  #ifndef NOMINMAX
+  #define NOMINMAX
+  #endif
+  #ifndef WIN32_LEAN_AND_MEAN
+  #define WIN32_LEAN_AND_MEAN
+  #endif
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #include <stdlib.h>
@@ -310,7 +316,9 @@ namespace
       FD_SET(sock, &rset);
       struct timeval tv{5, 0};
       const int toRead = static_cast<int>(
-        std::min(static_cast<size_t>(remaining), sizeof(tmp)));
+        static_cast<size_t>(remaining) < sizeof(tmp)
+          ? static_cast<size_t>(remaining) : sizeof(tmp))
+      
 #ifdef _WIN32
       if(select(0, &rset, nullptr, nullptr, &tv) <= 0) break;
       const int n = recv(sock, tmp, toRead, 0);

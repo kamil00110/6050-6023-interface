@@ -189,8 +189,7 @@ void Kernel::stop()
       m_redundancyTimers.clear();
       m_txTimer.cancel();
       m_txTimerArmed = false;
-      m_txQueueHigh.clear();
-      m_txQueueNormal.clear();
+      m_txQueue.clear();
       m_ctsMonitorTimer.cancel();
       if(m_ioHandler)
       {
@@ -216,7 +215,8 @@ void Kernel::sendGlobalGo()
 
 void Kernel::sendGlobalStop()
 {
-  m_strand.post([this](){ sendCmdWithRedundancy("S"); });
+  // Stop bypasses the command queue so it is never delayed by backlog.
+  m_strand.post([this](){ sendImmediateWithRedundancy("S"); });
 }
 
 void Kernel::setLocoSpeed(uint8_t address, uint8_t speed, bool f0)
@@ -245,8 +245,9 @@ void Kernel::setLocoEmergencyStop(uint8_t address, bool /*f0*/)
   m_strand.post(
     [this, address]()
     {
+      // Loco emergency stop bypasses the command queue (sent immediately).
       const std::string cmd = "L " + std::to_string(address) + " D";
-      sendCmd(cmd);
+      writeCmdNow(cmd);
 
       auto& t = m_redundancyTimers.emplace_back(m_ioContext);
       t.expires_after(50ms);
@@ -256,7 +257,7 @@ void Kernel::setLocoEmergencyStop(uint8_t address, bool /*f0*/)
           {
             if(!ec && m_ioHandler)
             {
-              sendCmd(cmd);
+              writeCmdNow(cmd);
             }
           }));
     });
@@ -354,7 +355,7 @@ void Kernel::sendCmd(std::string cmd)
 
   if(m_config.commandQueue)
   {
-    enqueueCmd(std::move(cmd), /*highPriority*/ false, nullptr);
+    enqueueCmd(std::move(cmd), nullptr);
   }
   else
   {
@@ -385,17 +386,20 @@ void Kernel::writeCmdNow(const std::string& cmd)
   m_ioHandler->sendString(cmd + CR);
 }
 
-void Kernel::enqueueCmd(std::string cmd, bool highPriority, std::function<void()> onSent)
+void Kernel::enqueueCmd(std::string cmd, std::function<void()> onSent)
 {
-  TxItem item{std::move(cmd), std::move(onSent)};
-  if(highPriority)
+  // Bound the queue: once the backlog reaches the overflow threshold, drop new
+  // frames so memory cannot grow without bound (e.g. if S88 is polled faster
+  // than commandInterval lets it drain). The overflow response has already run.
+  if(static_cast<uint64_t>(m_txQueue.size()) * m_config.commandInterval >= kTxOverflowMs)
   {
-    m_txQueueHigh.push_back(std::move(item));
+    checkTxOverflow();
+    return;
   }
-  else
-  {
-    m_txQueueNormal.push_back(std::move(item));
-  }
+
+  // Single FIFO: S88 queries and loco/accessory commands share one line and
+  // are sent in enqueue order (the hardware makes no distinction).
+  m_txQueue.push_back(TxItem{std::move(cmd), std::move(onSent)});
   checkTxOverflow();
   armTxTimer();
 }
@@ -406,7 +410,7 @@ void Kernel::armTxTimer()
   {
     return;
   }
-  if(m_txQueueHigh.empty() && m_txQueueNormal.empty())
+  if(m_txQueue.empty())
   {
     return;
   }
@@ -435,21 +439,12 @@ void Kernel::drainTx()
     return;
   }
 
-  TxItem item;
-  if(!m_txQueueHigh.empty())
-  {
-    item = std::move(m_txQueueHigh.front());
-    m_txQueueHigh.pop_front();
-  }
-  else if(!m_txQueueNormal.empty())
-  {
-    item = std::move(m_txQueueNormal.front());
-    m_txQueueNormal.pop_front();
-  }
-  else
+  if(m_txQueue.empty())
   {
     return;
   }
+  TxItem item = std::move(m_txQueue.front());
+  m_txQueue.pop_front();
 
   writeCmdNow(item.data);
   if(item.onSent)
@@ -463,26 +458,32 @@ void Kernel::drainTx()
 
 void Kernel::checkTxOverflow()
 {
-  const std::size_t pending = m_txQueueHigh.size() + m_txQueueNormal.size();
+  const std::size_t pending = m_txQueue.size();
   const uint64_t backlogMs =
     static_cast<uint64_t>(pending) * m_config.commandInterval;
 
   if(backlogMs >= kTxOverflowMs)
   {
-    if(!m_txOverflowWarned && !m_config.ignoreWarnings)
+    if(!m_txOverflowFired)
     {
-      m_txOverflowWarned = true;
+      m_txOverflowFired = true;
       EventLoop::call(
         [this, pending]()
         {
+          // Always log the critical message; stop the world only when warnings
+          // are not being ignored.
           Log::log(logId, LogMessage::C2006_COMMAND_QUEUE_OVERFLOWING_X,
                    static_cast<uint32_t>(pending));
+          if(!m_config.ignoreWarnings && stopWorldCallback)
+          {
+            stopWorldCallback();
+          }
         });
     }
   }
   else if(backlogMs < kTxOverflowMs / 2)
   {
-    m_txOverflowWarned = false; // hysteresis: allow a fresh warning later
+    m_txOverflowFired = false; // hysteresis: allow a fresh trigger later
   }
 }
 
@@ -500,6 +501,27 @@ void Kernel::sendCmdWithRedundancy(std::string cmd)
           if(!ec && m_ioHandler)
           {
             sendCmd(cmd);
+          }
+        }));
+  }
+}
+
+// Like sendCmdWithRedundancy but writes straight to the wire, bypassing the
+// pacing queue — used for stop commands so they are never delayed by backlog.
+void Kernel::sendImmediateWithRedundancy(std::string cmd)
+{
+  writeCmdNow(cmd);
+  for(unsigned int i = 0; i < m_config.redundancy; ++i)
+  {
+    auto& t = m_redundancyTimers.emplace_back(m_ioContext);
+    t.expires_after(std::chrono::milliseconds(50u * (i + 1)));
+    t.async_wait(
+      m_strand.wrap(
+        [this, cmd](const boost::system::error_code& ec)
+        {
+          if(!ec && m_ioHandler)
+          {
+            writeCmdNow(cmd);
           }
         }));
   }
@@ -571,9 +593,8 @@ void Kernel::queryNextContact()
   std::string cmd = "C " + std::to_string(m_s88NextContact);
   if(m_config.commandQueue)
   {
-    // S88 polls jump ahead of loco/accessory traffic so feedback keeps flowing
-    // even while a command backlog drains.
-    enqueueCmd(std::move(cmd), /*highPriority*/ true, onSent);
+    // S88 queries share the single FIFO with commands (one physical line).
+    enqueueCmd(std::move(cmd), onSent);
   }
   else
   {
@@ -634,8 +655,8 @@ void Kernel::onS88ResponseTimeout()
 // ---------------------------------------------------------------------------
 // Crash detection — poll the serial CTS line once per second. If it stays low
 // for more than 10 s the command station has probably crashed or been
-// disconnected: fire crashCallback (on the EventLoop thread) which logs a
-// critical message and stops the world.
+// disconnected: on the EventLoop thread, log a critical message and invoke
+// stopWorldCallback to power the world off.
 // ---------------------------------------------------------------------------
 
 void Kernel::scheduleCtsMonitor()
@@ -668,9 +689,12 @@ void Kernel::scheduleCtsMonitor()
             EventLoop::call(
               [this]()
               {
-                if(crashCallback)
+                // Always log the crash; stop the world only when warnings are
+                // not being ignored.
+                Log::log(logId, LogMessage::C2007_COMMAND_STATION_CRASH_DETECTED);
+                if(!m_config.ignoreWarnings && stopWorldCallback)
                 {
-                  crashCallback();
+                  stopWorldCallback();
                 }
               });
           }

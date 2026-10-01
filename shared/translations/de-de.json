@@ -3777,7 +3777,7 @@
     },
     {
         "term": "marklin6050_settings:ignore_warnings.help",
-        "definition": "Unterdrückt die kritische Warnung, die angezeigt wird, wenn die Befehlswarteschlange überläuft (Rückstand über 10 Sekunden). Hat keine Auswirkung auf die normale Protokollierung."
+        "definition": "Ein Überlauf der Befehlswarteschlange (> 10 s Rückstand) und ein erkannter Absturz der Zentraleinheit werden immer als kritische Warnungen protokolliert. Wenn aktiviert, schaltet keiner von beiden die Welt automatisch ab – es wird nur die Warnung protokolliert. Hat keine Auswirkung auf die normale Protokollierung."
     },
     {
         "term": "marklin6050_settings:central_unit_version",

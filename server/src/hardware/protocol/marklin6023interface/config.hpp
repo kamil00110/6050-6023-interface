@@ -35,7 +35,7 @@ struct Config
 
     bool         commandQueue    = false; ///< pace outgoing commands through a FIFO queue
     unsigned int commandInterval = 100;   ///< milliseconds between queued command sends (10..500)
-    bool         ignoreWarnings  = false; ///< suppress the command-queue overflow critical warning
+    bool         ignoreWarnings  = false; ///< disable the auto power-off on crash/overflow (still logged)
     bool         crashDetection  = false; ///< monitor CTS; stop the world if low > 10 s
     bool         waitForCts      = false; ///< queue only sends while CTS is asserted (needs crashDetection)
 };

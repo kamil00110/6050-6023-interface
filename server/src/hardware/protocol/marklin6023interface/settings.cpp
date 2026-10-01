@@ -95,11 +95,6 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
     std::span<const std::string_view>{kRedundancyLabels});
   m_interfaceItems.add(redundancy);
 
-  // debugLogRXTX — always enabled
-  Attributes::addCategory(debugLogRXTX, "category:marklin_6023");
-  Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
-  m_interfaceItems.add(debugLogRXTX);
-
   // commandQueue — enable the paced command queue; disabled when online
   Attributes::addCategory(commandQueue, "category:marklin_6023");
   Attributes::addDisplayName(commandQueue, "marklin6050_settings:command_queue");
@@ -117,7 +112,7 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   Attributes::addUnit(commandInterval, Unit::milliSeconds);
   m_interfaceItems.add(commandInterval);
 
-  // ignoreWarnings — suppress the command-queue overflow critical warning
+  // ignoreWarnings — disable the auto power-off on crash/overflow (still logged)
   Attributes::addCategory(ignoreWarnings, "category:marklin_6023");
   Attributes::addDisplayName(ignoreWarnings, "marklin6050_settings:ignore_warnings");
   Attributes::addHelp(ignoreWarnings, "marklin6050_settings:ignore_warnings.help");
@@ -137,6 +132,11 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   Attributes::addHelp(waitForCts, "marklin6050_settings:wait_for_cts.help");
   Attributes::addEnabled(waitForCts, crashDetection);
   m_interfaceItems.add(waitForCts);
+
+  // debugLogRXTX — "log all communication"; always enabled, shown last
+  Attributes::addCategory(debugLogRXTX, "category:marklin_6023");
+  Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
+  m_interfaceItems.add(debugLogRXTX);
 }
 
 Config Settings::config() const

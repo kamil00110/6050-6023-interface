@@ -49,7 +49,7 @@ class Kernel : public KernelBase
 public:
   // Callbacks — set before start(); called on the EventLoop thread.
   std::function<void(uint32_t address, bool state)> s88Callback;
-  std::function<void()>                             crashCallback; //!< CTS low > 10 s (crash detection)
+  std::function<void()>                             stopWorldCallback; //!< power off the world (crash / queue overflow)
 
   /**
    * logId_ is passed to KernelBase (differs from the inherited logId member
@@ -87,8 +87,9 @@ public:
 
 private:
   // One queued serial frame plus an optional action run the moment it is
-  // actually written to the wire (used by S88 polls to arm their watchdog
-  // only once the query has really been sent, so queue delay is accounted for).
+  // actually written to the wire (S88 queries use it to set their waiting
+  // state only once the query has really been sent, so queue delay is
+  // accounted for).
   struct TxItem
   {
     std::string           data;
@@ -97,10 +98,11 @@ private:
 
   void sendCmd(std::string cmd);
   void sendCmdWithRedundancy(std::string cmd);
+  void sendImmediateWithRedundancy(std::string cmd); //!< stop commands — bypass the queue
 
   // Command queue (used only when m_config.commandQueue is set).
   void writeCmdNow(const std::string& cmd);
-  void enqueueCmd(std::string cmd, bool highPriority, std::function<void()> onSent);
+  void enqueueCmd(std::string cmd, std::function<void()> onSent);
   void armTxTimer();
   void drainTx();
   void checkTxOverflow();
@@ -110,7 +112,7 @@ private:
   void onS88Response(const std::string& line);
   void onS88ResponseTimeout();
 
-  // Crash detection: poll CTS once per second; if low for > 10 s, fire crashCallback.
+  // Crash detection: poll CTS once per second; if low for > 10 s, stop the world.
   void scheduleCtsMonitor();
 
   const Config                           m_config;
@@ -127,11 +129,10 @@ private:
   boost::asio::steady_timer              m_s88ResponseTimer;
   std::vector<boost::asio::steady_timer> m_redundancyTimers;
 
-  std::deque<TxItem>        m_txQueueHigh;   //!< S88 polls — drained first
-  std::deque<TxItem>        m_txQueueNormal; //!< loco/accessory commands
+  std::deque<TxItem>        m_txQueue;       //!< single FIFO: S88 queries + loco/accessory commands
   boost::asio::steady_timer m_txTimer;
-  bool                      m_txTimerArmed   = false;
-  bool                      m_txOverflowWarned = false;
+  bool                      m_txTimerArmed  = false;
+  bool                      m_txOverflowFired = false;
 
   boost::asio::steady_timer                            m_ctsMonitorTimer;
   std::optional<std::chrono::steady_clock::time_point> m_ctsLowSince;

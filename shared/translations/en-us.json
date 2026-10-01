@@ -3789,7 +3789,7 @@
     },
     {
         "term": "marklin6050_settings:ignore_warnings.help",
-        "definition": "Suppress the critical warning shown when the command queue is overflowing (backlog over 10 seconds). Does not affect normal logging."
+        "definition": "A command-queue overflow (> 10 s backlog) and a detected command-station crash are always logged as critical warnings. When this is set, neither one automatically powers off the world — only the warning is logged. Does not affect normal logging."
     },
     {
         "term": "marklin6050_settings:central_unit_version",

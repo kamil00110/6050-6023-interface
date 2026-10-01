@@ -53,7 +53,7 @@ public:
   std::function<void(uint32_t address, bool green)>                           extensionTurnoutCallback;
   std::function<void(uint8_t address, uint8_t speed, bool f0, bool forward)>  extensionLocoCallback;
   std::function<void(uint8_t address, bool f1, bool f2, bool f3, bool f4)>    extensionFuncCallback;
-  std::function<void()>                                                       crashCallback; //!< CTS low > 10 s (crash detection)
+  std::function<void()>                                                       stopWorldCallback; //!< power off the world (crash / queue overflow)
 
   /**
    * logId_ is passed to KernelBase (differs from the inherited logId member
@@ -105,10 +105,11 @@ private:
   void sendRaw(uint8_t b);
   void sendWithRedundancy(uint8_t b);
   void sendWithRedundancy(uint8_t b1, uint8_t b2);
+  void sendImmediateWithRedundancy(std::vector<uint8_t> frame); //!< stop commands — bypass the queue
 
   // Command queue (used only when m_config.commandQueue is set).
   void writeFrameNow(const std::vector<uint8_t>& frame);
-  void enqueueTx(std::vector<uint8_t> frame, bool highPriority, std::function<void()> onSent);
+  void enqueueTx(std::vector<uint8_t> frame, std::function<void()> onSent);
   void armTxTimer();
   void drainTx();
   void checkTxOverflow();
@@ -116,7 +117,7 @@ private:
   void scheduleS88Poll();
   void doS88Poll();
 
-  // Crash detection: poll CTS once per second; if low for > 10 s, fire crashCallback.
+  // Crash detection: poll CTS once per second; if low for > 10 s, stop the world.
   void scheduleCtsMonitor();
 
   enum class S88State { Idle, ReceivingData };
@@ -124,7 +125,6 @@ private:
   unsigned int m_s88Expect       = 0;
   unsigned int m_s88Module       = 0;
   uint8_t      m_s88High         = 0;
-  bool         m_s88PollInFlight = false; //!< a poll is queued/awaiting reply (queue mode self-gating)
 
   void scheduleExtensionPoll();
   void doExtensionPoll();
@@ -147,15 +147,13 @@ private:
   std::thread                            m_ioThread;
   std::unique_ptr<IOHandler>             m_ioHandler;
   boost::asio::steady_timer              m_s88Timer;
-  boost::asio::steady_timer              m_s88ResponseTimer;
   boost::asio::steady_timer              m_extensionTimer;
   std::vector<boost::asio::steady_timer> m_redundancyTimers;
 
-  std::deque<TxItem>        m_txQueueHigh;   //!< S88/extension polls — drained first
-  std::deque<TxItem>        m_txQueueNormal; //!< loco/accessory commands
+  std::deque<TxItem>        m_txQueue;       //!< single FIFO: S88/extension polls + loco/accessory commands
   boost::asio::steady_timer m_txTimer;
-  bool                      m_txTimerArmed     = false;
-  bool                      m_txOverflowWarned = false;
+  bool                      m_txTimerArmed   = false;
+  bool                      m_txOverflowFired = false;
 
   boost::asio::steady_timer                            m_ctsMonitorTimer;
   std::optional<std::chrono::steady_clock::time_point> m_ctsLowSince;

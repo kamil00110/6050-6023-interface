@@ -126,11 +126,35 @@ void Marklin6023Interface::worldEvent(WorldState state, WorldEvent event)
     return;
   }
 
+  // This command station has no separate track-power control: STOP powers the
+  // layout off (trains stop), GO powers it on (trains resume). Couple the
+  // world's power and run so the Power and Stop/Go buttons act as one —
+  // implemented purely here from the current state via the existing world
+  // methods (no client or server changes). The coupling state change is
+  // deferred (EventLoop::call) so it runs after the current event finished
+  // dispatching, and guarded on the state so it cannot loop.
   switch(event)
   {
-    case WorldEvent::Stop: m_kernel->sendGlobalStop(); break;
-    case WorldEvent::Run:  m_kernel->sendGlobalGo();  break;
-    default: break;
+    case WorldEvent::PowerOff:
+    case WorldEvent::Stop:
+      m_kernel->sendGlobalStop();
+      if(contains(state, WorldState::PowerOn) || contains(state, WorldState::Run))
+      {
+        EventLoop::call([this](){ m_world.powerOff(); });
+      }
+      break;
+
+    case WorldEvent::PowerOn:
+    case WorldEvent::Run:
+      m_kernel->sendGlobalGo();
+      if(!contains(state, WorldState::PowerOn) || !contains(state, WorldState::Run))
+      {
+        EventLoop::call([this](){ m_world.run(); });
+      }
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -167,12 +191,12 @@ bool Marklin6023Interface::setOnline(bool& value, bool simulation)
         onS88Input(address, state);
       };
 
-      m_kernel->crashCallback =
+      m_kernel->stopWorldCallback =
         [this]()
         {
-          // CTS low > 10 s: the command station has probably crashed or been
-          // disconnected — log it and stop the world fully (track power off).
-          Log::log(*this, LogMessage::C2007_COMMAND_STATION_CRASH_DETECTED);
+          // Stop the world fully (track power off). Invoked by the kernel on a
+          // detected command-station crash (CTS low > 10 s) or a command-queue
+          // overflow (> 10 s backlog); the kernel logs the specific message.
           if(contains(m_world.state.value(), WorldState::PowerOn))
           {
             m_world.powerOff();

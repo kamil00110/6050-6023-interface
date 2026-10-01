@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-
 #ifndef TRAINTASTIC_SERVER_HARDWARE_INTERFACE_MARKLIN6023INTERFACE_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_INTERFACE_MARKLIN6023INTERFACE_HPP
 
@@ -61,7 +60,7 @@ public:
   Property<uint32_t>   baudrate;
   ObjectProperty<Marklin6023::Settings> settings;
 
-  Marklin6023Interface(World& world, std::string_view id);
+  Marklin6023Interface(World& world, std::string_view _id);
 
   // DecoderController
   std::span<const DecoderProtocol>      decoderProtocols() const final;

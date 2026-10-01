@@ -97,14 +97,14 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
 
   // commandQueue — enable the paced command queue; disabled when online
   Attributes::addCategory(commandQueue, "category:marklin_6023");
-  Attributes::addDisplayName(commandQueue, "marklin6050_settings:command_queue");
+  Attributes::addDisplayName(commandQueue, DisplayName::Marklin6050::commandQueue);
   Attributes::addHelp(commandQueue, "marklin6050_settings:command_queue.help");
   Attributes::addEnabled(commandQueue, true);
   m_interfaceItems.add(commandQueue);
 
   // commandInterval — ms between queued sends; only enabled while commandQueue is on
   Attributes::addCategory(commandInterval, "category:marklin_6023");
-  Attributes::addDisplayName(commandInterval, "marklin6050_settings:command_interval");
+  Attributes::addDisplayName(commandInterval, DisplayName::Marklin6050::commandInterval);
   Attributes::addHelp(commandInterval, "marklin6050_settings:command_interval.help");
   Attributes::addEnabled(commandInterval, commandQueue);
   Attributes::addMinMax(commandInterval, 10u, 500u);
@@ -114,21 +114,21 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
 
   // ignoreWarnings — disable the auto power-off on crash/overflow (still logged)
   Attributes::addCategory(ignoreWarnings, "category:marklin_6023");
-  Attributes::addDisplayName(ignoreWarnings, "marklin6050_settings:ignore_warnings");
+  Attributes::addDisplayName(ignoreWarnings, DisplayName::Marklin6050::ignoreWarnings);
   Attributes::addHelp(ignoreWarnings, "marklin6050_settings:ignore_warnings.help");
   Attributes::addEnabled(ignoreWarnings, true);
   m_interfaceItems.add(ignoreWarnings);
 
   // crashDetection — monitor CTS and stop the world on probable crash/disconnect
   Attributes::addCategory(crashDetection, "category:marklin_6023");
-  Attributes::addDisplayName(crashDetection, "marklin6050_settings:crash_detection");
+  Attributes::addDisplayName(crashDetection, DisplayName::Marklin6050::crashDetection);
   Attributes::addHelp(crashDetection, "marklin6050_settings:crash_detection.help");
   Attributes::addEnabled(crashDetection, true);
   m_interfaceItems.add(crashDetection);
 
   // waitForCts — queue waits for CTS; only enabled while crash detection is on
   Attributes::addCategory(waitForCts, "category:marklin_6023");
-  Attributes::addDisplayName(waitForCts, "marklin6050_settings:wait_for_cts");
+  Attributes::addDisplayName(waitForCts, DisplayName::Marklin6050::waitForCts);
   Attributes::addHelp(waitForCts, "marklin6050_settings:wait_for_cts.help");
   Attributes::addEnabled(waitForCts, crashDetection);
   m_interfaceItems.add(waitForCts);

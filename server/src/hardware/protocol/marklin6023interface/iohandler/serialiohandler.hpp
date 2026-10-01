@@ -50,13 +50,13 @@ public:
   bool getCTS() final;
 
 private:
-  static constexpr std::size_t kReadBufferSize = 256;
+  static constexpr std::size_t readBufferSize = 256;
 
   boost::asio::io_context::strand&     m_strand;
   boost::asio::serial_port             m_serialPort;
   const std::string                    m_device;
   const uint32_t                       m_baudrate;
-  std::array<uint8_t, kReadBufferSize> m_readBuffer;
+  std::array<uint8_t, readBufferSize> m_readBuffer;
   std::string                          m_lineBuffer;
 
   void startRead();

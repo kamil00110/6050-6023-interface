@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-
 #include "marklin6023interface.hpp"
 #include "../protocol/marklin6023interface/iohandler/serialiohandler.hpp"
 #include "../protocol/marklin6023interface/iohandler/simulationiohandler.hpp"
@@ -57,11 +56,11 @@ CREATE_IMPL(Marklin6023Interface)
 // Construction
 // ---------------------------------------------------------------------------
 
-Marklin6023Interface::Marklin6023Interface(World& world, std::string_view objId)
-  : Interface{world, objId}
-  , DecoderController{*this, decoderListColumns}
-  , InputController{static_cast<IdObject&>(*this)}
-  , OutputController{static_cast<IdObject&>(*this)}
+Marklin6023Interface::Marklin6023Interface(World& world, std::string_view _id)
+  : Interface(world, _id)
+  , DecoderController(*this, decoderListColumns)
+  , InputController(static_cast<IdObject&>(*this))
+  , OutputController(static_cast<IdObject&>(*this))
   , device{this, "device", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
   , baudrate{this, "baudrate", 9600, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}

@@ -19,7 +19,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-
 #include "marklin6050interface.hpp"
 #include "../protocol/marklin6050interface/iohandler/serialiohandler.hpp"
 #include "../protocol/marklin6050interface/iohandler/simulationiohandler.hpp"
@@ -53,11 +52,11 @@ static constexpr std::array<uint32_t, 6> kBaudrateValues{
 
 CREATE_IMPL(Marklin6050Interface)
 
-Marklin6050Interface::Marklin6050Interface(World& world, std::string_view objId)
-  : Interface{world, objId}
-  , DecoderController{*this, decoderListColumns}
-  , InputController{static_cast<IdObject&>(*this)}
-  , OutputController{static_cast<IdObject&>(*this)}
+Marklin6050Interface::Marklin6050Interface(World& world, std::string_view _id)
+  : Interface(world, _id)
+  , DecoderController(*this, decoderListColumns)
+  , InputController(static_cast<IdObject&>(*this))
+  , OutputController(static_cast<IdObject&>(*this))
   , device{this, "device", "", PropertyFlags::ReadWrite | PropertyFlags::Store}
   , baudrate{this, "baudrate", 2400, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , settings{this, "settings", nullptr, PropertyFlags::ReadOnly | PropertyFlags::SubObject}

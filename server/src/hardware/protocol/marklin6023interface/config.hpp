@@ -32,6 +32,10 @@ struct Config
     unsigned int s88interval = 400; ///< milliseconds between S88 poll cycles
     unsigned int redundancy  = 0;   ///< extra retransmit count (0 = send once)
     bool         debugLogRXTX = false; ///< log every TX/RX line to the debug log
+
+    bool         commandQueue    = false; ///< pace outgoing commands through a FIFO queue
+    unsigned int commandInterval = 100;   ///< milliseconds between queued command sends (10..500)
+    bool         ignoreWarnings  = false; ///< suppress the command-queue overflow critical warning
 };
 
 } // namespace Marklin6023

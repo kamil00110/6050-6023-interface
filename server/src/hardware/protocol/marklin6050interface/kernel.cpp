@@ -36,6 +36,16 @@ using namespace std::chrono_literals;
 namespace Marklin6050 {
 
 // ---------------------------------------------------------------------------
+// Command-queue overflow threshold: warn once the estimated time to drain the
+// queue (pending frames * commandInterval) reaches this. 10 s = "too long".
+// ---------------------------------------------------------------------------
+static constexpr uint64_t kTxOverflowMs = 10000;
+
+// In queue mode, if an S88 poll gets no reply within this window the poll is
+// considered done so the cycle isn't blocked forever (mirrors the 6023 kernel).
+static constexpr auto kS88ResponseTimeout = std::chrono::milliseconds(1000);
+
+// ---------------------------------------------------------------------------
 // Interpreted command logging helpers
 // ---------------------------------------------------------------------------
 
@@ -123,7 +133,9 @@ Kernel::Kernel(std::string logId_, const Config& config)
   , m_config{config}
   , m_strand{m_ioContext}
   , m_s88Timer{m_ioContext}
+  , m_s88ResponseTimer{m_ioContext}
   , m_extensionTimer{m_ioContext}
+  , m_txTimer{m_ioContext}
 {
 }
 
@@ -164,8 +176,13 @@ void Kernel::stop()
     [this]()
     {
       m_s88Timer.cancel();
+      m_s88ResponseTimer.cancel();
       m_extensionTimer.cancel();
       m_redundancyTimers.clear();
+      m_txTimer.cancel();
+      m_txTimerArmed = false;
+      m_txQueueHigh.clear();
+      m_txQueueNormal.clear();
       if(m_ioHandler)
       {
         m_ioHandler->stop();
@@ -448,6 +465,11 @@ void Kernel::receive(uint8_t byte)
     {
       m_s88State  = S88State::Idle;
       m_s88Module = 0;
+      if(m_config.commandQueue)
+      {
+        m_s88ResponseTimer.cancel();
+        m_s88PollInFlight = false;
+      }
     }
     return;
   }
@@ -483,33 +505,164 @@ void Kernel::writeError(const boost::system::error_code& ec)
 
 void Kernel::sendRaw(uint8_t b1, uint8_t b2)
 {
-  if(m_ioHandler)
+  if(!m_ioHandler)
   {
-    if(m_config.debugLogRXTX)
-    {
-      char raw[8];
-      std::snprintf(raw, sizeof(raw), "%02X %02X", b1, b2);
-      const std::string interp = interpretTx2(b1, b2);
-      EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
-        { Log::log(logId, LogMessage::D2001_TX_X, msg); });
-    }
-    m_ioHandler->send({b1, b2});
+    return;
+  }
+  if(m_config.commandQueue)
+  {
+    enqueueTx({b1, b2}, /*highPriority*/ false, nullptr);
+  }
+  else
+  {
+    writeFrameNow({b1, b2});
   }
 }
 
 void Kernel::sendRaw(uint8_t b)
 {
-  if(m_ioHandler)
+  if(!m_ioHandler)
   {
-    if(m_config.debugLogRXTX)
+    return;
+  }
+  if(m_config.commandQueue)
+  {
+    enqueueTx({b}, /*highPriority*/ false, nullptr);
+  }
+  else
+  {
+    writeFrameNow({b});
+  }
+}
+
+// Write a 1- or 2-byte frame to the wire immediately (the unpaced path, and the
+// path the drain timer uses). Must run on m_strand.
+void Kernel::writeFrameNow(const std::vector<uint8_t>& frame)
+{
+  if(!m_ioHandler || frame.empty())
+  {
+    return;
+  }
+
+  if(m_config.debugLogRXTX)
+  {
+    char raw[8];
+    std::string interp;
+    if(frame.size() == 1)
     {
-      char raw[4];
-      std::snprintf(raw, sizeof(raw), "%02X", b);
-      const std::string interp = interpretTx1(b);
-      EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
-        { Log::log(logId, LogMessage::D2001_TX_X, msg); });
+      std::snprintf(raw, sizeof(raw), "%02X", frame[0]);
+      interp = interpretTx1(frame[0]);
     }
-    m_ioHandler->send({b});
+    else
+    {
+      std::snprintf(raw, sizeof(raw), "%02X %02X", frame[0], frame[1]);
+      interp = interpretTx2(frame[0], frame[1]);
+    }
+    EventLoop::call([this, msg = std::string(raw) + "  [" + interp + "]"]()
+      { Log::log(logId, LogMessage::D2001_TX_X, msg); });
+  }
+
+  if(frame.size() == 1)
+  {
+    m_ioHandler->send({frame[0]});
+  }
+  else
+  {
+    m_ioHandler->send({frame[0], frame[1]});
+  }
+}
+
+void Kernel::enqueueTx(std::vector<uint8_t> frame, bool highPriority, std::function<void()> onSent)
+{
+  TxItem item{std::move(frame), std::move(onSent)};
+  if(highPriority)
+  {
+    m_txQueueHigh.push_back(std::move(item));
+  }
+  else
+  {
+    m_txQueueNormal.push_back(std::move(item));
+  }
+  checkTxOverflow();
+  armTxTimer();
+}
+
+void Kernel::armTxTimer()
+{
+  if(m_txTimerArmed || !m_ioHandler)
+  {
+    return;
+  }
+  if(m_txQueueHigh.empty() && m_txQueueNormal.empty())
+  {
+    return;
+  }
+
+  m_txTimerArmed = true;
+  m_txTimer.expires_after(std::chrono::milliseconds(m_config.commandInterval));
+  m_txTimer.async_wait(
+    m_strand.wrap(
+      [this](const boost::system::error_code& ec)
+      {
+        m_txTimerArmed = false;
+        if(ec || !m_ioHandler) // cancelled (stop) or no handler
+        {
+          return;
+        }
+        drainTx();
+      }));
+}
+
+void Kernel::drainTx()
+{
+  TxItem item;
+  if(!m_txQueueHigh.empty())
+  {
+    item = std::move(m_txQueueHigh.front());
+    m_txQueueHigh.pop_front();
+  }
+  else if(!m_txQueueNormal.empty())
+  {
+    item = std::move(m_txQueueNormal.front());
+    m_txQueueNormal.pop_front();
+  }
+  else
+  {
+    return;
+  }
+
+  writeFrameNow(item.data);
+  if(item.onSent)
+  {
+    item.onSent();
+  }
+
+  checkTxOverflow();
+  armTxTimer(); // keep draining while frames remain
+}
+
+void Kernel::checkTxOverflow()
+{
+  const std::size_t pending = m_txQueueHigh.size() + m_txQueueNormal.size();
+  const uint64_t backlogMs =
+    static_cast<uint64_t>(pending) * m_config.commandInterval;
+
+  if(backlogMs >= kTxOverflowMs)
+  {
+    if(!m_txOverflowWarned && !m_config.ignoreWarnings)
+    {
+      m_txOverflowWarned = true;
+      EventLoop::call(
+        [this, pending]()
+        {
+          Log::log(logId, LogMessage::C2006_COMMAND_QUEUE_OVERFLOWING_X,
+                   static_cast<uint32_t>(pending));
+        });
+    }
+  }
+  else if(backlogMs < kTxOverflowMs / 2)
+  {
+    m_txOverflowWarned = false; // hysteresis: allow a fresh warning later
   }
 }
 
@@ -573,11 +726,53 @@ void Kernel::scheduleS88Poll()
 
 void Kernel::doS88Poll()
 {
+  // Queue mode: self-gate like the 6023 kernel — never enqueue a new poll while
+  // one is still queued or awaiting its reply, so the high-priority poll stream
+  // can't outpace the drain and starve loco/accessory commands.
+  if(m_config.commandQueue && m_s88PollInFlight)
+  {
+    return;
+  }
+
   const uint8_t cmd = S88Base + static_cast<uint8_t>(m_config.s88amount);
-  sendRaw(cmd);
-  m_s88State  = S88State::ReceivingData;
-  m_s88Expect = m_config.s88amount * 2;
-  m_s88Module = 0;
+
+  // Enter the "receiving module data" state only once the poll byte has
+  // actually gone out, so a queued poll doesn't start expecting bytes while it
+  // is still waiting its turn behind buffered commands.
+  auto onSent = [this]()
+  {
+    m_s88State  = S88State::ReceivingData;
+    m_s88Expect = m_config.s88amount * 2;
+    m_s88Module = 0;
+
+    if(m_config.commandQueue)
+    {
+      // Release the gate if the device never answers, so polling resumes.
+      m_s88ResponseTimer.expires_after(kS88ResponseTimeout);
+      m_s88ResponseTimer.async_wait(
+        m_strand.wrap(
+          [this](const boost::system::error_code& ec)
+          {
+            if(ec) // cancelled: reply arrived
+            {
+              return;
+            }
+            m_s88State        = S88State::Idle;
+            m_s88PollInFlight = false;
+          }));
+    }
+  };
+
+  if(m_config.commandQueue)
+  {
+    m_s88PollInFlight = true;
+    enqueueTx({cmd}, /*highPriority*/ true, onSent);
+  }
+  else
+  {
+    sendRaw(cmd);
+    onSent();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -602,10 +797,25 @@ void Kernel::scheduleExtensionPoll()
 
 void Kernel::doExtensionPoll()
 {
-  sendRaw(Extension::PollByte);
-  sendRaw(Extension::PollByte);
-  m_extState      = ExtState::WaitCount;
-  m_extEventsLeft = 0;
+  // Enter the extension-receive state only once the poll bytes are really sent.
+  auto onSent = [this]()
+  {
+    m_extState      = ExtState::WaitCount;
+    m_extEventsLeft = 0;
+  };
+
+  if(m_config.commandQueue)
+  {
+    // Both poll bytes go out as one high-priority frame so they stay adjacent
+    // on the wire and ahead of buffered commands.
+    enqueueTx({Extension::PollByte, Extension::PollByte}, /*highPriority*/ true, onSent);
+  }
+  else
+  {
+    sendRaw(Extension::PollByte);
+    sendRaw(Extension::PollByte);
+    onSent();
+  }
 }
 
 void Kernel::processExtensionByte(uint8_t byte)

@@ -22,6 +22,7 @@
 #include "settings.hpp"
 #include "../../../core/attributes.hpp"
 #include "../../../utils/displayname.hpp"
+#include "../../../utils/unit.hpp"
 
 namespace Marklin6023 {
 
@@ -50,6 +51,13 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   , s88interval{this, "s88interval", 400, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , redundancy{this, "redundancy", 0, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , debugLogRXTX{this, "debug_log_rx_tx", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , commandQueue{this, "command_queue", false, PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](bool value)
+      {
+        Attributes::setEnabled(commandInterval, value);
+      }}
+  , commandInterval{this, "command_interval", 100, PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , ignoreWarnings{this, "ignore_warnings", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
   // s88amount — disabled when online (toggled by updateEnabled)
   Attributes::addCategory(s88amount, "category:marklin_6023");
@@ -85,28 +93,59 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   Attributes::addCategory(debugLogRXTX, "category:marklin_6023");
   Attributes::addDisplayName(debugLogRXTX, DisplayName::Hardware::debugLogRXTX);
   m_interfaceItems.add(debugLogRXTX);
+
+  // commandQueue — enable the paced command queue; disabled when online
+  Attributes::addCategory(commandQueue, "category:marklin_6023");
+  Attributes::addDisplayName(commandQueue, "marklin6050_settings:command_queue");
+  Attributes::addHelp(commandQueue, "marklin6050_settings:command_queue.help");
+  Attributes::addEnabled(commandQueue, true);
+  m_interfaceItems.add(commandQueue);
+
+  // commandInterval — ms between queued sends; only enabled while commandQueue is on
+  Attributes::addCategory(commandInterval, "category:marklin_6023");
+  Attributes::addDisplayName(commandInterval, "marklin6050_settings:command_interval");
+  Attributes::addHelp(commandInterval, "marklin6050_settings:command_interval.help");
+  Attributes::addEnabled(commandInterval, commandQueue);
+  Attributes::addMinMax(commandInterval, 10u, 500u);
+  Attributes::addStep(commandInterval, 10u);
+  Attributes::addUnit(commandInterval, Unit::milliSeconds);
+  m_interfaceItems.add(commandInterval);
+
+  // ignoreWarnings — suppress the command-queue overflow critical warning
+  Attributes::addCategory(ignoreWarnings, "category:marklin_6023");
+  Attributes::addDisplayName(ignoreWarnings, "marklin6050_settings:ignore_warnings");
+  Attributes::addHelp(ignoreWarnings, "marklin6050_settings:ignore_warnings.help");
+  Attributes::addEnabled(ignoreWarnings, true);
+  m_interfaceItems.add(ignoreWarnings);
 }
 
 Config Settings::config() const
 {
   Config cfg;
-  cfg.s88amount    = s88amount;
-  cfg.s88interval  = s88interval;
-  cfg.redundancy   = redundancy;
-  cfg.debugLogRXTX = debugLogRXTX;
+  cfg.s88amount       = s88amount;
+  cfg.s88interval     = s88interval;
+  cfg.redundancy      = redundancy;
+  cfg.debugLogRXTX    = debugLogRXTX;
+  cfg.commandQueue    = commandQueue;
+  cfg.commandInterval = commandInterval;
+  cfg.ignoreWarnings  = ignoreWarnings;
   return cfg;
 }
 
 void Settings::loaded()
 {
   SubObject::loaded();
+  Attributes::setEnabled(commandInterval, commandQueue);
 }
 
 void Settings::updateEnabled(bool online)
 {
-  Attributes::setEnabled(s88amount,   !online);
-  Attributes::setEnabled(s88interval, !online);
-  Attributes::setEnabled(redundancy,  !online);
+  Attributes::setEnabled(s88amount,       !online);
+  Attributes::setEnabled(s88interval,     !online);
+  Attributes::setEnabled(redundancy,      !online);
+  Attributes::setEnabled(commandQueue,    !online);
+  Attributes::setEnabled(commandInterval, commandQueue && !online);
+  Attributes::setEnabled(ignoreWarnings,  !online);
 }
 
 } // namespace Marklin6023

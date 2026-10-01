@@ -31,6 +31,7 @@
 #include <memory>
 #include <thread>
 #include <vector>
+#include <deque>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
@@ -87,19 +88,37 @@ public:
   void writeError(const boost::system::error_code& ec);
 
 private:
+  // One queued serial frame plus an optional action run the moment it is
+  // actually written to the wire (used by S88/extension polls to set their
+  // receive state only once the poll has really been sent, so the queue delay
+  // is correctly accounted for).
+  struct TxItem
+  {
+    std::vector<uint8_t>  data;
+    std::function<void()> onSent;
+  };
+
   void sendRaw(uint8_t b1, uint8_t b2);
   void sendRaw(uint8_t b);
   void sendWithRedundancy(uint8_t b);
   void sendWithRedundancy(uint8_t b1, uint8_t b2);
 
+  // Command queue (used only when m_config.commandQueue is set).
+  void writeFrameNow(const std::vector<uint8_t>& frame);
+  void enqueueTx(std::vector<uint8_t> frame, bool highPriority, std::function<void()> onSent);
+  void armTxTimer();
+  void drainTx();
+  void checkTxOverflow();
+
   void scheduleS88Poll();
   void doS88Poll();
 
   enum class S88State { Idle, ReceivingData };
-  S88State     m_s88State  = S88State::Idle;
-  unsigned int m_s88Expect = 0;
-  unsigned int m_s88Module = 0;
-  uint8_t      m_s88High   = 0;
+  S88State     m_s88State        = S88State::Idle;
+  unsigned int m_s88Expect       = 0;
+  unsigned int m_s88Module       = 0;
+  uint8_t      m_s88High         = 0;
+  bool         m_s88PollInFlight = false; //!< a poll is queued/awaiting reply (queue mode self-gating)
 
   void scheduleExtensionPoll();
   void doExtensionPoll();
@@ -122,8 +141,15 @@ private:
   std::thread                            m_ioThread;
   std::unique_ptr<IOHandler>             m_ioHandler;
   boost::asio::steady_timer              m_s88Timer;
+  boost::asio::steady_timer              m_s88ResponseTimer;
   boost::asio::steady_timer              m_extensionTimer;
   std::vector<boost::asio::steady_timer> m_redundancyTimers;
+
+  std::deque<TxItem>        m_txQueueHigh;   //!< S88/extension polls — drained first
+  std::deque<TxItem>        m_txQueueNormal; //!< loco/accessory commands
+  boost::asio::steady_timer m_txTimer;
+  bool                      m_txTimerArmed     = false;
+  bool                      m_txOverflowWarned = false;
 };
 
 } // namespace Marklin6050

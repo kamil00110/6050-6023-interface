@@ -28,6 +28,7 @@
 #include "../../../log/logmessageexception.hpp"
 
 #include <chrono>
+#include <cstdio>
 #include <string>
 
 using namespace std::chrono_literals;
@@ -39,6 +40,12 @@ namespace Marklin6023 {
 // we skip the current contact and continue — prevents the cycle hanging.
 // ---------------------------------------------------------------------------
 static constexpr auto kS88ResponseTimeout = std::chrono::milliseconds(1000);
+
+// ---------------------------------------------------------------------------
+// Command-queue overflow threshold: warn once the estimated time to drain the
+// queue (pending frames * commandInterval) reaches this. 10 s = "too long".
+// ---------------------------------------------------------------------------
+static constexpr uint64_t kTxOverflowMs = 10000;
 
 // ---------------------------------------------------------------------------
 // Interpreted command logging helpers
@@ -136,6 +143,7 @@ Kernel::Kernel(std::string logId_, const Config& config)
   , m_strand{m_ioContext}
   , m_s88Timer{m_ioContext}
   , m_s88ResponseTimer{m_ioContext}
+  , m_txTimer{m_ioContext}
 {
 }
 
@@ -173,6 +181,10 @@ void Kernel::stop()
       m_s88Timer.cancel();
       m_s88ResponseTimer.cancel();
       m_redundancyTimers.clear();
+      m_txTimer.cancel();
+      m_txTimerArmed = false;
+      m_txQueueHigh.clear();
+      m_txQueueNormal.clear();
       if(m_ioHandler)
       {
         m_ioHandler->stop();
@@ -333,6 +345,25 @@ void Kernel::sendCmd(std::string cmd)
     return;
   }
 
+  if(m_config.commandQueue)
+  {
+    enqueueCmd(std::move(cmd), /*highPriority*/ false, nullptr);
+  }
+  else
+  {
+    writeCmdNow(cmd);
+  }
+}
+
+// Write a command to the wire immediately (the unpaced path, and the path the
+// drain timer uses). Must run on m_strand.
+void Kernel::writeCmdNow(const std::string& cmd)
+{
+  if(!m_ioHandler)
+  {
+    return;
+  }
+
   if(m_config.debugLogRXTX)
   {
     const std::string interp = interpretTx(cmd);
@@ -344,7 +375,101 @@ void Kernel::sendCmd(std::string cmd)
       });
   }
 
-  m_ioHandler->sendString(std::move(cmd) + CR);
+  m_ioHandler->sendString(cmd + CR);
+}
+
+void Kernel::enqueueCmd(std::string cmd, bool highPriority, std::function<void()> onSent)
+{
+  TxItem item{std::move(cmd), std::move(onSent)};
+  if(highPriority)
+  {
+    m_txQueueHigh.push_back(std::move(item));
+  }
+  else
+  {
+    m_txQueueNormal.push_back(std::move(item));
+  }
+  checkTxOverflow();
+  armTxTimer();
+}
+
+void Kernel::armTxTimer()
+{
+  if(m_txTimerArmed || !m_ioHandler)
+  {
+    return;
+  }
+  if(m_txQueueHigh.empty() && m_txQueueNormal.empty())
+  {
+    return;
+  }
+
+  m_txTimerArmed = true;
+  m_txTimer.expires_after(std::chrono::milliseconds(m_config.commandInterval));
+  m_txTimer.async_wait(
+    m_strand.wrap(
+      [this](const boost::system::error_code& ec)
+      {
+        m_txTimerArmed = false;
+        if(ec || !m_ioHandler) // cancelled (stop) or no handler
+        {
+          return;
+        }
+        drainTx();
+      }));
+}
+
+void Kernel::drainTx()
+{
+  TxItem item;
+  if(!m_txQueueHigh.empty())
+  {
+    item = std::move(m_txQueueHigh.front());
+    m_txQueueHigh.pop_front();
+  }
+  else if(!m_txQueueNormal.empty())
+  {
+    item = std::move(m_txQueueNormal.front());
+    m_txQueueNormal.pop_front();
+  }
+  else
+  {
+    return;
+  }
+
+  writeCmdNow(item.data);
+  if(item.onSent)
+  {
+    item.onSent();
+  }
+
+  checkTxOverflow();
+  armTxTimer(); // keep draining while frames remain
+}
+
+void Kernel::checkTxOverflow()
+{
+  const std::size_t pending = m_txQueueHigh.size() + m_txQueueNormal.size();
+  const uint64_t backlogMs =
+    static_cast<uint64_t>(pending) * m_config.commandInterval;
+
+  if(backlogMs >= kTxOverflowMs)
+  {
+    if(!m_txOverflowWarned && !m_config.ignoreWarnings)
+    {
+      m_txOverflowWarned = true;
+      EventLoop::call(
+        [this, pending]()
+        {
+          Log::log(logId, LogMessage::C2006_COMMAND_QUEUE_OVERFLOWING_X,
+                   static_cast<uint32_t>(pending));
+        });
+    }
+  }
+  else if(backlogMs < kTxOverflowMs / 2)
+  {
+    m_txOverflowWarned = false; // hysteresis: allow a fresh warning later
+  }
 }
 
 void Kernel::sendCmdWithRedundancy(std::string cmd)
@@ -403,23 +528,44 @@ void Kernel::queryNextContact()
     return;
   }
 
-  m_s88LastQueried  = m_s88NextContact;
-  m_s88WaitingReply = true;
-  sendCmd("C " + std::to_string(m_s88NextContact));
+  m_s88LastQueried = m_s88NextContact;
 
-  // Safety net: if the device doesn't respond within the timeout,
-  // skip this contact and continue — prevents the cycle from hanging.
-  m_s88ResponseTimer.expires_after(kS88ResponseTimeout);
-  m_s88ResponseTimer.async_wait(
-    m_strand.wrap(
-      [this](const boost::system::error_code& ec)
-      {
-        if(ec) // cancelled normally (response arrived)
+  // Mark "waiting for reply" and start the response watchdog only once the
+  // query has actually been written to the wire. When the command queue is
+  // enabled the query may sit behind other frames, so arming the 1 s watchdog
+  // at real send time (not enqueue time) keeps it measuring the device, not
+  // the queue delay.
+  auto onSent = [this]()
+  {
+    m_s88WaitingReply = true;
+
+    // Safety net: if the device doesn't respond within the timeout,
+    // skip this contact and continue — prevents the cycle from hanging.
+    m_s88ResponseTimer.expires_after(kS88ResponseTimeout);
+    m_s88ResponseTimer.async_wait(
+      m_strand.wrap(
+        [this](const boost::system::error_code& ec)
         {
-          return;
-        }
-        onS88ResponseTimeout();
-      }));
+          if(ec) // cancelled normally (response arrived)
+          {
+            return;
+          }
+          onS88ResponseTimeout();
+        }));
+  };
+
+  std::string cmd = "C " + std::to_string(m_s88NextContact);
+  if(m_config.commandQueue)
+  {
+    // S88 polls jump ahead of loco/accessory traffic so feedback keeps flowing
+    // even while a command backlog drains.
+    enqueueCmd(std::move(cmd), /*highPriority*/ true, onSent);
+  }
+  else
+  {
+    writeCmdNow(cmd);
+    onSent();
+  }
 }
 
 void Kernel::onS88Response(const std::string& line)

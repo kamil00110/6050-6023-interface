@@ -1524,6 +1524,10 @@
         "definition": "SocketCAN ist nur unter Linux verf\u00fcgbar"
     },
     {
+        "term": "message:C2006",
+        "definition": "Befehlswarteschlange l\u00e4uft \u00fcber: %1 Befehle in der Warteschlange. Die Zentraleinheit kann mit dem eingestellten Sendeintervall nicht mithalten."
+    },
+    {
         "term": "message:D1001",
         "definition": "Fortsetzen %1 (Multiplikator: %2)"
     },
@@ -3730,6 +3734,30 @@
     {
         "term": "marklin6050_settings:analog.help",
         "definition": "Aktiviert den Analogbetrieb. Nur verfügbar für 6027 und 6029. Im Analogbetrieb werden keine Lokfunktionen unterstützt und keine digitalen Adressen verwendet."
+    },
+    {
+        "term": "marklin6050_settings:command_interval",
+        "definition": "Befehls-Sendeintervall"
+    },
+    {
+        "term": "marklin6050_settings:command_interval.help",
+        "definition": "Mindestabstand zwischen Befehlen, die über die serielle Schnittstelle gesendet werden, wenn die Befehlswarteschlange aktiv ist. Erhöhen Sie den Wert, wenn die Zentraleinheit nicht mithält; höhere Werte verringern die Sendegeschwindigkeit. Taktet auch die S88-Rückmeldeabfrage, die dieselbe Leitung nutzt."
+    },
+    {
+        "term": "marklin6050_settings:command_queue",
+        "definition": "Befehlswarteschlange"
+    },
+    {
+        "term": "marklin6050_settings:command_queue.help",
+        "definition": "Sendet ausgehende Befehle nacheinander im eingestellten Sendeintervall statt alle auf einmal. Aktivieren Sie dies, wenn die Zentraleinheit einfriert oder Befehle verliert, wenn schnell viel gesendet wird."
+    },
+    {
+        "term": "marklin6050_settings:ignore_warnings",
+        "definition": "Warnungen ignorieren"
+    },
+    {
+        "term": "marklin6050_settings:ignore_warnings.help",
+        "definition": "Unterdrückt die kritische Warnung, die angezeigt wird, wenn die Befehlswarteschlange überläuft (Rückstand über 10 Sekunden). Hat keine Auswirkung auf die normale Protokollierung."
     },
     {
         "term": "marklin6050_settings:central_unit_version",

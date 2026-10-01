@@ -24,7 +24,7 @@
 
 #include "../kernelbase.hpp"
 #include "config.hpp"
-#include "../../output/outputvalue.hpp"
+#include "../../output/outputtypes.hpp"
 
 #include <functional>
 #include <memory>

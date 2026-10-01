@@ -228,12 +228,14 @@ Marklin6023Interface::inputAddressMinMax(InputChannel channel) const
 }
 
 void Marklin6023Interface::inputSimulateChange(
-  InputChannel channel, uint32_t address, SimulateInputAction action)
+  InputChannel channel, const InputLocation& location, SimulateInputAction action)
 {
   if(channel != InputChannel::S88)
   {
     return;
   }
+
+  const auto address = std::get<InputAddress>(location).address;
 
   switch(action)
   {
@@ -245,7 +247,7 @@ void Marklin6023Interface::inputSimulateChange(
 
 void Marklin6023Interface::onS88Input(uint32_t address, bool state)
 {
-  updateInputValue(InputChannel::S88, address,
+  updateInputValue(InputChannel::S88, InputAddress(address),
                    state ? TriState::True : TriState::False);
 }
 
@@ -270,7 +272,7 @@ Marklin6023Interface::outputAddressMinMax(OutputChannel channel) const
 }
 
 bool Marklin6023Interface::setOutputValue(
-  OutputChannel channel, uint32_t address, OutputValue value)
+  OutputChannel channel, const OutputLocation& location, OutputValue value)
 {
   if(!m_kernel)
   {
@@ -279,6 +281,8 @@ bool Marklin6023Interface::setOutputValue(
 
   if(channel == OutputChannel::Accessory)
   {
+    const auto address = std::get<OutputAddress>(location).address;
+
     const auto [min, max] = outputAddressMinMax(channel);
     if(!inRange(address, min, max)) [[unlikely]]
     {
@@ -288,7 +292,7 @@ bool Marklin6023Interface::setOutputValue(
     const bool result = m_kernel->setAccessory(address, value);
     if(result)
     {
-      updateOutputValue(channel, address, value);
+      updateOutputValue(channel, location, value);
     }
     return result;
   }

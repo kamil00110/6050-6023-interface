@@ -157,7 +157,7 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
           {
             const OutputPairValue val =
               green ? OutputPairValue::Second : OutputPairValue::First;
-            updateOutputValue(OutputChannel::Accessory, address, val);
+            updateOutputValue(OutputChannel::Accessory, OutputAddress(address), val);
           };
 
         m_kernel->extensionLocoCallback =
@@ -250,12 +250,14 @@ Marklin6050Interface::inputAddressMinMax(InputChannel channel) const
 }
 
 void Marklin6050Interface::inputSimulateChange(
-  InputChannel channel, uint32_t address, SimulateInputAction action)
+  InputChannel channel, const InputLocation& location, SimulateInputAction action)
 {
   if(channel != InputChannel::S88)
   {
     return;
   }
+
+  const auto address = std::get<InputAddress>(location).address;
 
   switch(action)
   {
@@ -267,7 +269,7 @@ void Marklin6050Interface::inputSimulateChange(
 
 void Marklin6050Interface::onS88Input(uint32_t address, bool state)
 {
-  updateInputValue(InputChannel::S88, address,
+  updateInputValue(InputChannel::S88, InputAddress(address),
                    state ? TriState::True : TriState::False);
 }
 
@@ -288,7 +290,7 @@ Marklin6050Interface::outputAddressMinMax(OutputChannel channel) const
 }
 
 bool Marklin6050Interface::setOutputValue(
-  OutputChannel channel, uint32_t address, OutputValue value)
+  OutputChannel channel, const OutputLocation& location, OutputValue value)
 {
   if(!m_kernel)
   {
@@ -297,6 +299,8 @@ bool Marklin6050Interface::setOutputValue(
 
   if(channel == OutputChannel::Accessory)
   {
+    const auto address = std::get<OutputAddress>(location).address;
+
     const auto [min, max] = outputAddressMinMax(channel);
     if(!inRange(address, min, max)) [[unlikely]]
     {
@@ -307,7 +311,7 @@ bool Marklin6050Interface::setOutputValue(
       m_kernel->setAccessory(address, value, settings->turnouttime.value());
     if(result)
     {
-      updateOutputValue(channel, address, value);
+      updateOutputValue(channel, location, value);
     }
     return result;
   }

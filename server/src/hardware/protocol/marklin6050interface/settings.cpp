@@ -79,6 +79,7 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
       }}
   , commandInterval{this, "command_interval", 100, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , ignoreWarnings{this, "ignore_warnings", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , crashDetection{this, "crash_detection", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
   // centralUnitVersion — disabled when online; toggled by updateEnabled
   Attributes::addCategory(centralUnitVersion, "category:marklin_6050");
@@ -174,6 +175,13 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   Attributes::addHelp(ignoreWarnings, "marklin6050_settings:ignore_warnings.help");
   Attributes::addEnabled(ignoreWarnings, true);
   m_interfaceItems.add(ignoreWarnings);
+
+  // crashDetection — monitor CTS and stop the world on probable crash/disconnect
+  Attributes::addCategory(crashDetection, "category:marklin_6050");
+  Attributes::addDisplayName(crashDetection, "marklin6050_settings:crash_detection");
+  Attributes::addHelp(crashDetection, "marklin6050_settings:crash_detection.help");
+  Attributes::addEnabled(crashDetection, true);
+  m_interfaceItems.add(crashDetection);
 }
 
 Config Settings::config() const
@@ -190,6 +198,7 @@ Config Settings::config() const
   cfg.commandQueue       = commandQueue;
   cfg.commandInterval    = commandInterval;
   cfg.ignoreWarnings     = ignoreWarnings;
+  cfg.crashDetection     = crashDetection;
   return cfg;
 }
 
@@ -209,6 +218,7 @@ void Settings::updateEnabled(bool online)
   Attributes::setEnabled(commandQueue,       !online);
   Attributes::setEnabled(commandInterval,    commandQueue && !online);
   Attributes::setEnabled(ignoreWarnings,     !online);
+  Attributes::setEnabled(crashDetection,     !online);
 
   const uint16_t ver          = centralUnitVersion;
   const bool     analogSupport = (ver == 6027 || ver == 6029);

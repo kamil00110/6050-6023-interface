@@ -43,6 +43,7 @@ public:
   Property<bool>         commandQueue;
   Property<unsigned int> commandInterval;
   Property<bool>         ignoreWarnings;
+  Property<bool>         crashDetection;
 
   Settings(Object& parent, std::string_view parentPropertyName);
 

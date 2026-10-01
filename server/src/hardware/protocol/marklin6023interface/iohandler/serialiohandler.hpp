@@ -47,6 +47,7 @@ public:
   void start() final;
   void stop() final;
   void sendString(std::string str) final;
+  bool getCTS() final;
 
 private:
   static constexpr std::size_t kReadBufferSize = 256;

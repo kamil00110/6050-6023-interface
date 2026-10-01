@@ -47,6 +47,7 @@ public:
   void start() final;
   void stop() final;
   void send(std::initializer_list<uint8_t> bytes) final;
+  bool getCTS() final;
 
 private:
   static constexpr std::size_t kReadBufferSize = 256;

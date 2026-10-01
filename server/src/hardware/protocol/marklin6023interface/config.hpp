@@ -36,6 +36,7 @@ struct Config
     bool         commandQueue    = false; ///< pace outgoing commands through a FIFO queue
     unsigned int commandInterval = 100;   ///< milliseconds between queued command sends (10..500)
     bool         ignoreWarnings  = false; ///< suppress the command-queue overflow critical warning
+    bool         crashDetection  = false; ///< monitor CTS; stop the world if low > 10 s
 };
 
 } // namespace Marklin6023

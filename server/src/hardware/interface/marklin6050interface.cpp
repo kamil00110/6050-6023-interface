@@ -150,6 +150,18 @@ bool Marklin6050Interface::setOnline(bool& value, bool simulation)
         onS88Input(address, state);
       };
 
+      m_kernel->crashCallback =
+        [this]()
+        {
+          // CTS low > 10 s: the command station has probably crashed or been
+          // disconnected — log it and stop the world fully (track power off).
+          Log::log(*this, LogMessage::C2007_COMMAND_STATION_CRASH_DETECTED);
+          if(contains(m_world.state.value(), WorldState::PowerOn))
+          {
+            m_world.powerOff();
+          }
+        };
+
       if(cfg.extensions)
       {
         m_kernel->extensionTurnoutCallback =

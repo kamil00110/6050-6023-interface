@@ -1528,6 +1528,10 @@
         "definition": "Befehlswarteschlange l\u00e4uft \u00fcber: %1 Befehle in der Warteschlange. Die Zentraleinheit kann mit dem eingestellten Sendeintervall nicht mithalten."
     },
     {
+        "term": "message:C2007",
+        "definition": "Absturz oder Verbindungsverlust der Zentraleinheit erkannt (CTS-Leitung l\u00e4nger als 10 Sekunden niedrig). Die Welt wird gestoppt."
+    },
+    {
         "term": "message:D1001",
         "definition": "Fortsetzen %1 (Multiplikator: %2)"
     },
@@ -3750,6 +3754,14 @@
     {
         "term": "marklin6050_settings:command_queue.help",
         "definition": "Sendet ausgehende Befehle nacheinander im eingestellten Sendeintervall statt alle auf einmal. Aktivieren Sie dies, wenn die Zentraleinheit einfriert oder Befehle verliert, wenn schnell viel gesendet wird."
+    },
+    {
+        "term": "marklin6050_settings:crash_detection",
+        "definition": "Absturzerkennung"
+    },
+    {
+        "term": "marklin6050_settings:crash_detection.help",
+        "definition": "Überwacht die serielle CTS-Leitung. Bleibt sie länger als 10 Sekunden niedrig, ist die Zentraleinheit vermutlich abgestürzt oder getrennt: Es wird eine kritische Warnung protokolliert und die gesamte Anlage gestoppt (Strom aus). Erfordert ein Kabel, das CTS verbindet."
     },
     {
         "term": "marklin6050_settings:ignore_warnings",

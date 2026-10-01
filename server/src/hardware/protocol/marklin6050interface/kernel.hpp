@@ -32,6 +32,8 @@
 #include <thread>
 #include <vector>
 #include <deque>
+#include <optional>
+#include <chrono>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
@@ -51,6 +53,7 @@ public:
   std::function<void(uint32_t address, bool green)>                           extensionTurnoutCallback;
   std::function<void(uint8_t address, uint8_t speed, bool f0, bool forward)>  extensionLocoCallback;
   std::function<void(uint8_t address, bool f1, bool f2, bool f3, bool f4)>    extensionFuncCallback;
+  std::function<void()>                                                       crashCallback; //!< CTS low > 10 s (crash detection)
 
   /**
    * logId_ is passed to KernelBase (differs from the inherited logId member
@@ -113,6 +116,9 @@ private:
   void scheduleS88Poll();
   void doS88Poll();
 
+  // Crash detection: poll CTS once per second; if low for > 10 s, fire crashCallback.
+  void scheduleCtsMonitor();
+
   enum class S88State { Idle, ReceivingData };
   S88State     m_s88State        = S88State::Idle;
   unsigned int m_s88Expect       = 0;
@@ -150,6 +156,10 @@ private:
   boost::asio::steady_timer m_txTimer;
   bool                      m_txTimerArmed     = false;
   bool                      m_txOverflowWarned = false;
+
+  boost::asio::steady_timer                            m_ctsMonitorTimer;
+  std::optional<std::chrono::steady_clock::time_point> m_ctsLowSince;
+  bool                                                 m_crashFired = false;
 };
 
 } // namespace Marklin6050

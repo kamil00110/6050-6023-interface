@@ -136,6 +136,7 @@ Kernel::Kernel(std::string logId_, const Config& config)
   , m_s88ResponseTimer{m_ioContext}
   , m_extensionTimer{m_ioContext}
   , m_txTimer{m_ioContext}
+  , m_ctsMonitorTimer{m_ioContext}
 {
 }
 
@@ -161,6 +162,11 @@ void Kernel::started()
   {
     scheduleExtensionPoll();
   }
+
+  if(m_config.crashDetection)
+  {
+    scheduleCtsMonitor();
+  }
 }
 
 void Kernel::start()
@@ -180,6 +186,7 @@ void Kernel::stop()
       m_extensionTimer.cancel();
       m_redundancyTimers.clear();
       m_txTimer.cancel();
+      m_ctsMonitorTimer.cancel();
       m_txTimerArmed = false;
       m_txQueueHigh.clear();
       m_txQueueNormal.clear();
@@ -946,6 +953,55 @@ void Kernel::processExtensionByte(uint8_t byte)
 void Kernel::advanceExtensionEvent()
 {
   m_extState = (--m_extEventsLeft > 0) ? ExtState::WaitType : ExtState::Idle;
+}
+
+// ---------------------------------------------------------------------------
+// Crash detection — poll the serial CTS line once per second. If it stays low
+// for more than 10 s the command station has probably crashed or been
+// disconnected: fire crashCallback (on the EventLoop thread) which logs a
+// critical message and stops the world.
+// ---------------------------------------------------------------------------
+
+void Kernel::scheduleCtsMonitor()
+{
+  m_ctsMonitorTimer.expires_after(std::chrono::seconds(1));
+  m_ctsMonitorTimer.async_wait(
+    m_strand.wrap(
+      [this](const boost::system::error_code& ec)
+      {
+        if(ec || !m_ioHandler) // cancelled (stop) or no handler
+        {
+          return;
+        }
+
+        if(m_ioHandler->getCTS())
+        {
+          m_ctsLowSince.reset();
+          m_crashFired = false; // recovered — allow a future detection
+        }
+        else
+        {
+          const auto now = std::chrono::steady_clock::now();
+          if(!m_ctsLowSince)
+          {
+            m_ctsLowSince = now;
+          }
+          else if(!m_crashFired && (now - *m_ctsLowSince) >= std::chrono::seconds(10))
+          {
+            m_crashFired = true;
+            EventLoop::call(
+              [this]()
+              {
+                if(crashCallback)
+                {
+                  crashCallback();
+                }
+              });
+          }
+        }
+
+        scheduleCtsMonitor(); // keep monitoring
+      }));
 }
 
 } // namespace Marklin6050

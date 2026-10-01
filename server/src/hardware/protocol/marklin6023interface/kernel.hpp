@@ -32,6 +32,8 @@
 #include <thread>
 #include <vector>
 #include <deque>
+#include <optional>
+#include <chrono>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/strand.hpp>
@@ -47,6 +49,7 @@ class Kernel : public KernelBase
 public:
   // Callbacks — set before start(); called on the EventLoop thread.
   std::function<void(uint32_t address, bool state)> s88Callback;
+  std::function<void()>                             crashCallback; //!< CTS low > 10 s (crash detection)
 
   /**
    * logId_ is passed to KernelBase (differs from the inherited logId member
@@ -107,6 +110,9 @@ private:
   void onS88Response(const std::string& line);
   void onS88ResponseTimeout();
 
+  // Crash detection: poll CTS once per second; if low for > 10 s, fire crashCallback.
+  void scheduleCtsMonitor();
+
   const Config                           m_config;
   boost::asio::io_context                m_ioContext;
   boost::asio::io_context::strand        m_strand;
@@ -126,6 +132,10 @@ private:
   boost::asio::steady_timer m_txTimer;
   bool                      m_txTimerArmed   = false;
   bool                      m_txOverflowWarned = false;
+
+  boost::asio::steady_timer                            m_ctsMonitorTimer;
+  std::optional<std::chrono::steady_clock::time_point> m_ctsLowSince;
+  bool                                                 m_crashFired = false;
 };
 
 } // namespace Marklin6023

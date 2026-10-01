@@ -428,6 +428,13 @@ void Kernel::armTxTimer()
 
 void Kernel::drainTx()
 {
+  // wait-for-CTS: hold the whole queue until the station asserts CTS (ready).
+  if(m_config.waitForCts && m_ioHandler && !m_ioHandler->getCTS())
+  {
+    armTxTimer(); // retry after commandInterval without consuming a frame
+    return;
+  }
+
   TxItem item;
   if(!m_txQueueHigh.empty())
   {

@@ -35,6 +35,7 @@
 #include "../../world/world.hpp"
 #include "../../core/attributes.hpp"
 #include "../../core/objectproperty.tpp"
+#include "../../core/method.tpp"
 #include "../../core/eventloop.hpp"
 #include "../../log/log.hpp"
 #include "../../log/logmessageexception.hpp"

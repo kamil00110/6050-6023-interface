@@ -44,6 +44,7 @@ public:
   Property<unsigned int> commandInterval;
   Property<bool>         ignoreWarnings;
   Property<bool>         crashDetection;
+  Property<bool>         waitForCts;
 
   Settings(Object& parent, std::string_view parentPropertyName);
 

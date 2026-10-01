@@ -58,7 +58,12 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
       }}
   , commandInterval{this, "command_interval", 100, PropertyFlags::ReadWrite | PropertyFlags::Store}
   , ignoreWarnings{this, "ignore_warnings", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , crashDetection{this, "crash_detection", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , crashDetection{this, "crash_detection", false, PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](bool value)
+      {
+        Attributes::setEnabled(waitForCts, value);
+      }}
+  , waitForCts{this, "wait_for_cts", false, PropertyFlags::ReadWrite | PropertyFlags::Store}
 {
   // s88amount — disabled when online (toggled by updateEnabled)
   Attributes::addCategory(s88amount, "category:marklin_6023");
@@ -125,6 +130,13 @@ Settings::Settings(Object& parent, std::string_view parentPropertyName)
   Attributes::addHelp(crashDetection, "marklin6050_settings:crash_detection.help");
   Attributes::addEnabled(crashDetection, true);
   m_interfaceItems.add(crashDetection);
+
+  // waitForCts — queue waits for CTS; only enabled while crash detection is on
+  Attributes::addCategory(waitForCts, "category:marklin_6023");
+  Attributes::addDisplayName(waitForCts, "marklin6050_settings:wait_for_cts");
+  Attributes::addHelp(waitForCts, "marklin6050_settings:wait_for_cts.help");
+  Attributes::addEnabled(waitForCts, crashDetection);
+  m_interfaceItems.add(waitForCts);
 }
 
 Config Settings::config() const
@@ -138,6 +150,7 @@ Config Settings::config() const
   cfg.commandInterval = commandInterval;
   cfg.ignoreWarnings  = ignoreWarnings;
   cfg.crashDetection  = crashDetection;
+  cfg.waitForCts      = waitForCts;
   return cfg;
 }
 
@@ -145,6 +158,7 @@ void Settings::loaded()
 {
   SubObject::loaded();
   Attributes::setEnabled(commandInterval, commandQueue);
+  Attributes::setEnabled(waitForCts, crashDetection);
 }
 
 void Settings::updateEnabled(bool online)
@@ -156,6 +170,7 @@ void Settings::updateEnabled(bool online)
   Attributes::setEnabled(commandInterval, commandQueue && !online);
   Attributes::setEnabled(ignoreWarnings,  !online);
   Attributes::setEnabled(crashDetection,  !online);
+  Attributes::setEnabled(waitForCts,      crashDetection && !online);
 }
 
 } // namespace Marklin6023

@@ -1,5 +1,10 @@
 name: Build
-#modified file
+
+# Your workflow_dispatch trigger + release/tag/changelog options are kept as-is.
+# Dependency setup updated to match current upstream (Qt 6.5 + qtwebsockets, libarchive-dev,
+# windows-2022, VC redist download) so builds find their dependencies again.
+# Upstream's package-appimages and deploy jobs are intentionally NOT included
+# (they need a self-hosted Raspberry Pi runner, the AppImage build scripts, and SSH deploy secrets).
 on:
   workflow_dispatch:
     inputs:
@@ -9,7 +14,7 @@ on:
         default: 'no'
         type: choice
         options: [ "yes", "no" ]
-        
+
       tag_name:
         description: 'Release tag (e.g., v1.0.0)'
         required: false
@@ -30,7 +35,7 @@ jobs:
       matrix:
         config:
         - name: "windows_x64_msvc"
-          os: windows-latest
+          os: windows-2022
           generator: "Visual Studio 17 2022"
           arch: "-A x64"
           target: traintastic-client
@@ -59,47 +64,9 @@ jobs:
           build_deb: true
           defines: ""
 
-       # - name: "raspberrypios_arm7"
-          # os: [self-hosted, ARM, RaspberryPi]
-          # generator: "Unix Makefiles"
-          # arch: ""
-          # target: traintastic-client
-          # jobs: 4
-         #  build_type: Release
-          # build_deb: true
-          # defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-
-        # - name: "raspberrypios_arm64"
-         #  os: [self-hosted, ARM64, RaspberryPi]
-         #  generator: "Unix Makefiles"
-         #  arch: ""
-         #  target: traintastic-client
-         #  jobs: 4
-          # build_type: Release
-         #  build_deb: true
-         #  defines: "-DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-
-       #  - name: "macos-15-intel"
-       #    os: "macos-15-intel"
-       #    generator: "Unix Makefiles"
-       #    arch: ""
-       #    osx_arch: x86_64
-       #    target: traintastic-client
-       #    jobs: 4
-       #    build_type: Release
-       #    build_deb: false
-       #    defines: ""
-
-      #   - name: "macos-15-arm64"
-      #     os: "macos-15"
-      #     generator: "Unix Makefiles"
-      #     arch: ""
-      #     osx_arch: arm64
-     #      target: traintastic-client
-     #      jobs: 4
-     #      build_type: Release
-     #      build_deb: false
-      #     defines: ""
+        # macOS and self-hosted Raspberry Pi client targets are intentionally
+        # left disabled (same as your version) — add matrix entries here only if
+        # you have those runners available.
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -110,22 +77,23 @@ jobs:
       with:
         submodules: recursive
 
-    # Windows only:
-    - name: Install Qt 5
-      if: startswith(matrix.config.os, 'windows')
+    # Windows/macOS: install Qt 6.5 with the qtwebsockets module.
+    # (Your old file installed Qt 5.15 on Windows, which is why the Qt dependency
+    #  was no longer found — the project builds against Qt 6.)
+    - name: Install Qt 6.5
+      if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
       uses: jurplel/install-qt-action@v4
       with:
         cache: true
-        version: 5.15
+        modules: qtwebsockets
+        version: 6.5.*
 
-  #   # macOS only:
-  #   - name: Install Qt 6.5
-  #     if: startswith(matrix.config.os, 'macos')
-  #     uses: jurplel/install-qt-action@v4
-  #     with:
-   #      cache: true
-   #      modules: qtwebsockets
-   #      version: 6.5.*
+    - name: Set VCPKG_ROOT
+      if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
+      uses: actions/github-script@v7
+      with:
+        script: |
+          core.exportVariable('VCPKG_ROOT', process.env.VCPKG_INSTALLATION_ROOT || '');
 
     - name: Set CMAKE_OSX_ARCHITECTURES
       if: startswith(matrix.config.os, 'macos')
@@ -133,17 +101,17 @@ jobs:
       with:
         script: |
           core.exportVariable('CMAKE_OSX_ARCHITECTURES', '${{matrix.config.osx_arch}}');
-          
+
     # Ubuntu only:
     - name: apt update
       if: startswith(matrix.config.os, 'ubuntu')
       run: sudo apt update
 
-    # Ubuntu only:
+    # Ubuntu only (added libarchive-dev to match upstream):
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev
-      
+      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev libarchive-dev
+
     # All:
     - name: Create Build Environment
       run: cmake -E make_directory ${{github.workspace}}/client/build
@@ -193,12 +161,14 @@ jobs:
   build-server:
     name: server ${{matrix.config.name}}
     runs-on: ${{matrix.config.os}}
+    env:
+      VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
     strategy:
       fail-fast: false
       matrix:
         config:
         - name: "windows_x64_clang"
-          os: windows-latest
+          os: windows-2022
           generator: "Visual Studio 17 2022"
           arch: "-A x64"
           toolset: "-T ClangCL"
@@ -206,7 +176,7 @@ jobs:
           jobs: 4
           build_type: Release
           build_deb: false
-          defines: "-DCMAKE_VS_GLOBALS=CLToolExe=sccache.exe\\;CLToolAdditionalFlags=--driver-mode=cl"
+          defines: ""
           ccov: false
 
         - name: "ubuntu_24.04"
@@ -245,53 +215,7 @@ jobs:
           defines: "-DINSTALL_SYSTEMD_SERVICE=ON"
           ccov: false
 
-        # - name: "raspberrypios_arm7"
-         #  os: [self-hosted, ARM, RaspberryPi]
-          #  generator: "Unix Makefiles"
-          # arch: ""
-          # toolset: ""
-          # target: all
-          # jobs: 3
-          # build_type: Release
-          # build_deb: true
-          # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-          # ccov: false
-
-        # - name: "raspberrypios_arm64"
-          # os: [self-hosted, ARM64, RaspberryPi]
-          # generator: "Unix Makefiles"
-          # arch: ""
-          # toolset: ""
-         #  target: all
-          # jobs: 3
-          # build_type: Release
-          # build_deb: true
-          # defines: "-DINSTALL_SYSTEMD_SERVICE=ON -DCMAKE_CXX_COMPILER_LAUNCHER=ccache"
-          # ccov: false
-
-    #     - name: "macos-15-intel"
-     #      os: "macos-15-intel"
-     #      generator: "Unix Makefiles"
-      #     arch: ""
-     #      toolset: ""
-      #     target: all
-      #     jobs: 4
-      #     build_type: Release
-     #      build_deb: false
-      #     defines: ""
-      #     ccov: false
-
-      #   - name: "macos-15-arm64"
-      #     os: "macos-15"
-     #      generator: "Unix Makefiles"
-     #      arch: ""
-     #      toolset: ""
-     #      target: all
-      #     jobs: 4
-      #     build_type: Release
-      #     build_deb: false
-      #     defines: ""
-      #     ccov: false
+        # macOS and self-hosted Raspberry Pi server targets intentionally disabled.
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -301,37 +225,21 @@ jobs:
       uses: actions/checkout@v3
       with:
         submodules: recursive
-        
-    - name: Cache vcpkg archives
-      if: startswith(matrix.config.os, 'windows')
+
+    - name: Restore vcpkg cache
       uses: actions/cache@v4
       with:
-        path: C:\Users\runneradmin\AppData\Local\vcpkg\archives
-        key: vcpkg-${{ runner.os }}-${{ hashFiles('**/vcpkg.json') }}
-        restore-keys: |
-          vcpkg-${{ runner.os }}-
+        path: |
+          ~/.cache/vcpkg
+        key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
 
-    - name: Cache sccache
-      if: startswith(matrix.config.os, 'windows')
-      uses: actions/cache@v4
+    - name: Export GitHub Actions cache environment variables
+      uses: actions/github-script@v7
       with:
-        path: C:\sccache
-        key: sccache-${{ matrix.config.name }}-${{ github.sha }}
-        restore-keys: |
-          sccache-${{ matrix.config.name }}-
+        script: |
+          core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+          core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
 
-    - name: Install and start sccache
-      if: startswith(matrix.config.os, 'windows')
-      shell: powershell
-      run: |
-        choco install sccache -y
-        New-Item -ItemType Directory -Force -Path "C:\sccache"
-        $env:SCCACHE_DIR = "C:\sccache"
-        echo "SCCACHE_DIR=C:\sccache" >> $env:GITHUB_ENV
-        sccache --start-server
-        sccache --show-stats
-          
-   
     - name: Set VCPKG_ROOT
       if: startswith(matrix.config.os, 'windows') || startswith(matrix.config.os, 'macos')
       uses: actions/github-script@v7
@@ -351,7 +259,7 @@ jobs:
       if: startswith(matrix.config.os, 'ubuntu')
       run: sudo apt update
 
-    # Ubuntu only:
+    # Ubuntu only (keeps your libopencv-dev; libarchive-dev already present):
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
       run: sudo apt install libboost-program-options-dev libopencv-dev libboost-url-dev liblua5.4-dev lcov libarchive-dev clang-tidy libsystemd-dev
@@ -363,33 +271,19 @@ jobs:
 
     # All:
     - name: Create Build Environment
-      # Some projects don't allow in-source building, so create a separate build directory
-      # We'll use this as our working directory for all subsequent commands
       run: cmake -E make_directory ${{github.workspace}}/server/build
 
     # All:
     - name: Configure CMake
       shell: bash
       working-directory: ${{github.workspace}}/server/build
-      # Note the current convention is to use the -S and -B options here to specify source
-      # and build directories, but this is only available with CMake 3.13 and higher.
-      # The CMake binaries on the Github Actions machines are (as of this writing) 3.12
       run: cmake $GITHUB_WORKSPACE/server -G "${{matrix.config.generator}}" ${{matrix.config.arch}} ${{matrix.config.toolset}} -DCMAKE_BUILD_TYPE=${{matrix.config.build_type}} ${{matrix.config.defines}}
 
     # All:
     - name: Build
       working-directory: ${{github.workspace}}/server/build
       shell: bash
-      # Execute the build.  You can specify a specific target with "--target <NAME>"
       run: cmake --build . --config ${{matrix.config.build_type}} --target ${{matrix.config.target}} --parallel ${{matrix.config.jobs}}
-
-    # mingw only
-    #- name: Run tests (mingw)
-    #  if: matrix.config.name == 'windows_x64_mingw'
-    #  working-directory: ${{github.workspace}}/server/build
-    #  run: |
-    #    $env:PATH += ';C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin'
-    #    ctest --output-on-failure
 
     # All:
     - name: Run tests
@@ -451,10 +345,6 @@ jobs:
         - name: "ubuntu_24.04"
           os: ubuntu-24.04
           defines: ""
-
-        # - name: "raspberrypios_10"
-         #  os: [self-hosted, ARM64, RaspberryPi]
-          # defines: ""
 
     steps:
     - uses: FranzDiebold/github-env-vars-action@v2
@@ -579,77 +469,23 @@ jobs:
         name: traintastic-manual
         path: ${{github.workspace}}/manual/output
 
+    # Added from upstream: the installer bundles the VC++ redistributable.
+    - name: Download latest VC14 redist
+      shell: powershell
+      working-directory: ${{github.workspace}}/package/innosetup
+      run: |
+        Invoke-Webrequest -Uri "https://aka.ms/vc14/vc_redist.x64.exe" -OutFile "vc_redist.x64.exe"
+
     - name: Build installer
       shell: cmd
       run: |
         "C:/Program Files (x86)/Inno Setup 6/ISCC.exe" %GITHUB_WORKSPACE%/package/innosetup/traintastic.iss
 
-
-    # --- inside your existing package-innosetup job ---
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
         name: package-innosetup
         path: ${{ github.workspace }}/package/innosetup/output
-  
-
- #  deploy:
-   #  name: Deploy to website
-   #  if: ${{ github.event_name == 'push' }}
-   #  runs-on: ubuntu-latest
-   #  needs: [package-innosetup, build-server, build-client, build-data, build-manual]
-
-   #  steps:
-   #  - uses: FranzDiebold/github-env-vars-action@v2
-
-   #  - name: Download artifacts 1/6
-    #   uses: actions/download-artifact@v4
-     #  with:
-     #    name: package-innosetup
-      #   path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    # - name: Download artifacts 2/6
-     #  uses: actions/download-artifact@v4
-      # with:
-       #  pattern: traintastic-client-deb-*
-       #  merge-multiple: true
-        # path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-     #- name: Download artifacts 3/6
-     #  uses: actions/download-artifact@v4
-     #  with:
-      #   pattern: traintastic-server-deb-*
-      #   merge-multiple: true
-      #   path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-     #- name: Download artifacts 4/6
-     #  uses: actions/download-artifact@v4
-      # with:
-       #  name: traintastic-server-test-code-coverage
-       #  path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}/ccov
-
-    # - name: Download artifacts 5/6
-     #  uses: actions/download-artifact@v4
-      # with:
-      #   name: traintastic-manual
-       #  path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}/manual
-
-   #  - name: Download artifacts 6/6
-      #  uses: actions/download-artifact@v4
-     #  with:
-      #   pattern: traintastic-data-deb-*
-       #   merge-multiple: true
-       #  path: ${{github.workspace}}/dist/${{env.CI_REF_NAME_SLUG}}/${{github.run_number}}
-
-    # - uses: easingthemes/ssh-deploy@v2.2.11
-     #  env:
- # SSH_PRIVATE_KEY: ${{secrets.SERVER_SSH_KEY}}
-        #   ARGS: "-rltgoDzvO"
-         #  SOURCE: "dist/*"
-        #   REMOTE_HOST: ${{secrets.REMOTE_HOST}}
-        #   REMOTE_PORT: ${{secrets.REMOTE_PORT}}
-        #   REMOTE_USER: ${{secrets.REMOTE_USER}}
-         #  TARGET: ${{secrets.REMOTE_TARGET}}/traintastic/
 
   update-readme-contributors:
     runs-on: ubuntu-latest
@@ -657,10 +493,10 @@ jobs:
     name: Update contributers in README.md
     steps:
         - name: Update contribute list
-          uses: akhilmhdh/contributors-readme-action@v2.3.9
+          uses: akhilmhdh/contributors-readme-action@v2.3.11
           env:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-              
+
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
@@ -689,7 +525,7 @@ jobs:
           path: release/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
           name: "Installer Release ${{ github.event.inputs.tag_name }}"

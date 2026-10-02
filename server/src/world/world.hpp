@@ -44,6 +44,8 @@ class InputController;
 class OutputController;
 class IdentificationController;
 class LNCVProgrammingController;
+class TrackDriverController;
+class CBUSInterface;
 class LocoNetInterface;
 class InterfaceList;
 class DecoderList;
@@ -56,6 +58,7 @@ class BoardList;
 class ZoneList;
 class BlockRailTileList;
 class LinkRailTileList;
+class TurnoutLinkableRailTileList;
 class NXManager;
 class TrainPathFinder;
 class Clock;
@@ -83,6 +86,8 @@ class World : public Object
     struct Private {};
 
     WorldFeatures m_features;
+
+    void backupAndSave(bool isAutoSave);
 
     void updateEnabled();
     void updateFeatures();
@@ -133,6 +138,8 @@ class World : public Object
     ObjectProperty<ControllerList<OutputController>> outputControllers;
     ObjectProperty<ControllerList<IdentificationController>> identificationControllers;
     ObjectProperty<ControllerList<LNCVProgrammingController>> lncvProgrammingControllers;
+    ObjectProperty<ControllerList<TrackDriverController>> trackDriverControllers;
+    ObjectProperty<ControllerList<CBUSInterface>> cbusInterfaces;
     ObjectProperty<ControllerList<LocoNetInterface>> loconetInterfaces;
 
     ObjectProperty<InterfaceList> interfaces;
@@ -152,6 +159,7 @@ class World : public Object
 
     ObjectProperty<BlockRailTileList> blockRailTiles;
     ObjectProperty<LinkRailTileList> linkRailTiles;
+    ObjectProperty<TurnoutLinkableRailTileList> turnoutLinkableRailTiles;
     ObjectProperty<NXManager> nxManager;
     ObjectProperty<TrainPathFinder> trainPathFinder;
 
@@ -211,6 +219,7 @@ class World : public Object
     ObjectPtr getObjectById(const std::string& _id) const;
     ObjectPtr getObjectByPath(std::string_view path) const;
 
+    void autoSave();
     void export_(std::vector<std::byte>& data);
 };
 

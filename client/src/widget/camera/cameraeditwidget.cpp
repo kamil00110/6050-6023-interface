@@ -24,6 +24,7 @@
 #include "../propertycheckbox.hpp"
 #include "../propertycombobox.hpp"
 #include "../propertydoublespinbox.hpp"
+#include "../propertyslider.hpp"
 #include "../propertyvaluelabel.hpp"
 #include "../createwidget.hpp"
 #include <traintastic/locale/locale.hpp>
@@ -157,12 +158,18 @@ void CameraEditWidget::buildForm()
     //   2. If the URL prefix reveals the type (rtsp:// or http://) and
     //      the current type differs, update the type property too so the
     //      server does not have to be told explicitly.
-    connect(urlEdit, &QLineEdit::editingFinished,
+    connect(urlEdit, &QLineEdit::editingFinished, this,
       [urlEdit, deviceProp, typeProp]()
       {
         const QString url = urlEdit->text().trimmed();
 
-        // Always push device value first
+        // editingFinished also fires on plain focus-out (e.g. when the user
+        // clicks the type selector). Only act when the value actually changed,
+        // so we never push a stale URL or flip the type while the user is
+        // switching to another camera type.
+        if(url == deviceProp->toString())
+          return;
+
         deviceProp->setValueString(url);
 
         // Auto-detect and update type if needed
@@ -175,7 +182,7 @@ void CameraEditWidget::buildForm()
       });
 
     // Server sends a new device value (e.g. loaded from file) -> reflect
-    connect(deviceProp, &Property::valueChangedString,
+    connect(deviceProp, &Property::valueChangedString, this,
       [urlEdit, typeProp](const QString& value)
       {
         // Only update the URL field when we are in IP mode and the value is a
@@ -215,7 +222,7 @@ void CameraEditWidget::buildForm()
     const bool serverEnabled = deviceProp->getAttributeBool(AttributeName::Enabled, true);
     applyTypeState(typeProp->toInt64(), serverEnabled);
 
-    connect(typeProp, &Property::valueChangedInt64,
+    connect(typeProp, &Property::valueChangedInt64, this,
       [applyTypeState, deviceProp, urlEdit](int64_t newType)
       {
         const bool en = deviceProp->getAttributeBool(AttributeName::Enabled, true);
@@ -237,7 +244,7 @@ void CameraEditWidget::buildForm()
         }
       });
 
-    connect(deviceProp, &Property::attributeChanged,
+    connect(deviceProp, &Property::attributeChanged, this,
       [applyTypeState, typeProp](AttributeName name, const QVariant& value)
       {
         if(name == AttributeName::Enabled)
@@ -247,11 +254,22 @@ void CameraEditWidget::buildForm()
 
   // ── Remaining properties ──────────────────────────────────────────────
   addRow("fps");
-  addRow("max_width");
-  addRow("max_height");
+  addRow("resolution");
   addRow("jpeg_quality");
   addRow("flip_vertical");
   addRow("flip_horizontal");
+
+  // brightness / exposure as sliders -- the server hides these for non-local
+  // camera types, so the whole row (label + slider) collapses automatically.
+  const auto addSliderRow = [&](const char* propName)
+  {
+    if(Property* p = dynamic_cast<Property*>(m_object->getProperty(propName)))
+      form->addRow(new InterfaceItemNameLabel(*p, formContainer),
+                   new PropertySlider(*p, formContainer));
+  };
+  addSliderRow("brightness");
+  addSliderRow("exposure");
+
   addRow("enabled");
 
   const auto addReadOnlyRow = [&](const char* propName)
@@ -264,8 +282,29 @@ void CameraEditWidget::buildForm()
   };
 
   addReadOnlyRow("stream_url");
-  addReadOnlyRow("frame_width");
-  addReadOnlyRow("frame_height");
+
+  // Actual stream resolution: frame_width and frame_height joined into one row.
+  {
+    Property* wProp = dynamic_cast<Property*>(m_object->getProperty("frame_width"));
+    Property* hProp = dynamic_cast<Property*>(m_object->getProperty("frame_height"));
+    if(wProp && hProp)
+    {
+      auto* resLabel = new QLabel(formContainer);
+      const auto updateRes = [resLabel, wProp, hProp]()
+      {
+        const int w = wProp->toInt();
+        const int h = hProp->toInt();
+        resLabel->setText((w > 0 && h > 0)
+          ? QStringLiteral("%1 × %2").arg(w).arg(h)
+          : QStringLiteral("-"));
+      };
+      updateRes();
+      connect(wProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
+      connect(hProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
+      form->addRow(new QLabel(Locale::tr("camera:stream_resolution"), formContainer),
+                   resLabel);
+    }
+  }
 
   setLayout(mainLayout);
 }

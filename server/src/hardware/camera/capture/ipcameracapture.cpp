@@ -439,16 +439,13 @@ namespace
 // ─── IpCameraCapture ─────────────────────────────────────────────────────────
 
 IpCameraCapture::IpCameraCapture(const std::string& url, double fps,
-                                  uint32_t maxWidth, uint32_t maxHeight,
                                   int jpegQuality, bool flipVertical, bool flipHorizontal,
                                   Object& logObject)
   : m_url(url)
-  , m_fps(fps)
   , m_cap(std::make_unique<cv::VideoCapture>())
   , m_logObject(logObject)
 {
-  m_maxWidth       = maxWidth;
-  m_maxHeight      = maxHeight;
+  m_fps.store(fps > 0.0 ? fps : 1.0);
   m_jpegQuality    = jpegQuality;
   m_flipVertical   = flipVertical;
   m_flipHorizontal = flipHorizontal;
@@ -460,10 +457,8 @@ bool IpCameraCapture::open()
 {
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("IpCameraCapture::open() url=[") + m_url +
-    "] fps=" + std::to_string(m_fps) +
-    " maxW=" + std::to_string(m_maxWidth) +
-    " maxH=" + std::to_string(m_maxHeight) +
-    " quality=" + std::to_string(m_jpegQuality));
+    "] fps=" + std::to_string(m_fps.load()) +
+    " quality=" + std::to_string(m_jpegQuality.load()));
 
   Log::log(m_logObject, LogMessage::I9999_X,
     std::string("OpenCV version: ") + cv::getVersionString());
@@ -748,14 +743,6 @@ success:
   unsetenv("OPENCV_FFMPEG_LOGLEVEL");
 #endif
 
-  // Request source resolution from backend as a hint --
-  // some RTSP cameras honour this in SDP negotiation.
-  // We always scale server-side anyway via encodeFrame().
-  if(m_maxWidth > 0)
-    m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_maxWidth));
-  if(m_maxHeight > 0)
-    m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_maxHeight));
-
   m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
   m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
 
@@ -770,15 +757,15 @@ success:
 bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
 {
   using namespace std::chrono;
-  const auto framePeriod =
-    duration_cast<microseconds>(duration<double>(1.0 / m_fps));
 
   cv::Mat frame;
   while(!m_interrupted)
   {
-    const auto t0 = steady_clock::now();
-
-    if(!m_cap->read(frame) || frame.empty())
+    // grab() pulls the next frame from the source; retrieve() decodes it.
+    // Frames arriving faster than the target rate are grabbed and dropped
+    // without decoding, so the frame rate is limited instead of the video
+    // being slowed down / buffered into ever-growing latency.
+    if(!m_cap->grab())
     {
       if(m_interrupted) return false;
 
@@ -814,8 +801,16 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       }
       Log::log(m_logObject, LogMessage::I9999_X,
         std::string("readJpeg: reconnect succeeded"));
+      // Reset the rate limiter so the first frame after a reconnect is kept.
+      m_lastPublishTime = {};
       continue;
     }
+
+    if(!framePeriodElapsed())
+      continue; // too soon -- drop this frame to hold the target rate
+
+    if(!m_cap->retrieve(frame) || frame.empty())
+      continue;
 
     if(!encodeFrame(frame, jpegOut))
     {
@@ -823,11 +818,6 @@ bool IpCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
         std::string("readJpeg: encodeFrame failed"));
       return false;
     }
-
-    const auto elapsed = steady_clock::now() - t0;
-    if(elapsed < framePeriod)
-      std::this_thread::sleep_for(framePeriod - elapsed);
-
     return true;
   }
   return false;

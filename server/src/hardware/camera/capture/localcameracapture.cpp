@@ -12,14 +12,17 @@
 #include <opencv2/imgcodecs.hpp>
 
 LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps,
-                                        uint32_t maxWidth, uint32_t maxHeight,
-                                        int jpegQuality, bool flipVertical, bool flipHorizontal)
+                                        uint32_t reqWidth, uint32_t reqHeight,
+                                        int jpegQuality, bool flipVertical, bool flipHorizontal,
+                                        int brightness, int exposure)
   : m_device(device)
-  , m_fps(fps)
+  , m_reqWidth(reqWidth)
+  , m_reqHeight(reqHeight)
+  , m_initBrightness(brightness)
+  , m_initExposure(exposure)
   , m_cap(std::make_unique<cv::VideoCapture>())
 {
-  m_maxWidth       = maxWidth;
-  m_maxHeight      = maxHeight;
+  m_fps.store(fps > 0.0 ? fps : 1.0);
   m_jpegQuality    = jpegQuality;
   m_flipVertical   = flipVertical;
   m_flipHorizontal = flipHorizontal;
@@ -53,14 +56,20 @@ bool LocalCameraCapture::open()
   if(!ok || !m_cap->isOpened())
     return false;
 
-  m_cap->set(cv::CAP_PROP_FPS, m_fps);
-
-  // Request source resolution matching our max constraints if set —
-  // some cameras will honour this and save bandwidth on the USB bus.
-  if(m_maxWidth > 0)
-    m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_maxWidth));
-  if(m_maxHeight > 0)
-    m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_maxHeight));
+  // Request capture settings best-effort; the camera honours what it supports.
+  if(m_reqWidth > 0 && m_reqHeight > 0)
+  {
+    m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_reqWidth));
+    m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_reqHeight));
+  }
+  m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
+  if(m_initBrightness >= 0)
+    m_cap->set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(m_initBrightness));
+  if(m_initExposure >= 0)
+  {
+    m_cap->set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual (DirectShow/MSMF)
+    m_cap->set(cv::CAP_PROP_EXPOSURE, static_cast<double>(m_initExposure));
+  }
 
   m_width  = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH));
   m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
@@ -69,20 +78,25 @@ bool LocalCameraCapture::open()
 
 bool LocalCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
 {
-  using namespace std::chrono;
-  const auto framePeriod = duration_cast<microseconds>(duration<double>(1.0 / m_fps));
   cv::Mat frame;
   while(!m_interrupted)
   {
-    const auto t0 = steady_clock::now();
-    if(!m_cap->read(frame) || frame.empty())
+    // Pick up any live brightness/exposure changes on the capture thread.
+    applyLiveSettings(*m_cap);
+
+    // grab() advances the source; retrieve() decodes. Frames that arrive
+    // faster than the target rate are grabbed and dropped (not decoded),
+    // which limits the frame rate instead of slowing the video down.
+    if(!m_cap->grab())
       return false;
-    if(!encodeFrame(frame, jpegOut))
-      return false;
-    const auto elapsed = steady_clock::now() - t0;
-    if(elapsed < framePeriod)
-      std::this_thread::sleep_for(framePeriod - elapsed);
-    return true;
+
+    if(!framePeriodElapsed())
+      continue;
+
+    if(!m_cap->retrieve(frame) || frame.empty())
+      continue;
+
+    return encodeFrame(frame, jpegOut);
   }
   return false;
 }

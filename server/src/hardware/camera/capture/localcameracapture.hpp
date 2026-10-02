@@ -19,8 +19,9 @@ class LocalCameraCapture final : public CameraCapture
 {
 public:
   LocalCameraCapture(const std::string& device, double fps,
-                     uint32_t maxWidth, uint32_t maxHeight,
-                     int jpegQuality, bool flipVertical, bool flipHorizontal);
+                     uint32_t reqWidth, uint32_t reqHeight,
+                     int jpegQuality, bool flipVertical, bool flipHorizontal,
+                     int brightness, int exposure);
   ~LocalCameraCapture() override;
 
   bool     open()    override;
@@ -31,7 +32,10 @@ public:
 
 private:
   std::string                       m_device;
-  double                            m_fps;
+  uint32_t                          m_reqWidth{0};   ///< 0 = keep camera default
+  uint32_t                          m_reqHeight{0};
+  int                               m_initBrightness{-1};
+  int                               m_initExposure{-1};
   std::unique_ptr<cv::VideoCapture> m_cap;
   uint32_t                          m_width{0};
   uint32_t                          m_height{0};

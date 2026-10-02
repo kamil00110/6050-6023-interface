@@ -244,16 +244,36 @@
         "definition": "Abfrageintervall"
     },
     {
+        "term": "camera:brightness",
+        "definition": "Helligkeit"
+    },
+    {
         "term": "camera:camera",
         "definition": "Kamera"
+    },
+    {
+        "term": "camera:connecting",
+        "definition": "Verbinde..."
+    },
+    {
+        "term": "camera:connection_error",
+        "definition": "Verbindungsfehler: %1"
     },
     {
         "term": "camera:device",
         "definition": "Gerät"
     },
     {
+        "term": "camera:disabled",
+        "definition": "Kamera deaktiviert"
+    },
+    {
         "term": "camera:enabled",
         "definition": "Aktiviert"
+    },
+    {
+        "term": "camera:exposure",
+        "definition": "Belichtung"
     },
     {
         "term": "camera:flip_horizontal",
@@ -276,6 +296,10 @@
         "definition": "Bildbreite"
     },
     {
+        "term": "camera:invalid_url",
+        "definition": "Ungültige URL"
+    },
+    {
         "term": "camera:jpeg_quality",
         "definition": "JPEG-Qualität"
     },
@@ -284,12 +308,20 @@
         "definition": "Lokale Kamera"
     },
     {
-        "term": "camera:max_height",
-        "definition": "Max. Höhe"
+        "term": "camera:not_found",
+        "definition": "Kamera nicht gefunden"
     },
     {
-        "term": "camera:max_width",
-        "definition": "Max. Breite"
+        "term": "camera:reconnecting",
+        "definition": "Verbinde erneut..."
+    },
+    {
+        "term": "camera:resolution",
+        "definition": "Auflösung"
+    },
+    {
+        "term": "camera:stream_resolution",
+        "definition": "Stream-Auflösung"
     },
     {
         "term": "camera:stream_url",
@@ -302,6 +334,50 @@
     {
         "term": "camera:url",
         "definition": "URL"
+    },
+    {
+        "term": "camera_resolution:1024x768",
+        "definition": "1024 × 768 (XGA 4:3)"
+    },
+    {
+        "term": "camera_resolution:1280x720",
+        "definition": "1280 × 720 (720p)"
+    },
+    {
+        "term": "camera_resolution:1600x1200",
+        "definition": "1600 × 1200 (UXGA 4:3)"
+    },
+    {
+        "term": "camera_resolution:1920x1080",
+        "definition": "1920 × 1080 (1080p)"
+    },
+    {
+        "term": "camera_resolution:2560x1440",
+        "definition": "2560 × 1440 (1440p)"
+    },
+    {
+        "term": "camera_resolution:3840x2160",
+        "definition": "3840 × 2160 (4K)"
+    },
+    {
+        "term": "camera_resolution:640x360",
+        "definition": "640 × 360 (360p)"
+    },
+    {
+        "term": "camera_resolution:640x480",
+        "definition": "640 × 480 (480p 4:3)"
+    },
+    {
+        "term": "camera_resolution:800x600",
+        "definition": "800 × 600 (SVGA 4:3)"
+    },
+    {
+        "term": "camera_resolution:854x480",
+        "definition": "854 × 480 (480p)"
+    },
+    {
+        "term": "camera_resolution:auto",
+        "definition": "Automatisch"
     },
     {
         "term": "camera_type:hls",
@@ -954,6 +1030,10 @@
     {
         "term": "hardware:boosters",
         "definition": "Booster"
+    },
+    {
+        "term": "hardware:cameras",
+        "definition": "Kameras"
     },
     {
         "term": "hardware:channel",

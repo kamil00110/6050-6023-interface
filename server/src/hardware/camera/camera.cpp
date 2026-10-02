@@ -39,7 +39,11 @@ Camera::Camera(World& world, std::string_view _id)
       [this](const CameraType& newValue)
       {
         updateDeviceAttribute();
-        if(newValue == CameraType::Local)
+        const bool isLocal = (newValue == CameraType::Local);
+        Attributes::setVisible(resolution, isLocal);
+        Attributes::setVisible(brightness, isLocal);
+        Attributes::setVisible(exposure, isLocal);
+        if(isLocal)
         {
           device.setValueInternal(
             m_deviceValues.empty() ? std::string{"0"} : m_deviceValues.front());
@@ -63,14 +67,43 @@ Camera::Camera(World& world, std::string_view _id)
   , streamUrl  {this, "stream_url",   std::string{},     PropertyFlags::ReadOnly | PropertyFlags::NoStore}
   , frameWidth {this, "frame_width",  0u,                PropertyFlags::ReadOnly | PropertyFlags::NoStore}
   , frameHeight{this, "frame_height", 0u,                PropertyFlags::ReadOnly | PropertyFlags::NoStore}
-  , fps        {this, "fps",          25.0,              PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , maxWidth   {this, "max_width",    0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , maxHeight  {this, "max_height",   0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
-  , jpegQuality{this, "jpeg_quality", 75,                PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , fps        {this, "fps",          25.0,              PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const double& value)
+      {
+        // fps changes take effect live (server-side rate limiting), on all
+        // protocols, without reconnecting the stream.
+        if(m_capture)
+          m_capture->setFps(value);
+      }}
+  , jpegQuality{this, "jpeg_quality", 75,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const int& value)
+      {
+        // Compression takes effect live (server-side JPEG encode), no reconnect.
+        if(m_capture)
+          m_capture->setJpegQuality(value);
+      }}
   , flipVertical{this, "flip_vertical", false,           PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const bool&) { applySettings(); }}
   , flipHorizontal{this, "flip_horizontal", false,       PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const bool&) { applySettings(); }}
+  , resolution {this, "resolution",   CameraResolution::Auto, PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const CameraResolution&)
+      {
+        // Resolution needs the device re-opened to take effect.
+        applySettings();
+      }}
+  , brightness {this, "brightness",   -1,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const int& value)
+      {
+        if(m_capture)
+          m_capture->setBrightness(value);
+      }}
+  , exposure   {this, "exposure",     -1,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const int& value)
+      {
+        if(m_capture)
+          m_capture->setExposure(value);
+      }}
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
@@ -105,15 +138,6 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addMinMax(fps, 1.0, 60.0);
   m_interfaceItems.add(fps);
 
-  // max_width / max_height: 0 means no scaling
-  Attributes::addEnabled(maxWidth, editable);
-  Attributes::addMinMax(maxWidth, 0u, 3840u);
-  m_interfaceItems.add(maxWidth);
-
-  Attributes::addEnabled(maxHeight, editable);
-  Attributes::addMinMax(maxHeight, 0u, 2160u);
-  m_interfaceItems.add(maxHeight);
-
   // jpeg_quality: 1-100
   Attributes::addEnabled(jpegQuality, editable);
   Attributes::addMinMax(jpegQuality, 1, 100);
@@ -124,6 +148,25 @@ Camera::Camera(World& world, std::string_view _id)
 
   Attributes::addEnabled(flipHorizontal, editable);
   m_interfaceItems.add(flipHorizontal);
+
+  // resolution / brightness / exposure only apply to local (OpenCV) cameras;
+  // they are hidden for the network types.
+  const bool localType = (type.value() == CameraType::Local);
+
+  Attributes::addValues(resolution, cameraResolutionValues);
+  Attributes::addEnabled(resolution, editable);
+  Attributes::addVisible(resolution, localType);
+  m_interfaceItems.add(resolution);
+
+  Attributes::addEnabled(brightness, editable);
+  Attributes::addMinMax(brightness, -1, 100);
+  Attributes::addVisible(brightness, localType);
+  m_interfaceItems.add(brightness);
+
+  Attributes::addEnabled(exposure, editable);
+  Attributes::addMinMax(exposure, -1, 100);
+  Attributes::addVisible(exposure, localType);
+  m_interfaceItems.add(exposure);
 
   m_interfaceItems.add(enabled);
   m_interfaceItems.add(streamUrl);
@@ -164,11 +207,12 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
   Attributes::setEnabled(type,        editable);
   Attributes::setEnabled(device,      editable);
   Attributes::setEnabled(fps,         editable);
-  Attributes::setEnabled(maxWidth,       editable);
-  Attributes::setEnabled(maxHeight,      editable);
   Attributes::setEnabled(jpegQuality,    editable);
   Attributes::setEnabled(flipVertical,   editable);
   Attributes::setEnabled(flipHorizontal, editable);
+  Attributes::setEnabled(resolution,     editable);
+  Attributes::setEnabled(brightness,     editable);
+  Attributes::setEnabled(exposure,       editable);
 }
 
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
@@ -216,11 +260,15 @@ void Camera::startCapture()
     switch(type.value())
     {
       case CameraType::Local:
+      {
+        const auto [reqW, reqH] = toResolutionSize(resolution.value());
         m_capture = std::make_unique<LocalCameraCapture>(
           device.value(), fps.value(),
-          maxWidth.value(), maxHeight.value(),
-          jpegQuality.value(), flipVertical.value(), flipHorizontal.value());
+          reqW, reqH,
+          jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
+          brightness.value(), exposure.value());
         break;
+      }
 
       case CameraType::RTSP:
       case CameraType::MJPEG:
@@ -228,7 +276,6 @@ void Camera::startCapture()
       case CameraType::HLS:
         m_capture = std::make_unique<IpCameraCapture>(
           device.value(), fps.value(),
-          maxWidth.value(), maxHeight.value(),
           jpegQuality.value(), flipVertical.value(), flipHorizontal.value(), *this);
         break;
     }

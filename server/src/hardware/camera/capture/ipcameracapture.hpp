@@ -24,7 +24,6 @@ class IpCameraCapture final : public CameraCapture
 {
 public:
   IpCameraCapture(const std::string& url, double fps,
-                  uint32_t maxWidth, uint32_t maxHeight,
                   int jpegQuality, bool flipVertical, bool flipHorizontal,
                   Object& logObject);
   ~IpCameraCapture() override;
@@ -37,7 +36,6 @@ public:
 
 private:
   std::string                       m_url;
-  double                            m_fps;
   std::unique_ptr<cv::VideoCapture> m_cap;
   Object&                           m_logObject;
   cv::VideoCaptureAPIs              m_backend{cv::CAP_ANY};

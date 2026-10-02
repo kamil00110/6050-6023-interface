@@ -24,6 +24,7 @@
 #include <traintastic/locale/locale.hpp>
 #include <traintastic/enum/autoyesno.hpp>
 #include <traintastic/enum/blockstate.hpp>
+#include <traintastic/enum/cameraresolution.hpp>
 #include <traintastic/enum/cameratype.hpp>
 #include <traintastic/enum/cbusinterfacetype.hpp>
 #include <traintastic/enum/color.hpp>
@@ -101,6 +102,7 @@ QString translateEnum(const QString& enumName, qint64 value)
 {
   TRANSLATE_ENUM(AutoYesNo)
   TRANSLATE_ENUM(BlockState)
+  TRANSLATE_ENUM(CameraResolution)
   TRANSLATE_ENUM(CameraType)
   TRANSLATE_ENUM(CBUSInterfaceType)
   TRANSLATE_ENUM(Color)

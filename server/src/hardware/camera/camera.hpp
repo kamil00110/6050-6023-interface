@@ -11,6 +11,7 @@
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
 #include <traintastic/enum/cameratype.hpp>
+#include <traintastic/enum/cameraresolution.hpp>
 #include <memory>
 #include <atomic>
 #include <thread>
@@ -50,11 +51,12 @@ public:
   Property<uint32_t>     frameWidth;
   Property<uint32_t>     frameHeight;
   Property<double>       fps;
-  Property<uint32_t>     maxWidth;   ///< 0 = no limit, scale down if source is larger
-  Property<uint32_t>     maxHeight;  ///< 0 = no limit
   Property<int>          jpegQuality; ///< 1-100, default 75
   Property<bool>         flipVertical;
   Property<bool>         flipHorizontal;
+  Property<CameraResolution> resolution;  ///< requested capture size (local cameras)
+  Property<int>          brightness;      ///< -1 = camera default, else applied best-effort
+  Property<int>          exposure;        ///< -1 = auto, else manual level (best-effort)
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
   uint64_t addFrameSubscriber(FrameCallback cb);

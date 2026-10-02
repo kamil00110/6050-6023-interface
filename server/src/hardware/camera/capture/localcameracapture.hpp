@@ -20,7 +20,7 @@ class LocalCameraCapture final : public CameraCapture
 public:
   LocalCameraCapture(const std::string& device, double fps,
                      uint32_t maxWidth, uint32_t maxHeight,
-                     int jpegQuality);
+                     int jpegQuality, bool flipVertical, bool flipHorizontal);
   ~LocalCameraCapture() override;
 
   bool     open()    override;

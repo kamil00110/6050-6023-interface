@@ -244,6 +244,86 @@
         "definition": "Abfrageintervall"
     },
     {
+        "term": "camera:camera",
+        "definition": "Kamera"
+    },
+    {
+        "term": "camera:device",
+        "definition": "Gerät"
+    },
+    {
+        "term": "camera:enabled",
+        "definition": "Aktiviert"
+    },
+    {
+        "term": "camera:flip_horizontal",
+        "definition": "Horizontal spiegeln"
+    },
+    {
+        "term": "camera:flip_vertical",
+        "definition": "Vertikal spiegeln"
+    },
+    {
+        "term": "camera:fps",
+        "definition": "Bilder pro Sekunde"
+    },
+    {
+        "term": "camera:frame_height",
+        "definition": "Bildhöhe"
+    },
+    {
+        "term": "camera:frame_width",
+        "definition": "Bildbreite"
+    },
+    {
+        "term": "camera:jpeg_quality",
+        "definition": "JPEG-Qualität"
+    },
+    {
+        "term": "camera:local_camera",
+        "definition": "Lokale Kamera"
+    },
+    {
+        "term": "camera:max_height",
+        "definition": "Max. Höhe"
+    },
+    {
+        "term": "camera:max_width",
+        "definition": "Max. Breite"
+    },
+    {
+        "term": "camera:stream_url",
+        "definition": "Stream-URL"
+    },
+    {
+        "term": "camera:type",
+        "definition": "Typ"
+    },
+    {
+        "term": "camera:url",
+        "definition": "URL"
+    },
+    {
+        "term": "camera_type:hls",
+        "definition": "HLS"
+    },
+    {
+        "term": "camera_type:local",
+        "definition": "Lokal"
+    },
+    {
+        "term": "camera_type:mjpeg",
+        "definition": "MJPEG"
+    },
+    {
+        "term": "camera_type:rtmp",
+        "definition": "RTMP"
+    },
+    {
+        "term": "camera_type:rtsp",
+        "definition": "RTSP"
+    },
+    {
         "term": "category:block",
         "definition": "Block"
     },
@@ -506,6 +586,10 @@
     {
         "term": "class_id:board_tile.rail.turnout_wye",
         "definition": "Y-Weiche"
+    },
+    {
+        "term": "class_id:camera",
+        "definition": "Kamera"
     },
     {
         "term": "class_id:vehicle.rail.freight_wagon",

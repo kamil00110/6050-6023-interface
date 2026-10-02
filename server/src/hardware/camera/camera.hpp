@@ -10,7 +10,7 @@
 
 #include "../../core/idobject.hpp"
 #include "../../core/property.hpp"
-#include "cameratype.hpp"
+#include <traintastic/enum/cameratype.hpp>
 #include <memory>
 #include <atomic>
 #include <thread>
@@ -53,6 +53,8 @@ public:
   Property<uint32_t>     maxWidth;   ///< 0 = no limit, scale down if source is larger
   Property<uint32_t>     maxHeight;  ///< 0 = no limit
   Property<int>          jpegQuality; ///< 1-100, default 75
+  Property<bool>         flipVertical;
+  Property<bool>         flipHorizontal;
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
   uint64_t addFrameSubscriber(FrameCallback cb);

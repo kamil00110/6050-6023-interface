@@ -13,14 +13,16 @@
 
 LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps,
                                         uint32_t maxWidth, uint32_t maxHeight,
-                                        int jpegQuality)
+                                        int jpegQuality, bool flipVertical, bool flipHorizontal)
   : m_device(device)
   , m_fps(fps)
   , m_cap(std::make_unique<cv::VideoCapture>())
 {
-  m_maxWidth    = maxWidth;
-  m_maxHeight   = maxHeight;
-  m_jpegQuality = jpegQuality;
+  m_maxWidth       = maxWidth;
+  m_maxHeight      = maxHeight;
+  m_jpegQuality    = jpegQuality;
+  m_flipVertical   = flipVertical;
+  m_flipHorizontal = flipHorizontal;
 }
 
 LocalCameraCapture::~LocalCameraCapture() = default;

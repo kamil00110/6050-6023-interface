@@ -440,15 +440,18 @@ namespace
 
 IpCameraCapture::IpCameraCapture(const std::string& url, double fps,
                                   uint32_t maxWidth, uint32_t maxHeight,
-                                  int jpegQuality, Object& logObject)
+                                  int jpegQuality, bool flipVertical, bool flipHorizontal,
+                                  Object& logObject)
   : m_url(url)
   , m_fps(fps)
   , m_cap(std::make_unique<cv::VideoCapture>())
   , m_logObject(logObject)
 {
-  m_maxWidth    = maxWidth;
-  m_maxHeight   = maxHeight;
-  m_jpegQuality = jpegQuality;
+  m_maxWidth       = maxWidth;
+  m_maxHeight      = maxHeight;
+  m_jpegQuality    = jpegQuality;
+  m_flipVertical   = flipVertical;
+  m_flipHorizontal = flipHorizontal;
 }
 
 IpCameraCapture::~IpCameraCapture() = default;

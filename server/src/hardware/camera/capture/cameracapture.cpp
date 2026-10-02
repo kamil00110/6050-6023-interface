@@ -31,15 +31,26 @@ bool CameraCapture::encodeFrame(const cv::Mat& frame,
     }
     if(m_maxHeight > 0 && dstH > m_maxHeight)
     {
+      const uint32_t prevH = dstH;
       dstH = m_maxHeight;
       dstW = static_cast<uint32_t>(
-        static_cast<double>(dstW) * m_maxHeight / dstH);
+        static_cast<double>(dstW) * m_maxHeight / prevH);
     }
 
     if(dstW != srcW || dstH != srcH)
       cv::resize(frame, out,
         cv::Size(static_cast<int>(dstW), static_cast<int>(dstH)),
         0, 0, cv::INTER_AREA);
+  }
+
+  // flipCode: 0 = vertical (around x-axis), >0 = horizontal (around y-axis), <0 = both
+  if((m_flipVertical || m_flipHorizontal) && !out.empty())
+  {
+    const int flipCode = (m_flipVertical && m_flipHorizontal) ? -1
+                       : (m_flipVertical ? 0 : 1);
+    cv::Mat flipped;
+    cv::flip(out, flipped, flipCode);
+    out = flipped;
   }
 
   const std::vector<int> params{cv::IMWRITE_JPEG_QUALITY, m_jpegQuality};

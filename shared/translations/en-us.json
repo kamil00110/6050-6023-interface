@@ -244,6 +244,86 @@
         "definition": "Poll interval"
     },
     {
+        "term": "camera:camera",
+        "definition": "Camera"
+    },
+    {
+        "term": "camera:device",
+        "definition": "Device"
+    },
+    {
+        "term": "camera:enabled",
+        "definition": "Enabled"
+    },
+    {
+        "term": "camera:flip_horizontal",
+        "definition": "Flip horizontal"
+    },
+    {
+        "term": "camera:flip_vertical",
+        "definition": "Flip vertical"
+    },
+    {
+        "term": "camera:fps",
+        "definition": "Frames per second"
+    },
+    {
+        "term": "camera:frame_height",
+        "definition": "Frame height"
+    },
+    {
+        "term": "camera:frame_width",
+        "definition": "Frame width"
+    },
+    {
+        "term": "camera:jpeg_quality",
+        "definition": "JPEG quality"
+    },
+    {
+        "term": "camera:local_camera",
+        "definition": "Local camera"
+    },
+    {
+        "term": "camera:max_height",
+        "definition": "Max. height"
+    },
+    {
+        "term": "camera:max_width",
+        "definition": "Max. width"
+    },
+    {
+        "term": "camera:stream_url",
+        "definition": "Stream URL"
+    },
+    {
+        "term": "camera:type",
+        "definition": "Type"
+    },
+    {
+        "term": "camera:url",
+        "definition": "URL"
+    },
+    {
+        "term": "camera_type:hls",
+        "definition": "HLS"
+    },
+    {
+        "term": "camera_type:local",
+        "definition": "Local"
+    },
+    {
+        "term": "camera_type:mjpeg",
+        "definition": "MJPEG"
+    },
+    {
+        "term": "camera_type:rtmp",
+        "definition": "RTMP"
+    },
+    {
+        "term": "camera_type:rtsp",
+        "definition": "RTSP"
+    },
+    {
         "term": "category:block",
         "definition": "Block"
     },
@@ -506,6 +586,10 @@
     {
         "term": "class_id:board_tile.rail.turnout_wye",
         "definition": "Turnout wye"
+    },
+    {
+        "term": "class_id:camera",
+        "definition": "Camera"
     },
     {
         "term": "class_id:train",

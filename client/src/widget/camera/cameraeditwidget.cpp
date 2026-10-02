@@ -15,6 +15,7 @@
 
 #include "camerawidget.hpp"
 #include "../../mainwindow.hpp"
+#include "../../theme/theme.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/abstractproperty.hpp"
@@ -61,6 +62,25 @@ static int64_t detectTypeFromUrl(const QString& url)
   return -1; // unrecognised — leave type unchanged
 }
 
+// Grayed-out example URL shown in the (empty) URL field for the selected type.
+static QString urlPlaceholderForType(int64_t type)
+{
+  switch(type)
+  {
+    case kCameraTypeRTSP:  return QStringLiteral("rtsp://192.168.1.100:554/stream");
+    case kCameraTypeRTMP:  return QStringLiteral("rtmp://192.168.1.100/live/stream");
+    case kCameraTypeHLS:   return QStringLiteral("http://192.168.1.100/stream.m3u8");
+    case kCameraTypeMJPEG:
+    default:               return QStringLiteral("http://192.168.1.100/video");
+  }
+}
+
+// A real stream URL always has a scheme; a bare local-camera index does not.
+static bool looksLikeUrl(const QString& value)
+{
+  return value.contains(QStringLiteral("://"));
+}
+
 CameraEditWidget::CameraEditWidget(const ObjectPtr& object, QWidget* parent)
   : AbstractEditWidget(object, parent)
 {
@@ -70,6 +90,7 @@ CameraEditWidget::CameraEditWidget(const ObjectPtr& object, QWidget* parent)
 void CameraEditWidget::buildForm()
 {
   setObjectWindowTitle();
+  Theme::setWindowIcon(*this, m_object->classId());
 
   auto* mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -122,10 +143,12 @@ void CameraEditWidget::buildForm()
     // Row 2 — IP camera URL (plain line edit, bound to same property)
     urlEdit = new QLineEdit(formContainer);
     urlEdit->setPlaceholderText(
-      QStringLiteral("rtsp://192.168.1.100/stream  or  http://192.168.1.100/video"));
+      urlPlaceholderForType(typeProp ? typeProp->toInt64() : kCameraTypeMJPEG));
 
-    // Initialise with current value only when type is not Local
-    if(typeProp && typeProp->toInt64() != kCameraTypeLocal)
+    // Initialise with current value only when it is a real URL (never the
+    // numeric local-camera index).
+    if(typeProp && typeProp->toInt64() != kCameraTypeLocal &&
+       looksLikeUrl(deviceProp->toString()))
       urlEdit->setText(deviceProp->toString());
 
     // ── Auto-detect type from URL ─────────────────────────────────────
@@ -155,9 +178,10 @@ void CameraEditWidget::buildForm()
     connect(deviceProp, &Property::valueChangedString,
       [urlEdit, typeProp](const QString& value)
       {
-        // Only update the URL field when we are in IP mode; in Local mode
-        // the value is a numeric index and should not appear in the URL field.
-        if(typeProp && typeProp->toInt64() != kCameraTypeLocal)
+        // Only update the URL field when we are in IP mode and the value is a
+        // real URL; in Local mode the value is a numeric index and must never
+        // appear in the URL field.
+        if(typeProp && typeProp->toInt64() != kCameraTypeLocal && looksLikeUrl(value))
         {
           if(urlEdit->text() != value)
             urlEdit->setText(value);
@@ -177,9 +201,12 @@ void CameraEditWidget::buildForm()
     {
       urlEdit->setEnabled(serverEnabled && !isLocal);
       // Clear the URL field when switching to Local so it never shows
-      // a stale URL string while the combo is active.
+      // a stale URL string while the combo is active; otherwise show a
+      // grayed-out example URL for the selected type.
       if(isLocal)
         urlEdit->clear();
+      else
+        urlEdit->setPlaceholderText(urlPlaceholderForType(typeValue));
     }
   };
 
@@ -200,8 +227,13 @@ void CameraEditWidget::buildForm()
         if(newType != kCameraTypeLocal && urlEdit)
         {
           const QString current = deviceProp->toString();
-          if(urlEdit->text() != current)
-            urlEdit->setText(current);
+          if(looksLikeUrl(current))
+          {
+            if(urlEdit->text() != current)
+              urlEdit->setText(current);
+          }
+          else
+            urlEdit->clear();
         }
       });
 
@@ -215,6 +247,11 @@ void CameraEditWidget::buildForm()
 
   // ── Remaining properties ──────────────────────────────────────────────
   addRow("fps");
+  addRow("max_width");
+  addRow("max_height");
+  addRow("jpeg_quality");
+  addRow("flip_vertical");
+  addRow("flip_horizontal");
   addRow("enabled");
 
   const auto addReadOnlyRow = [&](const char* propName)

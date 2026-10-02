@@ -25,7 +25,8 @@ class IpCameraCapture final : public CameraCapture
 public:
   IpCameraCapture(const std::string& url, double fps,
                   uint32_t maxWidth, uint32_t maxHeight,
-                  int jpegQuality, Object& logObject);
+                  int jpegQuality, bool flipVertical, bool flipHorizontal,
+                  Object& logObject);
   ~IpCameraCapture() override;
 
   bool     open()    override;

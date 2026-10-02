@@ -67,6 +67,10 @@ Camera::Camera(World& world, std::string_view _id)
   , maxWidth   {this, "max_width",    0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
   , maxHeight  {this, "max_height",   0u,                PropertyFlags::ReadWrite | PropertyFlags::Store}
   , jpegQuality{this, "jpeg_quality", 75,                PropertyFlags::ReadWrite | PropertyFlags::Store}
+  , flipVertical{this, "flip_vertical", false,           PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const bool&) { applySettings(); }}
+  , flipHorizontal{this, "flip_horizontal", false,       PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const bool&) { applySettings(); }}
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
 
@@ -115,6 +119,12 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addMinMax(jpegQuality, 1, 100);
   m_interfaceItems.add(jpegQuality);
 
+  Attributes::addEnabled(flipVertical, editable);
+  m_interfaceItems.add(flipVertical);
+
+  Attributes::addEnabled(flipHorizontal, editable);
+  m_interfaceItems.add(flipHorizontal);
+
   m_interfaceItems.add(enabled);
   m_interfaceItems.add(streamUrl);
   m_interfaceItems.add(frameWidth);
@@ -154,9 +164,11 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
   Attributes::setEnabled(type,        editable);
   Attributes::setEnabled(device,      editable);
   Attributes::setEnabled(fps,         editable);
-  Attributes::setEnabled(maxWidth,    editable);
-  Attributes::setEnabled(maxHeight,   editable);
-  Attributes::setEnabled(jpegQuality, editable);
+  Attributes::setEnabled(maxWidth,       editable);
+  Attributes::setEnabled(maxHeight,      editable);
+  Attributes::setEnabled(jpegQuality,    editable);
+  Attributes::setEnabled(flipVertical,   editable);
+  Attributes::setEnabled(flipHorizontal, editable);
 }
 
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
@@ -207,7 +219,7 @@ void Camera::startCapture()
         m_capture = std::make_unique<LocalCameraCapture>(
           device.value(), fps.value(),
           maxWidth.value(), maxHeight.value(),
-          jpegQuality.value());
+          jpegQuality.value(), flipVertical.value(), flipHorizontal.value());
         break;
 
       case CameraType::RTSP:
@@ -217,7 +229,7 @@ void Camera::startCapture()
         m_capture = std::make_unique<IpCameraCapture>(
           device.value(), fps.value(),
           maxWidth.value(), maxHeight.value(),
-          jpegQuality.value(), *this);
+          jpegQuality.value(), flipVertical.value(), flipHorizontal.value(), *this);
         break;
     }
   }

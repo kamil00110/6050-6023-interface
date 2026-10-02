@@ -28,6 +28,8 @@ protected:
   uint32_t m_maxWidth{0};
   uint32_t m_maxHeight{0};
   int      m_jpegQuality{75};
+  bool     m_flipVertical{false};
+  bool     m_flipHorizontal{false};
 
   // Implemented in cameracapture.cpp to keep OpenCV out of this header
   bool encodeFrame(const cv::Mat& frame, std::vector<uint8_t>& jpegOut) const;

@@ -317,8 +317,8 @@ namespace
       struct timeval tv{5, 0};
       const int toRead = static_cast<int>(
         static_cast<size_t>(remaining) < sizeof(tmp)
-          ? static_cast<size_t>(remaining) : sizeof(tmp))
-      
+          ? static_cast<size_t>(remaining) : sizeof(tmp));
+
 #ifdef _WIN32
       if(select(0, &rset, nullptr, nullptr, &tv) <= 0) break;
       const int n = recv(sock, tmp, toRead, 0);

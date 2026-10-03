@@ -23,9 +23,12 @@
 #define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAPTURE_LOCALCAMERACAPTURE_HPP
 
 #include "cameracapture.hpp"
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <atomic>
+#include <utility>
+#include <vector>
 
 class Object;
 namespace cv { class VideoCapture; }
@@ -33,8 +36,12 @@ namespace cv { class VideoCapture; }
 class LocalCameraCapture final : public CameraCapture
 {
 public:
+  /// resolutions: candidate capture sizes to try, largest-first. The first that
+  /// delivers non-black frames is used. Empty / {0,0} entry = let the camera use
+  /// its own default. (For "Auto" the camera passes the device's declared sizes;
+  /// for an explicit choice, a single size.)
   LocalCameraCapture(const std::string& device, double fps,
-                     uint32_t reqWidth, uint32_t reqHeight,
+                     std::vector<std::pair<uint32_t, uint32_t>> resolutions,
                      int jpegQuality, bool flipVertical, bool flipHorizontal,
                      int brightness, bool applyBrightness,
                      Object& logObject);
@@ -48,8 +55,7 @@ public:
 
 private:
   std::string                       m_device;
-  uint32_t                          m_reqWidth{0};   ///< 0 = keep camera default
-  uint32_t                          m_reqHeight{0};
+  std::vector<std::pair<uint32_t, uint32_t>> m_resolutions; ///< candidates, largest-first
   int                               m_initBrightness{0};
   bool                              m_applyBrightness{false}; ///< false = auto (force neutral)
   Object&                           m_logObject;

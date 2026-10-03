@@ -46,13 +46,12 @@ namespace
 }
 
 LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps,
-                                        uint32_t reqWidth, uint32_t reqHeight,
+                                        std::vector<std::pair<uint32_t, uint32_t>> resolutions,
                                         int jpegQuality, bool flipVertical, bool flipHorizontal,
                                         int brightness, bool applyBrightness,
                                         Object& logObject)
   : m_device(device)
-  , m_reqWidth(reqWidth)
-  , m_reqHeight(reqHeight)
+  , m_resolutions(std::move(resolutions))
   , m_initBrightness(brightness)
   , m_applyBrightness(applyBrightness)
   , m_logObject(logObject)
@@ -87,33 +86,18 @@ bool LocalCameraCapture::open()
   backends = numeric ? std::vector<int>{cv::CAP_ANY} : std::vector<int>{cv::CAP_V4L2};
 #endif
 
-  const auto applyRequestedSettings = [this]()
-  {
-    // Request the capture size when one is given. Camera resolves "Auto" to the
-    // camera's largest declared resolution (many cameras -- e.g. NVIDIA Broadcast
-    // -- return black at OpenCV's 640x480 default but deliver video at their
-    // native size); 0x0 arrives only when nothing is known, leaving the camera at
-    // its own default. set() is best-effort; the camera snaps to its nearest mode
-    // and the actual size is read back after opening (finalizeSize).
-    if(m_reqWidth > 0 && m_reqHeight > 0)
-    {
-      m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_reqWidth));
-      m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_reqHeight));
-    }
-    m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
-    // Always drive brightness on (re)open: in manual mode to the requested
-    // offset, in auto mode back to neutral (0). Otherwise the camera keeps the
-    // last manually-set brightness when auto-brightness is re-enabled.
-    m_cap->set(cv::CAP_PROP_BRIGHTNESS,
-               m_applyBrightness ? static_cast<double>(m_initBrightness) : 0.0);
-  };
+  // Candidate sizes to try, largest-first. A {0,0} entry means "don't request a
+  // size" (let the camera keep its own default).
+  std::vector<std::pair<uint32_t, uint32_t>> candidates = m_resolutions;
+  if(candidates.empty())
+    candidates.push_back({0, 0});
 
   const auto backendName = [](int backend)
   {
     return cv::videoio_registry::getBackendName(static_cast<cv::VideoCaptureAPIs>(backend));
   };
 
-  const auto openBackend = [&](int backend) -> bool
+  const auto openAt = [&](int backend, uint32_t cw, uint32_t ch) -> bool
   {
     const bool ok = numeric ? m_cap->open(idx, backend)
                             : m_cap->open(m_device, backend);
@@ -122,7 +106,16 @@ bool LocalCameraCapture::open()
       m_cap->release();
       return false;
     }
-    applyRequestedSettings();
+    if(cw > 0 && ch > 0)
+    {
+      m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(cw));
+      m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(ch));
+    }
+    m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
+    // Manual mode applies the requested brightness; auto mode forces neutral (0)
+    // so a previously set value doesn't linger on the device.
+    m_cap->set(cv::CAP_PROP_BRIGHTNESS,
+               m_applyBrightness ? static_cast<double>(m_initBrightness) : 0.0);
     return true;
   };
 
@@ -132,43 +125,56 @@ bool LocalCameraCapture::open()
     m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
   };
 
-  // Prefer a backend that actually delivers non-black frames (some virtual
-  // cameras / capture cards open on DirectShow but only produce black). Warm up
-  // a few reads before judging -- the first frames can be black during start-up.
-  int fallbackBackend = -1;
-  for(int backend : backends)
+  const auto deliversContent = [this]() -> bool
   {
-    if(m_interrupted)
-      return false;
-    if(!openBackend(backend))
-      continue;
-
+    // A device may hand back a few black frames at start-up, so warm up a few
+    // reads. Returns true as soon as a non-black frame arrives.
     cv::Mat frame;
-    bool hasContent = false;
-    for(int i = 0; i < 20 && !m_interrupted; ++i)
+    for(int i = 0; i < 15 && !m_interrupted; ++i)
     {
       if(m_cap->read(frame) && frameHasContent(frame))
-      {
-        hasContent = true;
-        break;
-      }
+        return true;
       std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
-    if(hasContent)
+    return false;
+  };
+
+  // For each backend (DirectShow first), try the candidate sizes largest-first;
+  // use the first combination that actually delivers non-black frames. Trying all
+  // of a backend's sizes before moving on means the working backend is found
+  // without probing the other for every size -- DirectShow delivers the NVIDIA
+  // Broadcast camera at 1280x720, so Media Foundation (which can't grab it) is
+  // never touched. This also skips sizes a camera accepts but renders black, and
+  // naturally rounds down to a size that works.
+  int fallbackBackend = -1;
+  uint32_t fallbackW = 0, fallbackH = 0;
+  for(int backend : backends)
+  {
+    for(const auto& [cw, ch] : candidates)
     {
-      finalizeSize();
-      Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(backend));
-      return true;
+      if(m_interrupted)
+        return false;
+      if(!openAt(backend, cw, ch))
+        continue;
+      if(deliversContent())
+      {
+        finalizeSize();
+        Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(backend));
+        return true;
+      }
+      if(fallbackBackend < 0) // opened but only black -- remember as a last resort
+      {
+        fallbackBackend = backend;
+        fallbackW = cw;
+        fallbackH = ch;
+      }
+      m_cap->release();
     }
-    if(fallbackBackend < 0)
-      fallbackBackend = backend; // opened but only black -- remember as a fallback
-    m_cap->release();
   }
 
-  // No backend produced real content; the scene may genuinely be dark, so accept
-  // the first backend that at least opened. Warn, because this is the usual cause
-  // of a "connected but black" window with virtual cameras / capture cards.
-  if(!m_interrupted && fallbackBackend >= 0 && openBackend(fallbackBackend))
+  // Nothing produced real content; open the first combination that at least
+  // opened and warn -- the usual "connected but black" case for virtual cameras.
+  if(!m_interrupted && fallbackBackend >= 0 && openAt(fallbackBackend, fallbackW, fallbackH))
   {
     finalizeSize();
     Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(fallbackBackend));

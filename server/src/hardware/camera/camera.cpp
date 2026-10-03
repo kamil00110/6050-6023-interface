@@ -234,6 +234,7 @@ void Camera::addToWorld()
 void Camera::loaded()
 {
   IdObject::loaded();
+  updateResolutionValues(); // reflect the loaded device's resolution list
   if(enabled)
     startCapture();
 }
@@ -341,17 +342,13 @@ void Camera::updateResolutionValues()
   Attributes::setValues(resolution, std::move(values));
 }
 
-std::pair<uint32_t, uint32_t> Camera::autoResolution() const
+std::vector<std::pair<uint32_t, uint32_t>> Camera::deviceResolutions(const std::string& dev) const
 {
-  // Auto: request the camera's largest declared size (resolutions are stored
-  // largest-first). Many cameras -- e.g. NVIDIA Broadcast -- return black at
-  // OpenCV's 640x480 default but deliver video at their native size. {0,0} lets
-  // the camera keep its own default when nothing is known.
   if(type.value() == CameraType::Local)
     for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceResolutions.size(); ++i)
-      if(m_deviceValues[i] == device.value() && !m_deviceResolutions[i].empty())
-        return m_deviceResolutions[i].front();
-  return {0, 0};
+      if(m_deviceValues[i] == dev)
+        return m_deviceResolutions[i];
+  return {};
 }
 
 void Camera::updateSpecVisibility()
@@ -391,12 +388,24 @@ void Camera::startCapture()
     {
       case CameraType::Local:
       {
-        const auto [reqW, reqH] = (resolution.value() == CameraResolution::Auto)
-          ? autoResolution()
-          : toResolutionSize(resolution.value());
+        // Auto: hand the capture the device's declared sizes (largest-first) so
+        // it probes for the largest that actually delivers video; if the device
+        // declared nothing, fall back to a standard descending set. An explicit
+        // choice is passed as the single size.
+        std::vector<std::pair<uint32_t, uint32_t>> candidates;
+        if(resolution.value() == CameraResolution::Auto)
+        {
+          candidates = deviceResolutions(device.value());
+          if(candidates.empty())
+            candidates = {{1920, 1080}, {1280, 720}, {1024, 768}, {800, 600}, {640, 480}, {640, 360}};
+        }
+        else
+        {
+          candidates.push_back(toResolutionSize(resolution.value()));
+        }
         m_capture = std::make_unique<LocalCameraCapture>(
           device.value(), fps.value(),
-          reqW, reqH,
+          std::move(candidates),
           jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
           brightness.value(), !autoBrightness.value(), *this);
         break;

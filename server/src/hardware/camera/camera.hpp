@@ -117,7 +117,7 @@ private:
   void updateSpecVisibility();
   void updateBrightnessEnabled();
   void updateResolutionValues();                     ///< offer only the selected camera's resolutions
-  std::pair<uint32_t, uint32_t> autoResolution() const; ///< largest declared size of the selected camera, or {0,0}
+  std::vector<std::pair<uint32_t, uint32_t>> deviceResolutions(const std::string& dev) const; ///< declared sizes of a device, largest-first
   void startCapture();
   void stopCapture();
   void captureLoop();

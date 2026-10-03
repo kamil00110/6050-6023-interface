@@ -79,7 +79,13 @@ bool LocalCameraCapture::open()
   // Backends to try, in preference order.
   std::vector<int> backends;
 #ifdef _WIN32
-  backends = {cv::CAP_DSHOW, cv::CAP_MSMF};
+  // Media Foundation first: it sustains modern and virtual cameras (e.g. the
+  // "Camera (NVIDIA Broadcast)" source) that DirectShow opens but then stalls
+  // on -- DirectShow delivers a few handshake frames and then grab() starts
+  // failing, which shows up as a connect/stream-lost loop. DirectShow stays as
+  // a fallback (chosen by the frame-content check below) for the capture cards
+  // that only deliver on it.
+  backends = {cv::CAP_MSMF, cv::CAP_DSHOW};
 #else
   backends = numeric ? std::vector<int>{cv::CAP_ANY} : std::vector<int>{cv::CAP_V4L2};
 #endif

@@ -71,15 +71,16 @@ CameraOverviewWidget::CameraOverviewWidget(std::shared_ptr<Connection> connectio
   m_emptyLabel->hide();
   m_grid->addWidget(m_emptyLabel, 0, 0);
 
-  // Floating "+" in the bottom-right corner -- the same flat "add" tool button
-  // the interfaces list toolbar uses -- that opens the camera list window (to
-  // add/manage cameras). autoRaise() drops the button frame so only the icon
-  // shows, exactly like a QToolBar action.
+  // Floating circular "+" in the bottom-right corner, using the same
+  // "circle/add" icon the interfaces list uses for its corner create button
+  // (StackedObjectListWidget::m_create) -- it opens the camera list window to
+  // add/manage cameras. autoRaise() drops the button frame so only the icon
+  // shows, like the interfaces button.
   m_addButton = new QToolButton(this);
   m_addButton->setAutoRaise(true);
-  m_addButton->setIcon(Theme::getIcon("add"));
-  m_addButton->setIconSize(QSize(28, 28));
-  m_addButton->setFixedSize(44, 44);
+  m_addButton->setIcon(Theme::getIcon("circle/add"));
+  m_addButton->setIconSize(QSize(32, 32));
+  m_addButton->setFixedSize(40, 40);
   m_addButton->setToolTip(Locale::tr("hardware:cameras"));
   m_addButton->setCursor(Qt::PointingHandCursor);
   connect(m_addButton, &QToolButton::clicked, this,

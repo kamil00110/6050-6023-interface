@@ -28,6 +28,7 @@
 #include <atomic>
 #include <mutex>
 #include <optional>
+#include <utility>
 
 namespace cv { class Mat; class VideoCapture; }
 
@@ -41,6 +42,11 @@ public:
   virtual uint32_t height() const = 0;
   [[nodiscard]] virtual bool readJpeg(std::vector<uint8_t>& jpegOut) = 0;
   virtual void interrupt() = 0;
+
+  /// Resolutions that were verified to deliver non-black frames during open(),
+  /// largest-first. Empty when not applicable (network cameras) or not probed.
+  /// Used to populate the camera's resolution list with only working sizes.
+  virtual std::vector<std::pair<uint32_t, uint32_t>> usableResolutions() const { return {}; }
 
   // Live-adjustable settings. These may be called from another thread while the
   // capture loop is running; the new value is picked up without a reconnect.

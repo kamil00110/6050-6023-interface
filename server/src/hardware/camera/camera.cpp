@@ -302,19 +302,20 @@ void Camera::updateDeviceAttribute()
 
 void Camera::updateResolutionValues()
 {
-  // Offer only the resolutions the selected local camera declares (mapped onto
-  // the fixed CameraResolution set), always keeping Auto. For non-local cameras,
-  // or when nothing maps, keep the full list so the control is never empty and
-  // IP cameras can still request any size.
-  std::vector<std::pair<uint32_t, uint32_t>> declared;
+  // Offer the resolutions of the selected local camera (mapped onto the fixed
+  // CameraResolution set), always keeping Auto. Prefer the sizes verified to
+  // deliver video (probed when the camera was enabled); until then fall back to
+  // the sizes the device declares. For non-local cameras, or when nothing maps,
+  // keep the full list so the control is never empty and IP cameras can still
+  // request any size.
+  std::vector<std::pair<uint32_t, uint32_t>> list;
   if(type.value() == CameraType::Local)
   {
-    for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceResolutions.size(); ++i)
-      if(m_deviceValues[i] == device.value())
-      {
-        declared = m_deviceResolutions[i];
-        break;
-      }
+    auto it = m_deviceUsableResolutions.find(device.value());
+    if(it != m_deviceUsableResolutions.end() && !it->second.empty())
+      list = it->second;                         // verified to deliver video
+    else
+      list = deviceResolutions(device.value());  // declared, until the camera is probed
   }
 
   std::vector<CameraResolution> values;
@@ -324,7 +325,7 @@ void Camera::updateResolutionValues()
     if(r == CameraResolution::Auto)
       continue;
     const auto size = toResolutionSize(r);
-    for(const auto& d : declared)
+    for(const auto& d : list)
       if(d.first == size.first && d.second == size.second)
       {
         values.push_back(r);
@@ -395,7 +396,14 @@ void Camera::startCapture()
         std::vector<std::pair<uint32_t, uint32_t>> candidates;
         if(resolution.value() == CameraResolution::Auto)
         {
-          candidates = deviceResolutions(device.value());
+          // Prefer sizes already verified to deliver video (a re-enable then opens
+          // the known-good size directly); else probe the device's declared sizes;
+          // else a standard descending fallback.
+          if(auto it = m_deviceUsableResolutions.find(device.value());
+             it != m_deviceUsableResolutions.end() && !it->second.empty())
+            candidates = it->second;
+          else
+            candidates = deviceResolutions(device.value());
           if(candidates.empty())
             candidates = {{1920, 1080}, {1280, 720}, {1024, 768}, {800, 600}, {640, 480}, {640, 360}};
         }
@@ -528,11 +536,13 @@ void Camera::captureLoop()
   const uint32_t    w    = m_capture->width();
   const uint32_t    h    = m_capture->height();
   const std::string path = "/camera/" + id.value() + "/stream";
+  const std::string dev  = device.value();
+  const auto usable = m_capture->usableResolutions();
 
   EventLoop::call(
     [weak = std::weak_ptr<Camera>(
         std::static_pointer_cast<Camera>(shared_from_this())),
-     w, h, path]()
+     w, h, path, dev, usable]()
     {
       if(auto self = weak.lock())
       {
@@ -540,6 +550,13 @@ void Camera::captureLoop()
         self->frameWidth .setValueInternal(w);
         self->frameHeight.setValueInternal(h);
         self->streamUrl  .setValueInternal(path);
+        if(!usable.empty())
+        {
+          // The probe found which sizes actually deliver video -- remember them
+          // for this device and narrow the resolution list to exactly those.
+          self->m_deviceUsableResolutions[dev] = usable;
+          self->updateResolutionValues();
+        }
       }
     });
 

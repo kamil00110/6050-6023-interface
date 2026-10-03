@@ -157,8 +157,9 @@ static std::vector<std::pair<uint32_t, uint32_t>> enumerateDirectShowResolutions
   std::sort(result.begin(), result.end(),
     [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b)
     {
-      return static_cast<uint64_t>(a.first) * a.second >
-             static_cast<uint64_t>(b.first) * b.second;
+      const uint64_t pa = static_cast<uint64_t>(a.first) * a.second;
+      const uint64_t pb = static_cast<uint64_t>(b.first) * b.second;
+      return (pa != pb) ? (pa > pb) : (a > b); // area desc, then a total-order tiebreak
     });
   result.erase(std::unique(result.begin(), result.end()), result.end());
   return result;

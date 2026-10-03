@@ -52,10 +52,12 @@ public:
   uint32_t height()  const override { return m_height; }
   bool     readJpeg(std::vector<uint8_t>& jpegOut) override;
   void     interrupt() override { m_interrupted = true; }
+  std::vector<std::pair<uint32_t, uint32_t>> usableResolutions() const override { return m_usableResolutions; }
 
 private:
   std::string                       m_device;
-  std::vector<std::pair<uint32_t, uint32_t>> m_resolutions; ///< candidates, largest-first
+  std::vector<std::pair<uint32_t, uint32_t>> m_resolutions;        ///< candidates to probe, largest-first
+  std::vector<std::pair<uint32_t, uint32_t>> m_usableResolutions;  ///< probed to deliver video, largest-first
   int                               m_initBrightness{0};
   bool                              m_applyBrightness{false}; ///< false = auto (force neutral)
   Object&                           m_logObject;

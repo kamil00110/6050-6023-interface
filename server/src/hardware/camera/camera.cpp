@@ -95,13 +95,13 @@ Camera::Camera(World& world, std::string_view _id)
         // Resolution needs the device re-opened to take effect.
         applySettings();
       }}
-  , brightness {this, "brightness",   -1,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , brightness {this, "brightness",   0,                 PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const int& value)
       {
         if(m_capture)
           m_capture->setBrightness(value);
       }}
-  , exposure   {this, "exposure",     -1,                PropertyFlags::ReadWrite | PropertyFlags::Store,
+  , exposure   {this, "exposure",     0,                 PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const int& value)
       {
         if(m_capture)
@@ -173,12 +173,12 @@ Camera::Camera(World& world, std::string_view _id)
   m_interfaceItems.add(resolution);
 
   Attributes::addEnabled(brightness, editable);
-  Attributes::addMinMax(brightness, -1, 100);
+  Attributes::addMinMax(brightness, -100, 100); // signed: -100 darkest .. 0 neutral .. 100 brightest
   Attributes::addVisible(brightness, localType);
   m_interfaceItems.add(brightness);
 
   Attributes::addEnabled(exposure, editable);
-  Attributes::addMinMax(exposure, -1, 100);
+  Attributes::addMinMax(exposure, -100, 100);   // 0 = auto, negative = darker manual exposure
   Attributes::addVisible(exposure, localType);
   m_interfaceItems.add(exposure);
 
@@ -250,6 +250,17 @@ void Camera::removeFrameSubscriber(uint64_t subscriberId)
     std::remove_if(m_subscribers.begin(), m_subscribers.end(),
       [subscriberId](const auto& p){ return p.first == subscriberId; }),
     m_subscribers.end());
+}
+
+std::string Camera::deviceDisplayName() const
+{
+  if(type.value() == CameraType::Local)
+  {
+    for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceNamesStr.size(); ++i)
+      if(m_deviceValues[i] == device.value())
+        return m_deviceNamesStr[i];
+  }
+  return device.value();
 }
 
 void Camera::updateDeviceAttribute()

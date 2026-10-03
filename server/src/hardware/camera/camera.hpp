@@ -55,13 +55,16 @@ public:
   Property<bool>         flipVertical;
   Property<bool>         flipHorizontal;
   Property<CameraResolution> resolution;  ///< requested capture size (local cameras)
-  Property<int>          brightness;      ///< -1 = camera default, else applied best-effort
-  Property<int>          exposure;        ///< -1 = auto, else manual level (best-effort)
+  Property<int>          brightness;      ///< signed -100..100, 0 = neutral, negative darkens (best-effort)
+  Property<int>          exposure;        ///< signed -100..100, 0 = auto, negative darkens (best-effort)
   Property<bool>         requestFromSource; ///< MJPEG: append fps/quality/res as URL query params
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
   uint64_t addFrameSubscriber(FrameCallback cb);
   void     removeFrameSubscriber(uint64_t id);
+
+  /// Human-readable device: the local camera's name for Local type, else the URL.
+  std::string deviceDisplayName() const;
 
   Camera(World& world, std::string_view _id);
   ~Camera() override;

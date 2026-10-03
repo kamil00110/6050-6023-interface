@@ -163,7 +163,10 @@ void PropertyComboBox::updateValues()
           for(QVariant& v : values.toList())
           {
             const qint64 value = v.toLongLong();
-            if(int index = aliasKeys.indexOf(value); index != -1)
+            // index < aliasValues.size(): AliasKeys and AliasValues arrive as two
+            // separate attribute messages, so they can be transiently out of sync
+            // when a property's aliases change at runtime -- guard against OOB.
+            if(int index = aliasKeys.indexOf(value); index != -1 && index < aliasValues.size())
               addItem(Locale::instance->parse(aliasValues[index].toString()), value);
             else
               addItem(QString::number(value), value);
@@ -196,7 +199,9 @@ void PropertyComboBox::updateValues()
           for(QVariant& v : values.toList())
           {
             const QString value = v.toString();
-            if(int index = aliasKeys.indexOf(value); index != -1)
+            // See note above: guard against a transient AliasKeys/AliasValues
+            // size mismatch (they arrive as two separate attribute messages).
+            if(int index = aliasKeys.indexOf(value); index != -1 && index < aliasValues.size())
             {
               addItem(Locale::instance->parse(aliasValues[index].toString()), value);
             }

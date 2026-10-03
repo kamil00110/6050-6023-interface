@@ -81,9 +81,18 @@ void CameraStreamConnection::enqueueFrame(std::vector<uint8_t> jpegData)
 {
   {
     std::lock_guard<std::mutex> lock(m_writeMutex);
-    m_writeQueue.push(buildMjpegChunk(std::move(jpegData)));
+    auto chunk = buildMjpegChunk(std::move(jpegData));
     if(m_writing)
+    {
+      // A send is already in flight. MJPEG frames are independent, so instead of
+      // letting the queue grow when the client can't keep up (which only adds
+      // latency), keep ONLY the most recent frame queued -- drop any stale ones.
+      while(!m_writeQueue.empty())
+        m_writeQueue.pop();
+      m_writeQueue.push(std::move(chunk));
       return;   // doWrite() will pick it up after the current send completes
+    }
+    m_writeQueue.push(std::move(chunk));
     m_writing = true;
   }
   doWrite();    // called WITHOUT the lock held

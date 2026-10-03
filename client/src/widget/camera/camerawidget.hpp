@@ -71,8 +71,10 @@ private:
 
   QByteArray                  m_buffer;       ///< accumulates raw bytes from reply
   bool                        m_active{true};
+  bool                        m_enabled{true};  ///< camera's enabled property
   int                         m_objectRequestId{-1};
 
+  void updateState();
   void startStream();
   void stopStream();
   void onReadyRead();

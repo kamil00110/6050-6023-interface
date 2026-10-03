@@ -38,13 +38,21 @@ void CameraCapture::applyLiveSettings(cv::VideoCapture& cap)
     brightness = m_pendingBrightness; m_pendingBrightness.reset();
     exposure   = m_pendingExposure;   m_pendingExposure.reset();
   }
-  // A negative value means "leave the camera at its default" -- don't override it.
-  if(brightness && *brightness >= 0)
+  // Brightness: signed value applied directly, centred on 0 = neutral. Negative
+  // darkens, positive brightens -- so a too-bright camera can be turned down
+  // BELOW neutral (which a 0..100 range could not do).
+  if(brightness)
     cap.set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(*brightness));
-  if(exposure && *exposure >= 0)
+  // Exposure: 0 = auto; any other value switches to manual (lower = darker).
+  if(exposure)
   {
-    cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual (DirectShow/MSMF)
-    cap.set(cv::CAP_PROP_EXPOSURE, static_cast<double>(*exposure));
+    if(*exposure == 0)
+      cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.75); // 0.75 = auto (DirectShow/MSMF)
+    else
+    {
+      cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual
+      cap.set(cv::CAP_PROP_EXPOSURE, static_cast<double>(*exposure));
+    }
   }
 }
 

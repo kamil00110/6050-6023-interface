@@ -63,18 +63,21 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
         return;
       }
 
-      if(auto* prop = obj->getProperty("stream_url"))
+      // Watch the enabled flag and the stream path together so the status shown
+      // reflects the real state (disabled vs. connecting vs. streaming).
+      if(auto* enabledProp = obj->getProperty("enabled"))
       {
-        // Connect to future changes
-        connect(prop, &AbstractProperty::valueChangedString, this,
-          [this](const QString& path)
-          {
-            setStreamPath(path);
-          });
-
-        // Use current value immediately
-        setStreamPath(prop->toString());
+        m_enabled = enabledProp->toBool();
+        connect(enabledProp, &AbstractProperty::valueChangedBool, this,
+          [this](bool enabled) { m_enabled = enabled; updateState(); });
       }
+      if(auto* urlProp = obj->getProperty("stream_url"))
+      {
+        m_streamPath = urlProp->toString();
+        connect(urlProp, &AbstractProperty::valueChangedString, this,
+          [this](const QString& path) { m_streamPath = path; updateState(); });
+      }
+      updateState();
     });
 }
 
@@ -94,27 +97,41 @@ void CameraWidget::setStreamPath(const QString& urlPath)
 {
   if(m_streamPath == urlPath)
     return;
-
-  stopStream();
   m_streamPath = urlPath;
-
-  if(m_streamPath.isEmpty())
-  {
-    showStatus(Locale::tr("camera:disabled"));
-    return;
-  }
-
-  if(m_active)
-    startStream();
+  updateState();
 }
 
 void CameraWidget::setActive(bool active)
 {
   m_active = active;
-  if(active && !m_reply && !m_streamPath.isEmpty())
-    startStream();
-  else if(!active)
+  updateState();
+}
+
+void CameraWidget::updateState()
+{
+  // Status/stream reflect both the camera's enabled flag and its stream path:
+  //   disabled           -> camera not enabled
+  //   connecting         -> enabled but no stream yet (starting, or capture failed)
+  //   <video> / connecting-> enabled with a stream path (connecting until frames arrive)
+  if(!m_enabled)
+  {
     stopStream();
+    showStatus(Locale::tr("camera:disabled"));
+    return;
+  }
+  if(m_streamPath.isEmpty())
+  {
+    stopStream();
+    showStatus(Locale::tr("camera:connecting"));
+    return;
+  }
+  if(!m_active)
+  {
+    stopStream();
+    return;
+  }
+  if(!m_reply)
+    startStream(); // shows "connecting" until the first frame arrives
 }
 
 // ─── Protected ───────────────────────────────────────────────────────────────
@@ -202,12 +219,12 @@ void CameraWidget::onReplyFinished()
   }
 
   // Auto-reconnect after a short delay unless we were deliberately stopped
-  if(m_active && !m_streamPath.isEmpty())
+  if(m_active && m_enabled && !m_streamPath.isEmpty())
   {
     QTimer::singleShot(2000, this,
       [this]()
       {
-        if(m_active && !m_reply)
+        if(m_active && m_enabled && !m_reply)
           startStream();
       });
     showStatus(Locale::tr("camera:reconnecting"));
@@ -222,7 +239,12 @@ void CameraWidget::tryDecodeFrames()
   // which is more robust against header variations.
   //
   // Strategy: find Content-Length in the part header, extract exactly that many
-  // bytes as the JPEG payload, display, then advance past it.
+  // bytes as the JPEG payload, advance past it. Decoding JPEG is the expensive
+  // part, so if several complete frames have piled up in the buffer we keep only
+  // the MOST RECENT one and decode just that -- dropping stale frames keeps the
+  // preview current and cheap instead of spending CPU decoding frames nobody sees.
+
+  QByteArray latest;
 
   while(true)
   {
@@ -257,12 +279,8 @@ void CameraWidget::tryDecodeFrames()
       if(soi < 0 || eoi < 0)
         break;
 
-      const QByteArray jpegData = m_buffer.mid(soi, eoi - soi + 2);
+      latest = m_buffer.mid(soi, eoi - soi + 2);
       m_buffer.remove(0, eoi + 2);
-
-      QPixmap px;
-      if(px.loadFromData(jpegData, "JPEG"))
-        showPixmap(px);
       continue;
     }
 
@@ -271,15 +289,18 @@ void CameraWidget::tryDecodeFrames()
     if(m_buffer.size() < payloadStart + contentLength)
       break; // need more data
 
-    const QByteArray jpegData = m_buffer.mid(payloadStart, contentLength);
+    latest = m_buffer.mid(payloadStart, contentLength);
     m_buffer.remove(0, payloadStart + contentLength);
 
     // Strip leading \r\n boundary separator if present
     if(m_buffer.startsWith("\r\n"))
       m_buffer.remove(0, 2);
+  }
 
+  if(!latest.isEmpty())
+  {
     QPixmap px;
-    if(px.loadFromData(jpegData, "JPEG"))
+    if(px.loadFromData(latest, "JPEG"))
       showPixmap(px);
   }
 }

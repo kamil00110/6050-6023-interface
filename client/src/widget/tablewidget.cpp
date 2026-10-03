@@ -122,7 +122,14 @@ void TableWidget::updateRegion()
   const int rowCount = m_model->rowCount();
 
   if(columnCount == 0 || rowCount == 0)
+  {
+    // Reset to the invalid/empty region instead of returning silently. Otherwise
+    // the stale region lingers, and when the model repopulates to the same bounds
+    // (e.g. delete the last row, then create one -> back to 0..0) setRegion() sees
+    // no change and never re-requests the new row's cells, leaving them blank.
+    m_model->setRegion(1, 0, 1, 0);
     return;
+  }
 
   if(m_fetchAll)
   {

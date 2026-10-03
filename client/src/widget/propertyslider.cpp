@@ -123,5 +123,5 @@ void PropertySlider::updateRange()
 
 void PropertySlider::updateValueLabel(int value)
 {
-  m_valueLabel->setText(value < 0 ? tr("Auto") : QString::number(value));
+  m_valueLabel->setText(QString::number(value));
 }

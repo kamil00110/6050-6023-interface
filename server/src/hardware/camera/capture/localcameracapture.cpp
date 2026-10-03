@@ -63,11 +63,12 @@ bool LocalCameraCapture::open()
     m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_reqHeight));
   }
   m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
-  if(m_initBrightness >= 0)
-    m_cap->set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(m_initBrightness));
-  if(m_initExposure >= 0)
+  m_cap->set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(m_initBrightness)); // 0 = neutral
+  if(m_initExposure == 0)
+    m_cap->set(cv::CAP_PROP_AUTO_EXPOSURE, 0.75); // 0.75 = auto (DirectShow/MSMF)
+  else
   {
-    m_cap->set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual (DirectShow/MSMF)
+    m_cap->set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual
     m_cap->set(cv::CAP_PROP_EXPOSURE, static_cast<double>(m_initExposure));
   }
 

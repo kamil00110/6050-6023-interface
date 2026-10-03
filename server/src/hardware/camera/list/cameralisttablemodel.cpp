@@ -79,7 +79,7 @@ std::string CameraListTableModel::getText(uint32_t column, uint32_t row) const
       return "";
     }
     case CameraListColumn::Device:
-      return cam.device;
+      return cam.deviceDisplayName();
 
     case CameraListColumn::Enabled:
       return cam.enabled ? "yes" : "no";

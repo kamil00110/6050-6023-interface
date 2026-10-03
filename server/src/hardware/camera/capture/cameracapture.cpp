@@ -32,28 +32,17 @@ bool CameraCapture::framePeriodElapsed()
 
 void CameraCapture::applyLiveSettings(cv::VideoCapture& cap)
 {
-  std::optional<int> brightness, exposure;
+  std::optional<int> brightness;
   {
     std::lock_guard<std::mutex> l(m_liveMutex);
     brightness = m_pendingBrightness; m_pendingBrightness.reset();
-    exposure   = m_pendingExposure;   m_pendingExposure.reset();
   }
   // Brightness: signed value applied directly, centred on 0 = neutral. Negative
   // darkens, positive brightens -- so a too-bright camera can be turned down
-  // BELOW neutral (which a 0..100 range could not do).
+  // BELOW neutral (which a 0..100 range could not do). Only set when the caller
+  // actually pushed a value (manual mode); auto-brightness leaves it untouched.
   if(brightness)
     cap.set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(*brightness));
-  // Exposure: 0 = auto; any other value switches to manual (lower = darker).
-  if(exposure)
-  {
-    if(*exposure == 0)
-      cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.75); // 0.75 = auto (DirectShow/MSMF)
-    else
-    {
-      cap.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25); // 0.25 = manual
-      cap.set(cv::CAP_PROP_EXPOSURE, static_cast<double>(*exposure));
-    }
-  }
 }
 
 bool CameraCapture::encodeFrame(const cv::Mat& frame,

@@ -18,9 +18,12 @@
 #include <QScrollArea>
 #include <QLabel>
 #include <QFrame>
+#include <QToolButton>
 #include <QResizeEvent>
 #include <QAbstractItemModel>
 #include "camerawidget.hpp"
+#include "../../mainwindow.hpp"
+#include "../../theme/theme.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/abstractproperty.hpp"
@@ -58,6 +61,21 @@ CameraOverviewWidget::CameraOverviewWidget(std::shared_ptr<Connection> connectio
   m_emptyLabel->setStyleSheet(QStringLiteral("color:#888; padding:24px;"));
   m_emptyLabel->hide();
   m_grid->addWidget(m_emptyLabel, 0, 0);
+
+  // Floating "+" in the bottom-right corner -- same add icon as the interfaces
+  // list -- that opens the camera list window (to add/manage cameras).
+  m_addButton = new QToolButton(this);
+  m_addButton->setIcon(Theme::getIcon("add"));
+  m_addButton->setIconSize(QSize(28, 28));
+  m_addButton->setFixedSize(44, 44);
+  m_addButton->setToolTip(Locale::tr("hardware:cameras"));
+  m_addButton->setCursor(Qt::PointingHandCursor);
+  connect(m_addButton, &QToolButton::clicked, this,
+    []()
+    {
+      if(MainWindow::instance)
+        MainWindow::instance->showObject(QStringLiteral("world.cameras"));
+    });
 
   m_listRequestId = m_connection->getObject(QStringLiteral("world.cameras"),
     [this](const ObjectPtr& obj, std::optional<const Error> /*error*/)
@@ -239,6 +257,13 @@ void CameraOverviewWidget::relayout()
 void CameraOverviewWidget::resizeEvent(QResizeEvent* event)
 {
   QWidget::resizeEvent(event);
+  if(m_addButton)
+  {
+    const int margin = 12;
+    m_addButton->move(width()  - m_addButton->width()  - margin,
+                      height() - m_addButton->height() - margin);
+    m_addButton->raise();
+  }
   if(!m_tiles.empty() && computeColumns() != m_columns)
     relayout();
 }

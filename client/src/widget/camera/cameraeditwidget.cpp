@@ -260,16 +260,16 @@ void CameraEditWidget::buildForm()
   addRow("flip_vertical");
   addRow("flip_horizontal");
 
-  // brightness / exposure as sliders -- the server hides these for non-local
-  // camera types, so the whole row (label + slider) collapses automatically.
+  // brightness slider -- the server hides it for non-local camera types, so the
+  // whole row (label + slider) collapses automatically.
   const auto addSliderRow = [&](const char* propName)
   {
     if(Property* p = dynamic_cast<Property*>(m_object->getProperty(propName)))
       form->addRow(new InterfaceItemNameLabel(*p, formContainer),
                    new PropertySlider(*p, formContainer));
   };
+  addRow("auto_brightness");
   addSliderRow("brightness");
-  addSliderRow("exposure");
 
   addRow("enabled");
 

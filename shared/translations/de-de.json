@@ -244,6 +244,10 @@
         "definition": "Abfrageintervall"
     },
     {
+        "term": "camera:auto_brightness",
+        "definition": "Automatische Helligkeit"
+    },
+    {
         "term": "camera:brightness",
         "definition": "Helligkeit"
     },
@@ -270,10 +274,6 @@
     {
         "term": "camera:enabled",
         "definition": "Aktiviert"
-    },
-    {
-        "term": "camera:exposure",
-        "definition": "Belichtung"
     },
     {
         "term": "camera:flip_horizontal",

@@ -98,14 +98,16 @@ Camera::Camera(World& world, std::string_view _id)
   , brightness {this, "brightness",   0,                 PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const int& value)
       {
-        if(m_capture)
+        if(!autoBrightness.value() && m_capture)
           m_capture->setBrightness(value);
       }}
-  , exposure   {this, "exposure",     0,                 PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const int& value)
+  , autoBrightness{this, "auto_brightness", true,        PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const bool&)
       {
-        if(m_capture)
-          m_capture->setExposure(value);
+        // Enable/disable the brightness slider and re-open so the camera's
+        // brightness is applied (manual) or left at its default (auto).
+        updateBrightnessEnabled();
+        applySettings();
       }}
   , requestFromSource{this, "request_from_source", false, PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const bool&)
@@ -163,8 +165,8 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addEnabled(flipHorizontal, editable);
   m_interfaceItems.add(flipHorizontal);
 
-  // resolution / brightness / exposure only apply to local (OpenCV) cameras;
-  // they are hidden for the network types.
+  // resolution / brightness only apply to local (OpenCV) cameras; they are
+  // hidden for the network types.
   const bool localType = (type.value() == CameraType::Local);
 
   Attributes::addValues(resolution, cameraResolutionValues);
@@ -172,15 +174,14 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addVisible(resolution, localType);
   m_interfaceItems.add(resolution);
 
-  Attributes::addEnabled(brightness, editable);
+  Attributes::addEnabled(autoBrightness, editable);
+  Attributes::addVisible(autoBrightness, localType);
+  m_interfaceItems.add(autoBrightness);
+
+  Attributes::addEnabled(brightness, editable && !autoBrightness.value());
   Attributes::addMinMax(brightness, -100, 100); // signed: -100 darkest .. 0 neutral .. 100 brightest
   Attributes::addVisible(brightness, localType);
   m_interfaceItems.add(brightness);
-
-  Attributes::addEnabled(exposure, editable);
-  Attributes::addMinMax(exposure, -100, 100);   // 0 = auto, negative = darker manual exposure
-  Attributes::addVisible(exposure, localType);
-  m_interfaceItems.add(exposure);
 
   // MJPEG only: append fps/quality/resolution to the stream URL as query params.
   Attributes::addEnabled(requestFromSource, editable);
@@ -230,9 +231,9 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
   Attributes::setEnabled(flipVertical,   editable);
   Attributes::setEnabled(flipHorizontal, editable);
   Attributes::setEnabled(resolution,     editable);
-  Attributes::setEnabled(brightness,     editable);
-  Attributes::setEnabled(exposure,       editable);
+  Attributes::setEnabled(autoBrightness, editable);
   Attributes::setEnabled(requestFromSource, editable);
+  updateBrightnessEnabled(); // brightness = editable && manual mode
 }
 
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
@@ -279,8 +280,14 @@ void Camera::updateSpecVisibility()
   // Resolution applies to local cameras, and to an MJPEG source we request from.
   Attributes::setVisible(resolution, isLocal || (isMjpeg && requestFromSource.value()));
   Attributes::setVisible(brightness, isLocal);
-  Attributes::setVisible(exposure, isLocal);
+  Attributes::setVisible(autoBrightness, isLocal);
   Attributes::setVisible(requestFromSource, isMjpeg);
+}
+
+void Camera::updateBrightnessEnabled()
+{
+  const bool editable = contains(m_world.state.value(), WorldState::Edit);
+  Attributes::setEnabled(brightness, editable && !autoBrightness.value());
 }
 
 void Camera::applySettings()
@@ -308,7 +315,7 @@ void Camera::startCapture()
           device.value(), fps.value(),
           reqW, reqH,
           jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
-          brightness.value(), exposure.value());
+          brightness.value(), !autoBrightness.value());
         break;
       }
 

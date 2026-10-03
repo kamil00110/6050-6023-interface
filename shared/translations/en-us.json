@@ -244,6 +244,10 @@
         "definition": "Poll interval"
     },
     {
+        "term": "camera:auto_brightness",
+        "definition": "Auto brightness"
+    },
+    {
         "term": "camera:brightness",
         "definition": "Brightness"
     },
@@ -270,10 +274,6 @@
     {
         "term": "camera:enabled",
         "definition": "Enabled"
-    },
-    {
-        "term": "camera:exposure",
-        "definition": "Exposure"
     },
     {
         "term": "camera:flip_horizontal",

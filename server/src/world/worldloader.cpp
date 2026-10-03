@@ -41,6 +41,7 @@
 #include "../hardware/decoder/decoderfunction.hpp"
 #include "../hardware/identification/identification.hpp"
 #include "../hardware/booster/booster.hpp"
+#include "../hardware/camera/camera.hpp"
 #include "../vehicle/rail/railvehicles.hpp"
 #include "../vehicle/rail/freightwagon.hpp" //! \todo Remove in v0.4
 #include "../train/train.hpp"
@@ -369,6 +370,8 @@ void WorldLoader::createObject(ObjectData& objectData)
   {
     objectData.object = Booster::create(*m_world, id);
   }
+  else if(classId == Camera::classId)
+    objectData.object = Camera::create(*m_world, id);
   else if(classId == Board::classId)
     objectData.object = Board::create(*m_world, id);
   else if(startsWith(classId, Tiles::classIdPrefix))

@@ -30,10 +30,7 @@ class QLabel;
 class Property;
 
 /**
- * @brief Horizontal slider bound to an integer Property, with a value readout.
- *
- * A negative value is shown as "Auto" (used by settings such as brightness /
- * exposure where -1 means "leave at the camera default").
+ * @brief Horizontal slider bound to an integer Property, with a numeric readout.
  */
 class PropertySlider : public QWidget
 {

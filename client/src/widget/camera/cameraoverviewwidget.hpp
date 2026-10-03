@@ -24,6 +24,7 @@
 class QGridLayout;
 class QScrollArea;
 class QLabel;
+class QToolButton;
 class Connection;
 
 /**
@@ -60,6 +61,7 @@ class CameraOverviewWidget : public QWidget
     QWidget* m_container;
     QGridLayout* m_grid;
     QLabel* m_emptyLabel;
+    QToolButton* m_addButton;
     std::vector<QWidget*> m_tiles;
     int m_columns = 0;
 

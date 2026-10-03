@@ -56,7 +56,7 @@ public:
   Property<bool>         flipHorizontal;
   Property<CameraResolution> resolution;  ///< requested capture size (local cameras)
   Property<int>          brightness;      ///< signed -100..100, 0 = neutral, negative darkens (best-effort)
-  Property<int>          exposure;        ///< signed -100..100, 0 = auto, negative darkens (best-effort)
+  Property<bool>         autoBrightness;  ///< true = leave brightness at the camera default (slider disabled)
   Property<bool>         requestFromSource; ///< MJPEG: append fps/quality/res as URL query params
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
@@ -92,6 +92,7 @@ private:
   std::vector<std::string_view>  m_deviceNames;
 
   void updateSpecVisibility();
+  void updateBrightnessEnabled();
   void startCapture();
   void stopCapture();
   void captureLoop();

@@ -21,7 +21,7 @@ public:
   LocalCameraCapture(const std::string& device, double fps,
                      uint32_t reqWidth, uint32_t reqHeight,
                      int jpegQuality, bool flipVertical, bool flipHorizontal,
-                     int brightness, int exposure);
+                     int brightness, bool applyBrightness);
   ~LocalCameraCapture() override;
 
   bool     open()    override;
@@ -34,11 +34,13 @@ private:
   std::string                       m_device;
   uint32_t                          m_reqWidth{0};   ///< 0 = keep camera default
   uint32_t                          m_reqHeight{0};
-  int                               m_initBrightness{-1};
-  int                               m_initExposure{-1};
+  int                               m_initBrightness{0};
+  bool                              m_applyBrightness{false}; ///< false = auto (leave camera default)
   std::unique_ptr<cv::VideoCapture> m_cap;
   uint32_t                          m_width{0};
   uint32_t                          m_height{0};
   std::atomic<bool>                 m_interrupted{false};
+
+  static constexpr int k_reconnectWaitMs = 500;
 };
 #endif

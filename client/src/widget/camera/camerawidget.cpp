@@ -174,9 +174,15 @@ void CameraWidget::stopStream()
 {
   if(m_reply)
   {
-    m_reply->abort();
-    m_reply->deleteLater();
+    // Detach and null the member BEFORE abort(): abort() can synchronously emit
+    // finished()/errorOccurred(), which would re-enter onReplyFinished() and free
+    // m_reply underneath us -- then the old code dereferenced a dangling/null
+    // m_reply. Disconnect first so no slot fires during teardown.
+    QNetworkReply* reply = m_reply;
     m_reply = nullptr;
+    reply->disconnect(this);
+    reply->abort();
+    reply->deleteLater();
   }
   m_buffer.clear();
 }

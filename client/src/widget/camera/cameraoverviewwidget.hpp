@@ -15,22 +15,25 @@
 #define TRAINTASTIC_CLIENT_WIDGET_CAMERA_CAMERAOVERVIEWWIDGET_HPP
 
 #include <QWidget>
+#include <QStringList>
 #include <memory>
 #include <vector>
 #include "../../network/objectptr.hpp"
+#include "../../network/tablemodelptr.hpp"
 
 class QGridLayout;
 class QScrollArea;
 class QLabel;
 class Connection;
-class ObjectVectorProperty;
 
 /**
  * @brief A "camera wall": shows every camera in world.cameras as a live tile.
  *
- * Each tile reuses CameraWidget, so it shows the MJPEG stream and the same
- * status text (connecting / disabled / invalid) as the settings preview.
- * Tiles reflow into columns based on the available width.
+ * The camera list is an ObjectList, enumerated through its TableModel (column 0
+ * is the object id). Each tile reuses CameraWidget, so it shows the MJPEG stream
+ * and the same status text (connecting / disabled / invalid) as the settings
+ * preview. Tiles reflow into columns based on the available width and are only
+ * rebuilt when the set of cameras actually changes.
  */
 class CameraOverviewWidget : public QWidget
 {
@@ -46,10 +49,12 @@ class CameraOverviewWidget : public QWidget
   private:
     std::shared_ptr<Connection> m_connection;
     ObjectPtr m_listObject;
+    TableModelPtr m_tableModel;
     std::vector<ObjectPtr> m_cameras;      ///< kept alive so tile streams stay valid
-    ObjectVectorProperty* m_items = nullptr;
+    QStringList m_currentIds;              ///< the camera ids currently shown
     int m_listRequestId = -1;
-    int m_itemsRequestId = -1;
+    int m_modelRequestId = -1;
+    std::vector<int> m_nameRequests;       ///< in-flight per-tile name lookups
 
     QScrollArea* m_scroll;
     QWidget* m_container;
@@ -59,8 +64,9 @@ class CameraOverviewWidget : public QWidget
     int m_columns = 0;
 
     void onListReceived(const ObjectPtr& obj);
-    void rebuild();
-    void buildTiles(const std::vector<ObjectPtr>& cameras);
+    void onTableModel(const TableModelPtr& model);
+    void refresh();
+    void rebuildTiles(const QStringList& ids);
     void clearTiles();
     void relayout();
     int  computeColumns() const;

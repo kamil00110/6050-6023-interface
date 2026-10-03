@@ -19,12 +19,13 @@
 #include <QLabel>
 #include <QFrame>
 #include <QResizeEvent>
+#include <QAbstractItemModel>
 #include "camerawidget.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/abstractproperty.hpp"
 #include "../../network/property.hpp"
-#include "../../network/objectvectorproperty.hpp"
+#include "../../network/tablemodel.hpp"
 #include "../../network/error.hpp"
 #include <traintastic/locale/locale.hpp>
 
@@ -70,36 +71,78 @@ CameraOverviewWidget::~CameraOverviewWidget()
 {
   if(m_listRequestId != -1)
     m_connection->cancelRequest(m_listRequestId);
-  if(m_itemsRequestId != -1)
-    m_connection->cancelRequest(m_itemsRequestId);
+  if(m_modelRequestId != -1)
+    m_connection->cancelRequest(m_modelRequestId);
+  for(int rid : m_nameRequests)
+    m_connection->cancelRequest(rid);
 }
 
 void CameraOverviewWidget::onListReceived(const ObjectPtr& obj)
 {
-  if(!obj || !(m_items = obj->getObjectVectorProperty(QStringLiteral("items"))))
+  if(!obj)
   {
     m_emptyLabel->setText(Locale::tr("camera:no_cameras"));
     m_emptyLabel->show();
     return;
   }
   m_listObject = obj;
-  connect(m_items, &ObjectVectorProperty::valueChanged, this, &CameraOverviewWidget::rebuild);
-  rebuild();
+  m_modelRequestId = m_connection->getTableModel(obj,
+    [this](const TableModelPtr& model, std::optional<const Error> /*error*/)
+    {
+      m_modelRequestId = -1;
+      onTableModel(model);
+    });
 }
 
-void CameraOverviewWidget::rebuild()
+void CameraOverviewWidget::onTableModel(const TableModelPtr& model)
 {
-  if(!m_items)
+  if(!model)
+  {
+    m_emptyLabel->setText(Locale::tr("camera:no_cameras"));
+    m_emptyLabel->show();
+    return;
+  }
+  m_tableModel = model;
+  model->setRegionAll(true); // request all cells so getRowObjectId() is populated
+
+  const auto onChange = [this]() { refresh(); };
+  connect(model.get(), &QAbstractItemModel::modelReset,   this, onChange);
+  connect(model.get(), &QAbstractItemModel::dataChanged,  this, onChange);
+  connect(model.get(), &QAbstractItemModel::rowsInserted, this, onChange);
+  connect(model.get(), &QAbstractItemModel::rowsRemoved,  this, onChange);
+  connect(model.get(), &QAbstractItemModel::layoutChanged, this, onChange);
+  refresh();
+}
+
+void CameraOverviewWidget::refresh()
+{
+  if(!m_tableModel)
     return;
 
-  if(m_itemsRequestId != -1)
+  const int rows = m_tableModel->rowCount();
+  QStringList ids;
+  for(int r = 0; r < rows; ++r)
   {
-    m_connection->cancelRequest(m_itemsRequestId);
-    m_itemsRequestId = -1;
+    const QString id = m_tableModel->getRowObjectId(r);
+    if(!id.isEmpty())
+      ids.append(id);
   }
+  // Rows exist but their ids have not been fetched yet -- wait for the next
+  // data signal rather than flashing "no cameras".
+  if(rows > 0 && ids.isEmpty())
+    return;
+  if(ids == m_currentIds)
+    return; // the set of cameras did not change -- don't rebuild (keeps streams alive)
+
+  m_currentIds = ids;
+  rebuildTiles(ids);
+}
+
+void CameraOverviewWidget::rebuildTiles(const QStringList& ids)
+{
   clearTiles();
 
-  if(m_items->empty())
+  if(ids.isEmpty())
   {
     m_emptyLabel->setText(Locale::tr("camera:no_cameras"));
     m_emptyLabel->show();
@@ -107,28 +150,8 @@ void CameraOverviewWidget::rebuild()
   }
   m_emptyLabel->hide();
 
-  m_itemsRequestId = m_items->getObjects(
-    [this](const std::vector<ObjectPtr>& cameras, std::optional<const Error> /*error*/)
-    {
-      m_itemsRequestId = -1;
-      buildTiles(cameras);
-    });
-}
-
-void CameraOverviewWidget::buildTiles(const std::vector<ObjectPtr>& cameras)
-{
-  clearTiles();
-  m_cameras = cameras; // retain so the camera objects (and their streams) stay alive
-
-  for(const auto& cam : cameras)
+  for(const QString& id : ids)
   {
-    if(!cam)
-      continue;
-    AbstractProperty* idProp = cam->getProperty(QStringLiteral("id"));
-    const QString id = idProp ? idProp->toString() : QString();
-    if(id.isEmpty())
-      continue;
-
     auto* tile = new QFrame(m_container);
     tile->setFrameShape(QFrame::StyledPanel);
     tile->setFixedSize(kTileW, kTileH);
@@ -136,31 +159,45 @@ void CameraOverviewWidget::buildTiles(const std::vector<ObjectPtr>& cameras)
     v->setContentsMargins(4, 4, 4, 4);
     v->setSpacing(3);
 
-    auto* nameLabel = new QLabel(tile);
+    auto* nameLabel = new QLabel(id, tile);
     nameLabel->setStyleSheet(QStringLiteral("font-weight:600;"));
-    AbstractProperty* nameProp = cam->getProperty(QStringLiteral("name"));
-    const QString initialName = nameProp ? nameProp->toString() : QString();
-    nameLabel->setText(initialName.isEmpty() ? id : initialName);
-    if(auto* np = dynamic_cast<Property*>(nameProp))
-      connect(np, &Property::valueChanged, nameLabel,
-        [np, nameLabel, id]()
-        {
-          const QString n = np->toString();
-          nameLabel->setText(n.isEmpty() ? id : n);
-        });
 
     auto* preview = new CameraWidget(m_connection, id, tile);
 
     v->addWidget(nameLabel);
     v->addWidget(preview, 1);
-
     m_tiles.push_back(tile);
+
+    // Upgrade the tile title from the object id to the camera's name, and keep
+    // the object alive (so the cached camera object the stream relies on stays).
+    const int rid = m_connection->getObject(id,
+      [this, nameLabel, id](const ObjectPtr& obj, std::optional<const Error> /*error*/)
+      {
+        if(!obj)
+          return;
+        m_cameras.push_back(obj);
+        AbstractProperty* nameProp = obj->getProperty(QStringLiteral("name"));
+        if(nameProp && !nameProp->toString().isEmpty())
+          nameLabel->setText(nameProp->toString());
+        if(auto* np = dynamic_cast<Property*>(nameProp))
+          connect(np, &Property::valueChanged, nameLabel,
+            [np, nameLabel, id]()
+            {
+              const QString n = np->toString();
+              nameLabel->setText(n.isEmpty() ? id : n);
+            });
+      });
+    m_nameRequests.push_back(rid);
   }
   relayout();
 }
 
 void CameraOverviewWidget::clearTiles()
 {
+  for(int rid : m_nameRequests)
+    m_connection->cancelRequest(rid);
+  m_nameRequests.clear();
+
   for(auto* t : m_tiles)
   {
     m_grid->removeWidget(t);
@@ -185,7 +222,6 @@ void CameraOverviewWidget::relayout()
   for(auto* t : m_tiles)
     m_grid->removeWidget(t);
 
-  // Reset previous stretch spacers, then pack tiles top-left.
   for(int c = 0; c < 64; ++c)
     m_grid->setColumnStretch(c, 0);
   for(int r = 0; r <= n + 1; ++r)

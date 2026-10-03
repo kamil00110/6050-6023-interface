@@ -308,12 +308,20 @@
         "definition": "Local camera"
     },
     {
+        "term": "camera:no_cameras",
+        "definition": "No cameras"
+    },
+    {
         "term": "camera:not_found",
         "definition": "Camera not found"
     },
     {
         "term": "camera:reconnecting",
         "definition": "Reconnecting..."
+    },
+    {
+        "term": "camera:request_from_source",
+        "definition": "Request specs from source (URL)"
     },
     {
         "term": "camera:resolution",

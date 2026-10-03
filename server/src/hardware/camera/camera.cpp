@@ -39,11 +39,8 @@ Camera::Camera(World& world, std::string_view _id)
       [this](const CameraType& newValue)
       {
         updateDeviceAttribute();
-        const bool isLocal = (newValue == CameraType::Local);
-        Attributes::setVisible(resolution, isLocal);
-        Attributes::setVisible(brightness, isLocal);
-        Attributes::setVisible(exposure, isLocal);
-        if(isLocal)
+        updateSpecVisibility();
+        if(newValue == CameraType::Local)
         {
           device.setValueInternal(
             m_deviceValues.empty() ? std::string{"0"} : m_deviceValues.front());
@@ -70,16 +67,22 @@ Camera::Camera(World& world, std::string_view _id)
   , fps        {this, "fps",          25.0,              PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const double& value)
       {
-        // fps changes take effect live (server-side rate limiting), on all
-        // protocols, without reconnecting the stream.
-        if(m_capture)
+        // For an MJPEG source we request from, reconnect so the new fps is sent in
+        // the request URL; otherwise fps changes take effect live (server-side rate
+        // limiting) on all protocols without reconnecting.
+        if(type.value() == CameraType::MJPEG && requestFromSource.value())
+          applySettings();
+        else if(m_capture)
           m_capture->setFps(value);
       }}
   , jpegQuality{this, "jpeg_quality", 75,                PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const int& value)
       {
-        // Compression takes effect live (server-side JPEG encode), no reconnect.
-        if(m_capture)
+        // Compression takes effect live (server-side JPEG encode); for a requested
+        // MJPEG source reconnect so the new quality is sent in the request URL.
+        if(type.value() == CameraType::MJPEG && requestFromSource.value())
+          applySettings();
+        else if(m_capture)
           m_capture->setJpegQuality(value);
       }}
   , flipVertical{this, "flip_vertical", false,           PropertyFlags::ReadWrite | PropertyFlags::Store,
@@ -103,6 +106,14 @@ Camera::Camera(World& world, std::string_view _id)
       {
         if(m_capture)
           m_capture->setExposure(value);
+      }}
+  , requestFromSource{this, "request_from_source", false, PropertyFlags::ReadWrite | PropertyFlags::Store,
+      [this](const bool&)
+      {
+        // Toggles whether fps/quality/resolution are appended to the MJPEG URL;
+        // reconnect so it takes effect and show/hide the resolution control.
+        updateSpecVisibility();
+        applySettings();
       }}
 {
   const bool editable = contains(m_world.state.value(), WorldState::Edit);
@@ -132,6 +143,9 @@ Camera::Camera(World& world, std::string_view _id)
     Attributes::addAliases(device, vp, np);
   }
   Attributes::addEnabled(device, editable);
+  // The device selector is a pick-from-list for local cameras; never let it hold
+  // a free-typed value (e.g. a leftover IP URL) -- the URL has its own field.
+  Attributes::addCustom(device, false);
   m_interfaceItems.add(device);
 
   Attributes::addEnabled(fps, editable);
@@ -167,6 +181,11 @@ Camera::Camera(World& world, std::string_view _id)
   Attributes::addMinMax(exposure, -1, 100);
   Attributes::addVisible(exposure, localType);
   m_interfaceItems.add(exposure);
+
+  // MJPEG only: append fps/quality/resolution to the stream URL as query params.
+  Attributes::addEnabled(requestFromSource, editable);
+  Attributes::addVisible(requestFromSource, type.value() == CameraType::MJPEG);
+  m_interfaceItems.add(requestFromSource);
 
   m_interfaceItems.add(enabled);
   m_interfaceItems.add(streamUrl);
@@ -213,6 +232,7 @@ void Camera::worldEvent(WorldState worldState, WorldEvent worldEvent)
   Attributes::setEnabled(resolution,     editable);
   Attributes::setEnabled(brightness,     editable);
   Attributes::setEnabled(exposure,       editable);
+  Attributes::setEnabled(requestFromSource, editable);
 }
 
 uint64_t Camera::addFrameSubscriber(FrameCallback cb)
@@ -239,6 +259,17 @@ void Camera::updateDeviceAttribute()
   const std::vector<std::string_view>* np = isLocal ? &m_deviceNames  : nullptr;
   Attributes::setValues (device, vp);
   Attributes::setAliases(device, vp, np);
+}
+
+void Camera::updateSpecVisibility()
+{
+  const bool isLocal = (type.value() == CameraType::Local);
+  const bool isMjpeg = (type.value() == CameraType::MJPEG);
+  // Resolution applies to local cameras, and to an MJPEG source we request from.
+  Attributes::setVisible(resolution, isLocal || (isMjpeg && requestFromSource.value()));
+  Attributes::setVisible(brightness, isLocal);
+  Attributes::setVisible(exposure, isLocal);
+  Attributes::setVisible(requestFromSource, isMjpeg);
 }
 
 void Camera::applySettings()
@@ -274,10 +305,15 @@ void Camera::startCapture()
       case CameraType::MJPEG:
       case CameraType::RTMP:
       case CameraType::HLS:
+      {
+        const auto [reqW, reqH] = toResolutionSize(resolution.value());
+        const bool appendSpecs = (type.value() == CameraType::MJPEG) && requestFromSource.value();
         m_capture = std::make_unique<IpCameraCapture>(
-          device.value(), fps.value(),
-          jpegQuality.value(), flipVertical.value(), flipHorizontal.value(), *this);
+          device.value(), fps.value(), reqW, reqH,
+          jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
+          appendSpecs, *this);
         break;
+      }
     }
   }
   catch(const std::exception& e)

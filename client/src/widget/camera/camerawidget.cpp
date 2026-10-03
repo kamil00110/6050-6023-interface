@@ -56,6 +56,7 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
   m_objectRequestId = m_connection->getObject(m_cameraObjectId,
     [this](const ObjectPtr& obj, std::optional<const Error> /*err*/)
     {
+      m_objectRequestId = -1;
       if(!obj)
       {
         showStatus(Locale::tr("camera:not_found"));
@@ -79,6 +80,11 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
 
 CameraWidget::~CameraWidget()
 {
+  // Cancel the in-flight object request so its callback can never fire into
+  // this (now destroyed) widget -- otherwise destroying a camera tile / preview
+  // while the getObject response is still in transit is a use-after-free.
+  if(m_objectRequestId != -1)
+    m_connection->cancelRequest(m_objectRequestId);
   stopStream();
 }
 

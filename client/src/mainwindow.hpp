@@ -74,6 +74,7 @@ class MainWindow final : public QMainWindow
     MainWindowStatusBar* m_statusBar;
     ServerLogWidget* m_serverLog;
     QMdiSubWindow* m_clockWindow = nullptr;
+    QMdiSubWindow* m_cameraWallWindow = nullptr;
     QMap<QString, SubWindow*> m_subWindows;
     QMdiSubWindow* m_trainAndRailVehiclesSubWindow = nullptr;
     BlockHighlight* m_blockHighlight;
@@ -135,6 +136,7 @@ class MainWindow final : public QMainWindow
     void loadWorld();
     void toggleFullScreen();
     void viewClockWindow(bool value);
+    void viewCameraWall();
     void toggleServerLog();
     void showAbout();
     void connectionStateChanged();

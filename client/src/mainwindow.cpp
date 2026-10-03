@@ -53,6 +53,7 @@
 #include "network/callmethod.hpp"
 #include "programming/lncv/lncvprogrammer.hpp"
 #include "subwindow/camerasubwindow.hpp"
+#include "widget/camera/cameraoverviewwidget.hpp"
 #include "settings/generalsettings.hpp"
 #include "subwindow/objectsubwindow.hpp"
 #include "subwindow/boardsubwindow.hpp"
@@ -156,6 +157,7 @@ MainWindow::MainWindow(QWidget* parent) :
   QMenu* menu;
   QAction* boardsAction;
   QAction* trainsAction;
+  QAction* camerasWallAction;
 
   m_mdiArea->setBackground(palette().window().color().darker());
   m_mdiArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
@@ -485,6 +487,7 @@ MainWindow::MainWindow(QWidget* parent) :
           m_mdiArea->setActiveSubWindow(m_trainAndRailVehiclesSubWindow);
         }
       });
+    camerasWallAction = m_menuObjects->addAction(Theme::getIcon("camera"), Locale::tr("hardware:cameras") + "...", this, &MainWindow::viewCameraWall);
     m_actionLuaScript = m_menuObjects->addAction(Theme::getIcon("lua"), Locale::tr("world:lua_scripts") + "...", this, &MainWindow::showLuaScriptsList);
 
     menu = menuBar()->addMenu(Locale::tr("qtapp.mainmenu:tools"));
@@ -653,6 +656,7 @@ MainWindow::MainWindow(QWidget* parent) :
 
   m_toolbar->addAction(boardsAction);
   m_toolbar->addAction(trainsAction);
+  m_toolbar->addAction(camerasWallAction);
 
   spacer = new QWidget(this);
   spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
@@ -945,6 +949,32 @@ void MainWindow::viewClockWindow(bool value)
   }
 
   m_actionClock->setChecked(m_clockWindow);
+}
+
+void MainWindow::viewCameraWall()
+{
+  if(!m_connection)
+    return;
+
+  if(m_cameraWallWindow)
+  {
+    m_mdiArea->setActiveSubWindow(m_cameraWallWindow);
+    return;
+  }
+
+  m_cameraWallWindow = new QMdiSubWindow();
+  m_cameraWallWindow->setWidget(new CameraOverviewWidget(m_connection, m_cameraWallWindow));
+  m_cameraWallWindow->setWindowTitle(Locale::tr("hardware:cameras"));
+  m_cameraWallWindow->setWindowIcon(Theme::getIcon("camera"));
+  m_cameraWallWindow->setAttribute(Qt::WA_DeleteOnClose);
+  connect(m_cameraWallWindow, &QMdiSubWindow::destroyed, this,
+    [this](QObject* /*object*/)
+    {
+      m_cameraWallWindow = nullptr;
+    });
+  m_mdiArea->addSubWindow(m_cameraWallWindow);
+  m_cameraWallWindow->resize(820, 560);
+  m_cameraWallWindow->show();
 }
 
 void MainWindow::toggleServerLog()

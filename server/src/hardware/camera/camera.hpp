@@ -57,6 +57,7 @@ public:
   Property<CameraResolution> resolution;  ///< requested capture size (local cameras)
   Property<int>          brightness;      ///< -1 = camera default, else applied best-effort
   Property<int>          exposure;        ///< -1 = auto, else manual level (best-effort)
+  Property<bool>         requestFromSource; ///< MJPEG: append fps/quality/res as URL query params
 
   using FrameCallback = std::function<void(std::vector<uint8_t> jpegData)>;
   uint64_t addFrameSubscriber(FrameCallback cb);
@@ -87,6 +88,7 @@ private:
   std::vector<std::string>       m_deviceNamesStr;
   std::vector<std::string_view>  m_deviceNames;
 
+  void updateSpecVisibility();
   void startCapture();
   void stopCapture();
   void captureLoop();

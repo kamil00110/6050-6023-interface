@@ -253,6 +253,7 @@ void CameraEditWidget::buildForm()
   }
 
   // ── Remaining properties ──────────────────────────────────────────────
+  addRow("request_from_source");
   addRow("fps");
   addRow("resolution");
   addRow("jpeg_quality");

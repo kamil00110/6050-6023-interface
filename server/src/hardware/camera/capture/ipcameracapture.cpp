@@ -439,7 +439,9 @@ namespace
 // ─── IpCameraCapture ─────────────────────────────────────────────────────────
 
 IpCameraCapture::IpCameraCapture(const std::string& url, double fps,
+                                  uint32_t reqWidth, uint32_t reqHeight,
                                   int jpegQuality, bool flipVertical, bool flipHorizontal,
+                                  bool appendSpecs,
                                   Object& logObject)
   : m_url(url)
   , m_cap(std::make_unique<cv::VideoCapture>())
@@ -449,6 +451,18 @@ IpCameraCapture::IpCameraCapture(const std::string& url, double fps,
   m_jpegQuality    = jpegQuality;
   m_flipVertical   = flipVertical;
   m_flipHorizontal = flipHorizontal;
+
+  // Optionally ask the source for these specs via URL query parameters -- the
+  // convention many MJPEG / IP cameras use. Only for HTTP(S) URLs.
+  if(appendSpecs &&
+     (m_url.rfind("http://", 0) == 0 || m_url.rfind("https://", 0) == 0))
+  {
+    std::string q = "fps=" + std::to_string(static_cast<int>(fps)) +
+                    "&quality=" + std::to_string(jpegQuality);
+    if(reqWidth > 0 && reqHeight > 0)
+      q += "&res=" + std::to_string(reqWidth) + "x" + std::to_string(reqHeight);
+    m_url += (m_url.find('?') == std::string::npos ? "?" : "&") + q;
+  }
 }
 
 IpCameraCapture::~IpCameraCapture() = default;

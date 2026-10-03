@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="96" height="96">
+  <g fill="#ffffff" stroke="#ffffff" stroke-width="10" stroke-linejoin="round">
+    <!-- body on the right -->
+    <rect x="186" y="188" width="244" height="136" rx="40"/>
+    <!-- lens on the left -->
+    <path d="M196 226 L120 208 L120 304 L196 286 Z"/>
+  </g>
+</svg>

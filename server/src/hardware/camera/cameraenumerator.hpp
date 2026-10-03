@@ -35,8 +35,10 @@ struct LocalCameraInfo
   /// Resolutions the device reports it supports (width, height). May be empty
   /// when the platform can't enumerate them; the camera then falls back to its
   /// own default. Not every reported size necessarily yields a usable (non-black)
-  /// frame -- that is checked at capture time.
-  std::vector<std::pair<uint32_t, uint32_t>> resolutions;
+  /// frame -- that is checked at capture time. Default-initialized so the 2-field
+  /// aggregate initializers (Linux / Media Foundation / fallbacks) stay valid
+  /// under -Werror=missing-field-initializers.
+  std::vector<std::pair<uint32_t, uint32_t>> resolutions{};
 };
 
 /// Enumerate locally attached video-capture devices.

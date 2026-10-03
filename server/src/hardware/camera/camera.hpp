@@ -35,6 +35,7 @@
 #include <string>
 #include <string_view>
 #include <functional>
+#include <utility>
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -111,9 +112,12 @@ private:
   std::vector<std::string>       m_deviceValues;
   std::vector<std::string>       m_deviceNamesStr;
   std::vector<std::string_view>  m_deviceNames;
+  std::vector<std::vector<std::pair<uint32_t, uint32_t>>> m_deviceResolutions; ///< per device, largest-first
 
   void updateSpecVisibility();
   void updateBrightnessEnabled();
+  void updateResolutionValues();                     ///< offer only the selected camera's resolutions
+  std::pair<uint32_t, uint32_t> autoResolution() const; ///< largest declared size of the selected camera, or {0,0}
   void startCapture();
   void stopCapture();
   void captureLoop();

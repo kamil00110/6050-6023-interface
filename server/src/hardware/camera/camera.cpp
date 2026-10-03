@@ -33,6 +33,7 @@
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"
 #include "../../log/log.hpp"
+#include <algorithm>
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -58,12 +59,14 @@ Camera::Camera(World& world, std::string_view _id)
           device.setValueInternal(
             m_deviceValues.empty() ? std::string{"0"} : m_deviceValues.front());
         }
+        updateResolutionValues();
         if(enabled)
           stopCapture();
       }}
   , device     {this, "device",       std::string{"0"},  PropertyFlags::ReadWrite | PropertyFlags::Store,
       [this](const std::string& /*newValue*/)
       {
+        updateResolutionValues(); // the selected camera's resolutions differ
         applySettings();
       }}
   , enabled    {this, "enabled",      false,             PropertyFlags::ReadWrite | PropertyFlags::Store,
@@ -140,6 +143,7 @@ Camera::Camera(World& world, std::string_view _id)
   {
     m_deviceValues.push_back(cam.device);
     m_deviceNamesStr.push_back(cam.name);
+    m_deviceResolutions.push_back(cam.resolutions);
   }
   m_deviceNames.reserve(m_deviceNamesStr.size());
   for(const auto& s : m_deviceNamesStr)
@@ -185,7 +189,11 @@ Camera::Camera(World& world, std::string_view _id)
   // hidden for the network types.
   const bool localType = (type.value() == CameraType::Local);
 
-  Attributes::addValues(resolution, cameraResolutionValues);
+  // Add the Values as a vector (not the std::array) so the stored attribute is a
+  // VectorAttribute -- updateResolutionValues() narrows it per camera via
+  // setValues(std::vector), which requires a VectorAttribute.
+  Attributes::addValues(resolution,
+    std::vector<CameraResolution>(cameraResolutionValues.begin(), cameraResolutionValues.end()));
   Attributes::addEnabled(resolution, editable);
   Attributes::addVisible(resolution, localType);
   m_interfaceItems.add(resolution);
@@ -208,6 +216,8 @@ Camera::Camera(World& world, std::string_view _id)
   m_interfaceItems.add(streamUrl);
   m_interfaceItems.add(frameWidth);
   m_interfaceItems.add(frameHeight);
+
+  updateResolutionValues(); // narrow the resolution list to the default camera
 }
 
 Camera::~Camera()
@@ -289,6 +299,61 @@ void Camera::updateDeviceAttribute()
   Attributes::setAliases(device, vp, np);
 }
 
+void Camera::updateResolutionValues()
+{
+  // Offer only the resolutions the selected local camera declares (mapped onto
+  // the fixed CameraResolution set), always keeping Auto. For non-local cameras,
+  // or when nothing maps, keep the full list so the control is never empty and
+  // IP cameras can still request any size.
+  std::vector<std::pair<uint32_t, uint32_t>> declared;
+  if(type.value() == CameraType::Local)
+  {
+    for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceResolutions.size(); ++i)
+      if(m_deviceValues[i] == device.value())
+      {
+        declared = m_deviceResolutions[i];
+        break;
+      }
+  }
+
+  std::vector<CameraResolution> values;
+  values.push_back(CameraResolution::Auto);
+  for(const CameraResolution r : cameraResolutionValues)
+  {
+    if(r == CameraResolution::Auto)
+      continue;
+    const auto size = toResolutionSize(r);
+    for(const auto& d : declared)
+      if(d.first == size.first && d.second == size.second)
+      {
+        values.push_back(r);
+        break;
+      }
+  }
+
+  if(values.size() == 1) // nothing matched / not local -> keep the full list
+    values.assign(cameraResolutionValues.begin(), cameraResolutionValues.end());
+
+  // If the current selection is no longer on offer, fall back to Auto.
+  if(std::find(values.begin(), values.end(), resolution.value()) == values.end())
+    resolution.setValueInternal(CameraResolution::Auto);
+
+  Attributes::setValues(resolution, std::move(values));
+}
+
+std::pair<uint32_t, uint32_t> Camera::autoResolution() const
+{
+  // Auto: request the camera's largest declared size (resolutions are stored
+  // largest-first). Many cameras -- e.g. NVIDIA Broadcast -- return black at
+  // OpenCV's 640x480 default but deliver video at their native size. {0,0} lets
+  // the camera keep its own default when nothing is known.
+  if(type.value() == CameraType::Local)
+    for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceResolutions.size(); ++i)
+      if(m_deviceValues[i] == device.value() && !m_deviceResolutions[i].empty())
+        return m_deviceResolutions[i].front();
+  return {0, 0};
+}
+
 void Camera::updateSpecVisibility()
 {
   const bool isLocal = (type.value() == CameraType::Local);
@@ -326,7 +391,9 @@ void Camera::startCapture()
     {
       case CameraType::Local:
       {
-        const auto [reqW, reqH] = toResolutionSize(resolution.value());
+        const auto [reqW, reqH] = (resolution.value() == CameraResolution::Auto)
+          ? autoResolution()
+          : toResolutionSize(resolution.value());
         m_capture = std::make_unique<LocalCameraCapture>(
           device.value(), fps.value(),
           reqW, reqH,

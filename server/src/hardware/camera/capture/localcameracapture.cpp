@@ -76,23 +76,25 @@ bool LocalCameraCapture::open()
   catch(const std::invalid_argument&) { numeric = false; }
   catch(const std::exception&) { return false; }
 
-  // Backends to try, in preference order.
+  // Backends to try, in preference order. DirectShow first -- it is the backend
+  // that actually delivers here, including the NVIDIA Broadcast virtual camera
+  // (Media Foundation fails to grab that device). Media Foundation stays as a
+  // fallback, chosen by the frame-content check below.
   std::vector<int> backends;
 #ifdef _WIN32
-  // Media Foundation first: it sustains modern and virtual cameras (e.g. the
-  // "Camera (NVIDIA Broadcast)" source) that DirectShow opens but then stalls
-  // on -- DirectShow delivers a few handshake frames and then grab() starts
-  // failing, which shows up as a connect/stream-lost loop. DirectShow stays as
-  // a fallback (chosen by the frame-content check below) for the capture cards
-  // that only deliver on it.
-  backends = {cv::CAP_MSMF, cv::CAP_DSHOW};
+  backends = {cv::CAP_DSHOW, cv::CAP_MSMF};
 #else
   backends = numeric ? std::vector<int>{cv::CAP_ANY} : std::vector<int>{cv::CAP_V4L2};
 #endif
 
   const auto applyRequestedSettings = [this]()
   {
-    // Request capture settings best-effort; the camera honours what it supports.
+    // Request the capture size when one is given. Camera resolves "Auto" to the
+    // camera's largest declared resolution (many cameras -- e.g. NVIDIA Broadcast
+    // -- return black at OpenCV's 640x480 default but deliver video at their
+    // native size); 0x0 arrives only when nothing is known, leaving the camera at
+    // its own default. set() is best-effort; the camera snaps to its nearest mode
+    // and the actual size is read back after opening (finalizeSize).
     if(m_reqWidth > 0 && m_reqHeight > 0)
     {
       m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_reqWidth));

@@ -70,6 +70,7 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <algorithm>
 #include <windows.h>
 #include <dshow.h>
 #include <mfapi.h>
@@ -79,6 +80,89 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
 #pragma comment(lib, "strmiids.lib")
 #pragma comment(lib, "mf.lib")
 #pragma comment(lib, "mfplat.lib")
+
+static void freeMediaType(AM_MEDIA_TYPE* pmt)
+{
+  if(!pmt)
+    return;
+  if(pmt->cbFormat != 0 && pmt->pbFormat)
+    CoTaskMemFree(pmt->pbFormat);
+  if(pmt->pUnk)
+    pmt->pUnk->Release();
+  CoTaskMemFree(pmt);
+}
+
+// Ask the device (via IAMStreamConfig) which capture resolutions it declares.
+// Returns them largest-first, deduplicated. Not every declared size necessarily
+// yields a usable (non-black) frame in OpenCV -- that is checked at capture time.
+static std::vector<std::pair<uint32_t, uint32_t>> enumerateDirectShowResolutions(IMoniker* pMoniker)
+{
+  std::vector<std::pair<uint32_t, uint32_t>> result;
+
+  IBaseFilter* pFilter = nullptr;
+  if(FAILED(pMoniker->BindToObject(nullptr, nullptr, IID_IBaseFilter,
+      reinterpret_cast<void**>(&pFilter))) || !pFilter)
+    return result;
+
+  IEnumPins* pEnumPins = nullptr;
+  if(SUCCEEDED(pFilter->EnumPins(&pEnumPins)) && pEnumPins)
+  {
+    IPin* pPin = nullptr;
+    while(pEnumPins->Next(1, &pPin, nullptr) == S_OK)
+    {
+      PIN_DIRECTION dir;
+      if(SUCCEEDED(pPin->QueryDirection(&dir)) && dir == PINDIR_OUTPUT)
+      {
+        IAMStreamConfig* pConfig = nullptr;
+        if(SUCCEEDED(pPin->QueryInterface(IID_IAMStreamConfig,
+            reinterpret_cast<void**>(&pConfig))) && pConfig)
+        {
+          int count = 0, size = 0;
+          if(SUCCEEDED(pConfig->GetNumberOfCapabilities(&count, &size)) &&
+             size == sizeof(VIDEO_STREAM_CONFIG_CAPS))
+          {
+            for(int i = 0; i < count; ++i)
+            {
+              VIDEO_STREAM_CONFIG_CAPS caps{};
+              AM_MEDIA_TYPE* pmt = nullptr;
+              if(SUCCEEDED(pConfig->GetStreamCaps(i, &pmt,
+                  reinterpret_cast<BYTE*>(&caps))) && pmt)
+              {
+                if(pmt->formattype == FORMAT_VideoInfo && pmt->pbFormat &&
+                   pmt->cbFormat >= sizeof(VIDEOINFOHEADER))
+                {
+                  const auto* vih = reinterpret_cast<const VIDEOINFOHEADER*>(pmt->pbFormat);
+                  const long w = vih->bmiHeader.biWidth;
+                  const long h = vih->bmiHeader.biHeight;
+                  const uint32_t uw = static_cast<uint32_t>(w < 0 ? -w : w);
+                  const uint32_t uh = static_cast<uint32_t>(h < 0 ? -h : h);
+                  if(uw != 0 && uh != 0)
+                    result.emplace_back(uw, uh);
+                }
+                freeMediaType(pmt);
+              }
+            }
+          }
+          pConfig->Release();
+        }
+      }
+      pPin->Release();
+      if(!result.empty())
+        break; // the first output pin with capabilities is enough
+    }
+    pEnumPins->Release();
+  }
+  pFilter->Release();
+
+  std::sort(result.begin(), result.end(),
+    [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b)
+    {
+      return static_cast<uint64_t>(a.first) * a.second >
+             static_cast<uint64_t>(b.first) * b.second;
+    });
+  result.erase(std::unique(result.begin(), result.end()), result.end());
+  return result;
+}
 
 static std::vector<LocalCameraInfo> enumerateViaDirectShow()
 {
@@ -127,7 +211,8 @@ static std::vector<LocalCameraInfo> enumerateViaDirectShow()
       pPropBag->Release();
     }
 
-    result.push_back({std::to_string(index), displayName});
+    auto resolutions = enumerateDirectShowResolutions(pMoniker);
+    result.push_back({std::to_string(index), displayName, std::move(resolutions)});
     pMoniker->Release();
     ++index;
   }
@@ -185,16 +270,18 @@ static std::vector<LocalCameraInfo> enumerateViaMediaFoundation()
 
 std::vector<LocalCameraInfo> enumerateLocalCameras()
 {
-  if(FAILED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)))
-    goto fallback;
-
+  // CoInitializeEx returns S_FALSE when COM is already initialized on this
+  // thread; that still counts as a successful init and needs a matching
+  // CoUninitialize. Only call CoUninitialize when the init actually succeeded,
+  // and exactly once.
+  const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  if(SUCCEEDED(hr))
   {
     // DirectShow is the authoritative source — it sees hardware cameras,
     // OBS Virtual Camera, NVIDIA Broadcast, and every other WDM driver.
     // Media Foundation misses pure DirectShow virtual cameras entirely.
     // Strategy: use DirectShow as primary; if it finds nothing fall back
     // to MF; merge both sets deduplicating by friendly name.
-
     auto dsResult  = enumerateViaDirectShow();
     auto mfResult  = enumerateViaMediaFoundation();
 
@@ -216,8 +303,7 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
       return dsResult;
   }
 
-fallback:
-  CoUninitialize();
+  // COM unavailable, or nothing enumerated: offer a few bare indices.
   std::vector<LocalCameraInfo> result;
   for(int i = 0; i < 4; i++)
     result.push_back({std::to_string(i), "Camera " + std::to_string(i)});

@@ -23,13 +23,20 @@
 #ifndef TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAMERAENUMERATOR_HPP
 #define TRAINTASTIC_SERVER_HARDWARE_CAMERA_CAMERAENUMERATOR_HPP
 
+#include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 struct LocalCameraInfo
 {
   std::string device; ///< index string ("0", "1", …) passed to OpenCV
   std::string name;   ///< human-readable label shown in the UI
+  /// Resolutions the device reports it supports (width, height). May be empty
+  /// when the platform can't enumerate them; the camera then falls back to its
+  /// own default. Not every reported size necessarily yields a usable (non-black)
+  /// frame -- that is checked at capture time.
+  std::vector<std::pair<uint32_t, uint32_t>> resolutions;
 };
 
 /// Enumerate locally attached video-capture devices.

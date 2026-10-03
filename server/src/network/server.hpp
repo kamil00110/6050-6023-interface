@@ -43,6 +43,7 @@ class Server : public std::enable_shared_from_this<Server>
 {
   friend class WebSocketConnection;//WebThrottleConnection;
   friend class HTTPConnection;
+  friend class CameraStreamConnection;
 
   private:
     boost::asio::io_context m_ioContext;
@@ -65,11 +66,12 @@ class Server : public std::enable_shared_from_this<Server>
 
     boost::beast::http::message_generator handleHTTPRequest(boost::beast::http::request<boost::beast::http::string_body>&& request);
     bool handleWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
-    bool handleCameraStreamRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
+    bool handleCameraStreamRequest(const boost::beast::http::request<boost::beast::http::string_body>& request, boost::beast::tcp_stream& stream);
     template<class T>
     bool acceptWebSocketUpgradeRequest(boost::beast::http::request<boost::beast::http::string_body>&& request, boost::beast::tcp_stream& stream);
 
     void connectionGone(const std::shared_ptr<WebSocketConnection>& connection);
+    void cameraStreamGone(CameraStreamConnection* connection);
 
   public:
     static constexpr std::string_view id{"server"};

@@ -4,6 +4,20 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2025 Reinder Feenstra
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "localcameracapture.hpp"
 #include <chrono>
@@ -12,7 +26,9 @@
 #include <stdexcept>
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
+#include <opencv2/videoio/registry.hpp>
 #include <opencv2/imgcodecs.hpp>
+#include "../../../log/log.hpp"
 
 namespace
 {
@@ -32,12 +48,14 @@ namespace
 LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps,
                                         uint32_t reqWidth, uint32_t reqHeight,
                                         int jpegQuality, bool flipVertical, bool flipHorizontal,
-                                        int brightness, bool applyBrightness)
+                                        int brightness, bool applyBrightness,
+                                        Object& logObject)
   : m_device(device)
   , m_reqWidth(reqWidth)
   , m_reqHeight(reqHeight)
   , m_initBrightness(brightness)
   , m_applyBrightness(applyBrightness)
+  , m_logObject(logObject)
   , m_cap(std::make_unique<cv::VideoCapture>())
 {
   m_fps.store(fps > 0.0 ? fps : 1.0);
@@ -75,8 +93,16 @@ bool LocalCameraCapture::open()
       m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_reqHeight));
     }
     m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
-    if(m_applyBrightness) // false = auto-brightness: leave the camera at its default
-      m_cap->set(cv::CAP_PROP_BRIGHTNESS, static_cast<double>(m_initBrightness));
+    // Always drive brightness on (re)open: in manual mode to the requested
+    // offset, in auto mode back to neutral (0). Otherwise the camera keeps the
+    // last manually-set brightness when auto-brightness is re-enabled.
+    m_cap->set(cv::CAP_PROP_BRIGHTNESS,
+               m_applyBrightness ? static_cast<double>(m_initBrightness) : 0.0);
+  };
+
+  const auto backendName = [](int backend)
+  {
+    return cv::videoio_registry::getBackendName(static_cast<cv::VideoCaptureAPIs>(backend));
   };
 
   const auto openBackend = [&](int backend) -> bool
@@ -123,6 +149,7 @@ bool LocalCameraCapture::open()
     if(hasContent)
     {
       finalizeSize();
+      Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(backend));
       return true;
     }
     if(fallbackBackend < 0)
@@ -131,10 +158,13 @@ bool LocalCameraCapture::open()
   }
 
   // No backend produced real content; the scene may genuinely be dark, so accept
-  // the first backend that at least opened.
+  // the first backend that at least opened. Warn, because this is the usual cause
+  // of a "connected but black" window with virtual cameras / capture cards.
   if(!m_interrupted && fallbackBackend >= 0 && openBackend(fallbackBackend))
   {
     finalizeSize();
+    Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(fallbackBackend));
+    Log::log(m_logObject, LogMessage::W2030_CAMERA_OPENED_NO_IMAGE_X, backendName(fallbackBackend));
     return true;
   }
   return false;

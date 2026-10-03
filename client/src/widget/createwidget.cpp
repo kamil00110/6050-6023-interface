@@ -30,7 +30,7 @@
 #include "object/objecteditwidget.hpp"
 #include "object/itemseditwidget.hpp"
 #include "tile/tilewidget.hpp"
-#include "camera/cameraeditwidget.hpp"          // ← new
+#include "camera/cameraeditwidget.hpp"
 #include "inputmonitorwidget.hpp"
 #include "outputkeyboardwidget.hpp"
 #include "iomapwidget.hpp"
@@ -55,25 +55,34 @@ QWidget* createWidgetIfCustom(const ObjectPtr& object, QWidget* parent)
 {
   const QString& classId = object->classId();
 
-  if(classId == "camera")                        // ← new
-    return new CameraEditWidget(object, parent); // ← new
-
+  if(classId == "camera")
+  {
+    return new CameraEditWidget(object, parent);
+  }
   if(classId == "list.interface")
+  {
     return new InterfaceListWidget(object, parent);
+  }
   else if(classId == "controller_list")
-    return new ObjectListWidget(object, parent);
+    return new ObjectListWidget(object, parent); // todo remove
   else if(classId == "rail_vehicle_list")
-    return new ObjectListWidget(object, parent);
+    return new ObjectListWidget(object, parent); // todo remove
   else if(classId == "lua.script_list")
-    return new ObjectListWidget(object, parent);
+    return new ObjectListWidget(object, parent); // todo remove
   else if(classId == "world_list")
     return new ObjectListWidget(object, parent);
   if(classId == "list.board")
+  {
     return new BoardListWidget(object, parent);
+  }
   if(classId == "list.train")
+  {
     return new TrainListWidget(object, parent);
+  }
   if(classId == "list.zone_block")
+  {
     return new ZoneBlockListWidget(object, parent);
+  }
   else if(object->classId().startsWith("list."))
     return new ObjectListWidget(object, parent);
   else if(classId == "lua.script")
@@ -101,9 +110,13 @@ QWidget* createWidget(const ObjectPtr& object, QWidget* parent)
   else if(auto outputKeyboard = std::dynamic_pointer_cast<OutputKeyboard>(object))
     return new OutputKeyboardWidget(outputKeyboard, parent);
   else if(object->classId().startsWith("board_tile."))
+  {
     return new TileWidget(object, parent);
+  }
   else if(object->classId() == "booster")
+  {
     return new TileWidget(object, parent);
+  }
   else
     return new ObjectEditWidget(object, parent);
 }
@@ -111,7 +124,9 @@ QWidget* createWidget(const ObjectPtr& object, QWidget* parent)
 QWidget* createWidget(InterfaceItem& item, QWidget* parent)
 {
   if(auto* baseProperty = dynamic_cast<AbstractProperty*>(&item))
+  {
     return createWidget(*baseProperty, parent);
+  }
   assert(false);
   return nullptr;
 }
@@ -119,17 +134,23 @@ QWidget* createWidget(InterfaceItem& item, QWidget* parent)
 QWidget* createWidget(AbstractProperty& baseProperty, QWidget* parent)
 {
   if(auto* property = dynamic_cast<Property*>(&baseProperty))
+  {
     return createWidget(*property, parent);
+  }
   else if(auto* objectProperty = dynamic_cast<ObjectProperty*>(&baseProperty))
+  {
     return createWidget(*objectProperty, parent);
+  }
   assert(false);
   return nullptr;
 }
 
 QWidget* createWidget(Property& property, QWidget* parent)
 {
-  if(!property.isWritable())
+  if(!property.isWritable()) // read only
+  {
     return new PropertyValueLabel(property, parent);
+  }
 
   switch(property.type())
   {
@@ -138,12 +159,16 @@ QWidget* createWidget(Property& property, QWidget* parent)
 
     case ValueType::Enum:
       if(property.enumName() == "pair_output_action")
+      {
         return new PropertyPairOutputAction(property, parent);
+      }
       return new PropertyComboBox(property, parent);
 
     case ValueType::Integer:
       if(property.hasAttribute(AttributeName::Values) && !property.hasAttribute(AttributeName::Min) && !property.hasAttribute(AttributeName::Max))
+      {
         return new PropertyComboBox(property, parent);
+      }
       return new PropertySpinBox(property, parent);
 
     case ValueType::Float:
@@ -151,16 +176,18 @@ QWidget* createWidget(Property& property, QWidget* parent)
 
     case ValueType::String:
       if(property.hasAttribute(AttributeName::Values))
+      {
         return new PropertyComboBox(property, parent);
+      }
       return new PropertyLineEdit(property, parent);
 
     case ValueType::Object:
-      break;
+      break; // TODO
 
     case ValueType::Set:
-      break;
+      break; // TODO
 
-    case ValueType::Invalid:
+    case ValueType::Invalid: /*[[unlikely]]*/
       break;
   }
   assert(false);
@@ -170,6 +197,8 @@ QWidget* createWidget(Property& property, QWidget* parent)
 QWidget* createWidget(ObjectProperty& property, QWidget* parent)
 {
   if(property.isWritable())
+  {
     return new ObjectPropertyComboBox(property, parent);
+  }
   return new ObjectNameLabel(property, parent);
 }

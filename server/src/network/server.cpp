@@ -545,39 +545,64 @@ http::message_generator Server::handleHTTPRequest(http::request<http::string_bod
   return notFound(request);
 }
 
-bool Server::handleCameraStreamRequest(http::request<http::string_body>&& request, beast::tcp_stream& stream)
+bool Server::handleCameraStreamRequest(const http::request<http::string_body>& request, beast::tcp_stream& stream)
 {
-  const auto target = request.target();
-
+  // Runs on the server thread. Parse the camera id from the target here (string
+  // work only, no world access) and reject anything that isn't the exact shape
+  // /camera/<non-empty-id>/stream. A trailing query string (e.g. a cache-buster
+  // "?t=123" common on <img>/<video> sources) is ignored.
   static constexpr std::string_view prefix = "/camera/";
   static constexpr std::string_view suffix = "/stream";
 
-  if(!startsWith(target, prefix) || !endsWith(target, suffix))
+  const auto fullTarget = request.target();
+  const auto path = fullTarget.substr(0, fullTarget.find('?'));
+
+  if(path.size() <= prefix.size() + suffix.size() ||
+     !startsWith(path, prefix) || !endsWith(path, suffix))
     return false;
 
-  const std::string cameraId(
-    target.data() + prefix.size(),
-    target.size() - prefix.size() - suffix.size());
+  const auto idView = path.substr(prefix.size(), path.size() - prefix.size() - suffix.size());
+  std::string cameraId(idView.data(), idView.size());
 
-  if(!Traintastic::instance || !Traintastic::instance->world.value())
-    return false;
-
-  auto camera = std::dynamic_pointer_cast<Camera>(
-    Traintastic::instance->world.value()->getObjectById(cameraId));
-
-  if(!camera || !camera->enabled.value())
-    return false;
-
+  // Take ownership of the socket now; the camera lookup and subscription have
+  // to run on the event loop thread, where the world lives (every other
+  // connection type marshals world access the same way). The socket is held in
+  // a shared_ptr so the marshalled task stays copyable (EventLoop::call).
   beast::get_lowest_layer(stream).expires_never();
-  auto socket = beast::get_lowest_layer(stream).release_socket();
+  auto socket = std::make_shared<boost::asio::ip::tcp::socket>(
+    beast::get_lowest_layer(stream).release_socket());
 
-  auto conn = std::make_shared<CameraStreamConnection>(*this, std::move(socket), camera);
-  conn->start();
+  EventLoop::call(
+    [this, cameraId = std::move(cameraId), socket]()
+    {
+      const auto world = Traintastic::instance ? Traintastic::instance->world.value() : nullptr;
+      auto camera = world
+        ? std::dynamic_pointer_cast<Camera>(world->getObjectById(cameraId))
+        : nullptr;
+      if(!camera || !camera->enabled.value())
+      {
+        // Unknown or disabled camera: just drop the connection (the client sees
+        // the same "no stream" result as a stream that fails to start).
+        boost::system::error_code ec;
+        socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
+        socket->close(ec);
+        return;
+      }
 
-  EventLoop::call([this, conn](){
-    m_cameraStreams.emplace(conn.get(), conn);
-  });
+      auto connection = std::make_shared<CameraStreamConnection>(
+        *this, std::move(*socket), std::move(camera));
+      m_cameraStreams.emplace(connection.get(), connection);
+      connection->start();
+    });
+
   return true;
+}
+
+void Server::cameraStreamGone(CameraStreamConnection* connection)
+{
+  assert(isEventLoopThread());
+
+  m_cameraStreams.erase(connection);
 }
 
 bool Server::handleWebSocketUpgradeRequest(http::request<http::string_body>&& request, beast::tcp_stream& stream)

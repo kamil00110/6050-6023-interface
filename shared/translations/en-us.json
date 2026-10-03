@@ -1976,6 +1976,14 @@
         "definition": "DINAMO in Fault state"
     },
     {
+        "term": "message:E2035",
+        "definition": "Opening camera %1 failed"
+    },
+    {
+        "term": "message:E2036",
+        "definition": "Camera stream lost"
+    },
+    {
         "term": "message:E3001",
         "definition": "Can't delete rail vehicle when in active train"
     },
@@ -2118,6 +2126,14 @@
     {
         "term": "message:I2009",
         "definition": "DINAMO system: %1 v%2"
+    },
+    {
+        "term": "message:I2010",
+        "definition": "Camera capture backend: %1"
+    },
+    {
+        "term": "message:I2011",
+        "definition": "Camera stream reconnected"
     },
     {
         "term": "message:I3001",
@@ -2280,6 +2296,14 @@
         "definition": "Hub listening at %1:%2"
     },
     {
+        "term": "message:N2009",
+        "definition": "Camera capture started"
+    },
+    {
+        "term": "message:N2010",
+        "definition": "Camera capture stopped"
+    },
+    {
         "term": "message:N3001",
         "definition": "Assigned train %1 to block %2"
     },
@@ -2374,6 +2398,14 @@
     {
         "term": "message:W2028",
         "definition": "No response within %1 ms, resending last message"
+    },
+    {
+        "term": "message:W2029",
+        "definition": "Camera stream lost, reconnecting"
+    },
+    {
+        "term": "message:W2030",
+        "definition": "Camera opened but produced only black frames (backend %1)"
     },
     {
         "term": "message:W3001",

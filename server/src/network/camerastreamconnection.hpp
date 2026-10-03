@@ -9,11 +9,21 @@
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
  * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #ifndef TRAINTASTIC_SERVER_NETWORK_CAMERASTREAMCONNECTION_HPP
 #define TRAINTASTIC_SERVER_NETWORK_CAMERASTREAMCONNECTION_HPP
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <queue>
@@ -28,9 +38,11 @@ class Camera;
 /**
  * @brief Persistent HTTP connection that streams MJPEG frames.
  *
- * When the HTTP server detects a request for /camera/{id}/stream it creates
- * a CameraStreamConnection, moves the TCP socket into it, and registers it as
- * a frame subscriber on the matching Camera object.
+ * When the HTTP server gets a request for /camera/{id}/stream it moves the TCP
+ * socket into a CameraStreamConnection and (on the event loop) registers it as
+ * a frame subscriber on the matching Camera object. The camera is held by
+ * weak_ptr: a camera removed from the world is freed immediately, and this
+ * connection simply stops receiving frames.
  *
  * Wire protocol:
  *   HTTP/1.1 200 OK
@@ -52,21 +64,33 @@ public:
                          std::shared_ptr<Camera> camera);
   ~CameraStreamConnection();
 
-  /** Send the HTTP 200 header and start reading frames. */
+  /**
+   * @brief Begin streaming.
+   *
+   * Hops onto the stream's executor, sends the HTTP header and only then
+   * subscribes to frames, so a frame write can never race the header on the
+   * socket. Safe to call from any thread.
+   */
   void start();
 
-  /** Called from the event loop when the camera is destroyed. */
+  /**
+   * @brief Stop streaming and tear the connection down (idempotent).
+   *
+   * Unsubscribes from the camera, shuts the socket down and removes this
+   * connection from the server registry. Called on a socket error.
+   */
   void close();
 
 private:
-  Server&                       m_server;
-  boost::beast::tcp_stream      m_stream;
-  std::shared_ptr<Camera>       m_camera;
-  uint64_t                      m_subscriberId{0};
+  Server&                          m_server;
+  boost::beast::tcp_stream         m_stream;
+  std::weak_ptr<Camera>            m_camera;
+  uint64_t                         m_subscriberId{0};
+  bool                             m_closed{false};
 
-  std::mutex                    m_writeMutex;
+  std::mutex                       m_writeMutex;
   std::queue<std::vector<uint8_t>> m_writeQueue;
-  bool                          m_writing{false};
+  bool                             m_writing{false};
 
   void sendHttpHeader();
   void enqueueFrame(std::vector<uint8_t> jpegData);

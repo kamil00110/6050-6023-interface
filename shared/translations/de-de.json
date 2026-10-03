@@ -1968,6 +1968,14 @@
         "definition": ""
     },
     {
+        "term": "message:E2035",
+        "definition": "Öffnen der Kamera %1 fehlgeschlagen"
+    },
+    {
+        "term": "message:E2036",
+        "definition": "Kamerastream verloren"
+    },
+    {
         "term": "message:E3001",
         "definition": "Schienenfahrzeug kann nicht gel\u00f6scht werden, w\u00e4hrend es sich in einem aktiven Zug befindet"
     },
@@ -2110,6 +2118,14 @@
     {
         "term": "message:I2009",
         "definition": ""
+    },
+    {
+        "term": "message:I2010",
+        "definition": "Kameraaufnahme-Backend: %1"
+    },
+    {
+        "term": "message:I2011",
+        "definition": "Kamerastream wieder verbunden"
     },
     {
         "term": "message:I3001",
@@ -2272,6 +2288,14 @@
         "definition": "Hub h\u00f6rt auf IP %1 und Port %2"
     },
     {
+        "term": "message:N2009",
+        "definition": "Kameraaufnahme gestartet"
+    },
+    {
+        "term": "message:N2010",
+        "definition": "Kameraaufnahme gestoppt"
+    },
+    {
         "term": "message:N3001",
         "definition": "Zug %1 wurde dem Block %2 zugewiesen"
     },
@@ -2366,6 +2390,14 @@
     {
         "term": "message:W2028",
         "definition": ""
+    },
+    {
+        "term": "message:W2029",
+        "definition": "Kamerastream verloren, erneuter Verbindungsversuch"
+    },
+    {
+        "term": "message:W2030",
+        "definition": "Kamera geöffnet, liefert aber nur schwarze Bilder (Backend %1)"
     },
     {
         "term": "message:W3001",

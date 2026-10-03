@@ -4,6 +4,20 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2025 Reinder Feenstra
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "camera.hpp"
@@ -19,7 +33,6 @@
 #include "../../core/attributes.hpp"
 #include "../../utils/displayname.hpp"
 #include "../../log/log.hpp"
-#include <sstream>
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -102,10 +115,13 @@ Camera::Camera(World& world, std::string_view _id)
           m_capture->setBrightness(value);
       }}
   , autoBrightness{this, "auto_brightness", true,        PropertyFlags::ReadWrite | PropertyFlags::Store,
-      [this](const bool&)
+      [this](const bool& value)
       {
-        // Enable/disable the brightness slider and re-open so the camera's
-        // brightness is applied (manual) or left at its default (auto).
+        // Switching back to auto resets the manual offset to neutral (0) -- the
+        // camera is re-opened with brightness 0, so the previously set value is
+        // not silently kept. Then enable/disable the slider accordingly.
+        if(value)
+          brightness.setValueInternal(0);
         updateBrightnessEnabled();
         applySettings();
       }}
@@ -315,7 +331,7 @@ void Camera::startCapture()
           device.value(), fps.value(),
           reqW, reqH,
           jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
-          brightness.value(), !autoBrightness.value());
+          brightness.value(), !autoBrightness.value(), *this);
         break;
       }
 
@@ -336,15 +352,13 @@ void Camera::startCapture()
   }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("camera init exception: ") + e.what());
+    LOG_DEBUG("camera init exception:", e.what());
     m_capture.reset();
     return;
   }
   catch(...)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("camera init unknown exception for device: ") + device.value());
+    LOG_DEBUG("camera init unknown exception for device:", device.value());
     m_capture.reset();
     return;
   }
@@ -371,8 +385,7 @@ void Camera::startCapture()
     delete args;
     m_running = false;
     m_capture.reset();
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("CreateThread failed for camera: ") + id.value());
+    LOG_DEBUG("CreateThread failed for camera:", id.value());
   }
 #else
   m_captureThread = std::thread(&Camera::captureLoop, this);
@@ -404,6 +417,8 @@ void Camera::stopCapture()
   streamUrl  .setValueInternal("");
   frameWidth .setValueInternal(0u);
   frameHeight.setValueInternal(0u);
+
+  Log::log(*this, LogMessage::N2010_CAMERA_CAPTURE_STOPPED);
 }
 
 void Camera::captureLoop()
@@ -411,31 +426,28 @@ void Camera::captureLoop()
 #ifdef _WIN32
   const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if(FAILED(hr) && hr != RPC_E_CHANGED_MODE)
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("CoInitializeEx failed on capture thread, HRESULT: ") +
-      std::to_string(hr));
+    LOG_DEBUG("CoInitializeEx failed on capture thread, HRESULT:", std::to_string(hr));
 #endif
 
   bool openOk = false;
   try { openOk = m_capture && m_capture->open(); }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("camera open exception: ") + e.what());
+    LOG_DEBUG("camera open exception:", e.what());
   }
   catch(...) {}
 
   if(!openOk)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("camera open failed for: [") + device.value() +
-      "] type=" + std::to_string(static_cast<int>(type.value())));
+    Log::log(*this, LogMessage::E2035_OPENING_CAMERA_X_FAILED, deviceDisplayName());
     m_running = false;
 #ifdef _WIN32
     CoUninitialize();
 #endif
     return;
   }
+
+  Log::log(*this, LogMessage::N2009_CAMERA_CAPTURE_STARTED);
 
   const uint32_t    w    = m_capture->width();
   const uint32_t    h    = m_capture->height();
@@ -480,9 +492,7 @@ void Camera::captureLoopBody()
       }
       if(!m_capture->readJpeg(jpegBuf))
       {
-        Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") +
-          id.value());
+        Log::log(*this, LogMessage::E2036_CAMERA_STREAM_LOST);
         break;
       }
       publishFrame(jpegBuf);
@@ -490,11 +500,7 @@ void Camera::captureLoopBody()
   }
   __except(EXCEPTION_EXECUTE_HANDLER)
   {
-    std::ostringstream oss;
-    oss << std::hex << GetExceptionCode();
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop SEH exception 0x") + oss.str() +
-      " for camera: " + id.value());
+    LOG_DEBUG("capture loop SEH exception for camera:", id.value());
   }
 #else
   try
@@ -504,9 +510,7 @@ void Camera::captureLoopBody()
     {
       if(!m_capture->readJpeg(jpegBuf))
       {
-        Log::log(*this, LogMessage::E9999_X,
-          std::string("camera readJpeg failed, stopping capture for: ") +
-          id.value());
+        Log::log(*this, LogMessage::E2036_CAMERA_STREAM_LOST);
         break;
       }
       publishFrame(jpegBuf);
@@ -514,20 +518,25 @@ void Camera::captureLoopBody()
   }
   catch(const std::exception& e)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop exception: ") + e.what());
+    LOG_DEBUG("capture loop exception:", e.what());
   }
   catch(...)
   {
-    Log::log(*this, LogMessage::E9999_X,
-      std::string("capture loop unknown exception for camera: ") + id.value());
+    LOG_DEBUG("capture loop unknown exception for camera:", id.value());
   }
 #endif
 }
 
 void Camera::publishFrame(std::vector<uint8_t> jpegData)
 {
-  std::lock_guard<std::mutex> lock(m_subscriberMutex);
-  for(auto& [subId, cb] : m_subscribers)
+  // Copy the subscriber list under the lock, then invoke the callbacks without
+  // it held: a subscriber must be free to unsubscribe (which locks the same
+  // mutex) from within its callback without deadlocking.
+  std::vector<std::pair<uint64_t, FrameCallback>> subscribers;
+  {
+    std::lock_guard<std::mutex> lock(m_subscriberMutex);
+    subscribers = m_subscribers;
+  }
+  for(auto& [subId, cb] : subscribers)
     cb(jpegData);
 }

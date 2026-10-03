@@ -4,6 +4,20 @@
  * This file is part of the traintastic source code.
  *
  * Copyright (C) 2024 Reinder Feenstra
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
 #include "httpconnection.hpp"
@@ -24,15 +38,19 @@ void HTTPConnection::start()
 
 void HTTPConnection::doRead()
 {
-  m_request = {};
+  m_request = {}; // clear request, otherwise the operation behavior is undefined
+
   m_stream.expires_after(std::chrono::seconds(30));
+
   boost::beast::http::async_read(m_stream, m_buffer, m_request,
     [this, self = shared_from_this()](boost::beast::error_code readError, size_t /*bytesTransferred*/)
     {
       if(readError)
       {
         if(readError == boost::beast::http::error::end_of_stream)
+        {
           return doClose();
+        }
         return;
       }
 
@@ -41,40 +59,41 @@ void HTTPConnection::doRead()
       if(boost::beast::websocket::is_upgrade(m_request))
       {
         if(!m_server->handleWebSocketUpgradeRequest(std::move(m_request), m_stream))
-          self->doRead();
+        {
+          self->doRead(); // no upgrade, handle next request
+        }
         return;
       }
 
-      // Only move m_request into handleCameraStreamRequest if the URL
-      // actually matches — std::move transfers ownership unconditionally
-      // so we must check before moving, not after.
+      // A /camera/{id}/stream request takes over the socket entirely. The probe
+      // takes the request by const reference, so m_request is still valid for
+      // the normal HTTP path below when it is not an (enabled) camera stream.
       const auto target = m_request.target();
-      if(target.starts_with("/camera/") && target.ends_with("/stream"))
+      const auto path = target.substr(0, target.find('?'));
+      if(path.starts_with("/camera/") && path.ends_with("/stream") &&
+         m_server->handleCameraStreamRequest(m_request, m_stream))
       {
-        if(m_server->handleCameraStreamRequest(std::move(m_request), m_stream))
-          return;
-        // Camera URL but camera not found/enabled — return 404
-        auto response = m_server->handleHTTPRequest(std::move(m_request));
-        boost::beast::async_write(m_stream, std::move(response),
-          [self, keepAlive](boost::beast::error_code writeError, size_t)
-          {
-            if(writeError || !keepAlive) return self->doClose();
-            self->doRead();
-          });
         return;
       }
 
       auto response = m_server->handleHTTPRequest(std::move(m_request));
+
       boost::beast::async_write(m_stream, std::move(response),
         [self, keepAlive](boost::beast::error_code writeError, size_t /*bytesTransferred*/)
         {
           if(writeError)
+          {
             return;
+          }
+
           if(!keepAlive)
+          {
             return self->doClose();
-          self->doRead();
+          }
+
+          self->doRead(); // handle next request
         });
-    });
+  });
 }
 
 void HTTPConnection::doClose()

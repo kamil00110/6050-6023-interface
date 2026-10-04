@@ -59,6 +59,6 @@ private:
   uint32_t                          m_height{0};
   std::atomic<bool>                 m_interrupted{false};
 
-  static constexpr int k_reconnectWaitMs = 500;
+  static constexpr int reconnectWaitMs = 500;
 };
 #endif

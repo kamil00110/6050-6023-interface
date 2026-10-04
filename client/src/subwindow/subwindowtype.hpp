@@ -45,7 +45,8 @@ inline QString toString(SubWindowType value)
 
     case SubWindowType::Throttle:
       return QStringLiteral("throttle");
-    case SubWindowType::Camera:  
+
+    case SubWindowType::Camera:
       return QStringLiteral("camera");
   }
   Q_ASSERT(false);
@@ -65,6 +66,10 @@ inline std::optional<SubWindowType> toSubWindowType(const QString& value)
   if(value == "throttle")
   {
     return SubWindowType::Throttle;
+  }
+  if(value == "camera")
+  {
+    return SubWindowType::Camera;
   }
   return std::nullopt;
 }

@@ -73,6 +73,8 @@ file(GLOB SOURCES
   "src/widget/*.cpp"
   "src/widget/camera/*.cpp"
   "src/widget/camera/*.hpp"
+  "src/widget/camera/capture/*.cpp"
+  "src/widget/camera/capture/*.hpp"
   "src/widget/decoder/*.cpp"
   "src/widget/list/*.hpp"
   "src/widget/list/*.cpp"
@@ -127,7 +129,7 @@ target_link_libraries(traintastic-client PRIVATE ZLIB::ZLIB)
 find_package(LibArchive REQUIRED)
 target_link_libraries(traintastic-client PRIVATE LibArchive::LibArchive)
 
-# OpenCV — direct capture/decode of network cameras (RTSP/MJPEG/RTMP/HLS) on the
+# OpenCV -- direct capture/decode of network cameras (RTSP/MJPEG/RTMP/HLS) on the
 # client, so the server no longer re-encodes them (same components as the server).
 find_package(OpenCV REQUIRED COMPONENTS core videoio imgcodecs)
 target_link_libraries(traintastic-client PRIVATE ${OpenCV_LIBS})

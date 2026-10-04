@@ -34,28 +34,28 @@ class CameraSubWindow : public SubWindow
 {
   Q_OBJECT
 
-public:
-  static CameraSubWindow* create(std::shared_ptr<Connection> connection,
-                                 const QString& cameraObjectId,
-                                 QWidget* parent = nullptr);
+  public:
+    static CameraSubWindow* create(std::shared_ptr<Connection> connection,
+                                   const QString& cameraObjectId,
+                                   QWidget* parent = nullptr);
 
-  explicit CameraSubWindow(std::shared_ptr<Connection> connection,
-                           const QString& cameraObjectId,
-                           QWidget* parent = nullptr);
-  ~CameraSubWindow() override;
+    explicit CameraSubWindow(std::shared_ptr<Connection> connection,
+                             const QString& cameraObjectId,
+                             QWidget* parent = nullptr);
+    ~CameraSubWindow() override;
 
-  CameraWidget* cameraWidget() const { return m_cameraWidget; }
+    CameraWidget* cameraWidget() const { return m_cameraWidget; }
 
-protected:
-  // SubWindow pure virtual — camera sets its widget directly, not via this path
-  QWidget* createWidget(const ObjectPtr& /*object*/) override { return nullptr; }
-  QSize defaultSize() const override { return QSize(480, 360); }
+  protected:
+    // SubWindow pure virtual -- camera sets its widget directly, not via this path
+    QWidget* createWidget(const ObjectPtr& /*object*/) override { return nullptr; }
+    QSize defaultSize() const override { return QSize(480, 360); }
 
-private:
-  std::shared_ptr<Connection> m_connection;
-  QString       m_cameraObjectId;
-  CameraWidget* m_cameraWidget;
-  int           m_objectRequestId{-1};
+  private:
+    std::shared_ptr<Connection> m_connection;
+    QString       m_cameraObjectId;
+    CameraWidget* m_cameraWidget;
+    int           m_objectRequestId{-1};
 };
 
 #endif

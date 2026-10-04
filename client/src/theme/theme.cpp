@@ -72,6 +72,8 @@ QIcon Theme::getIconForClassId(const QString& classId)
     return getIcon("train");
   else if(classId == "zone" || classId == "list.zone")
     return getIcon("zone");
+  else if(classId == "camera" || classId == "list.camera")
+    return getIcon("camera");
   else
     return QIcon();
 }

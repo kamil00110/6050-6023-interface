@@ -27,7 +27,7 @@
 #include <sstream>
 #include <boost/asio/post.hpp>
 
-static const std::string k_httpHeader =
+static const std::string httpHeader =
   "HTTP/1.1 200 OK\r\n"
   "Content-Type: multipart/x-mixed-replace; boundary=frame\r\n"
   "Cache-Control: no-cache, no-store, must-revalidate\r\n"
@@ -89,7 +89,7 @@ void CameraStreamConnection::close()
 
 void CameraStreamConnection::sendHttpHeader()
 {
-  auto header = std::make_shared<std::string>(k_httpHeader);
+  auto header = std::make_shared<std::string>(httpHeader);
   boost::asio::async_write(m_stream.socket(),
     boost::asio::buffer(*header),
     [self = shared_from_this(), header](boost::system::error_code ec, std::size_t)
@@ -170,7 +170,7 @@ void CameraStreamConnection::doWrite()
         self->close();
         return;
       }
-      self->doWrite();  // recurse — no lock held here either
+      self->doWrite();  // recurse -- no lock held here either
     });
 }
 

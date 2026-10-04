@@ -33,18 +33,18 @@ class CameraWidget;
  * Replaces the generic ObjectEditWidget for classId "camera".
  *
  * Layout:
- *   ┌─────────────────────────────────┐
- *   │  CameraWidget  (live preview)   │  min 200 px, expands
- *   ├─────────────────────────────────┤
- *   │  name      │ <line-edit>        │
- *   │  type      │ <combo>            │
- *   │  device    │ <combo/editable>   │  ← server pushes Values for Local type
- *   │  fps       │ <spin>             │
- *   │  enabled   │ <check>            │
- *   │  stream_url│ <label>            │
- *   │  width     │ <label>            │
- *   │  height    │ <label>            │
- *   └─────────────────────────────────┘
+ *   +---------------------------------+
+ *   |  CameraWidget  (live preview)   |  min 200 px, expands
+ *   +---------------------------------+
+ *   |  name      | <line-edit>        |
+ *   |  type      | <combo>            |
+ *   |  device    | <combo/editable>   |  <- server pushes Values for Local type
+ *   |  fps       | <spin>             |
+ *   |  enabled   | <check>            |
+ *   |  stream_url| <label>            |
+ *   |  width     | <label>            |
+ *   |  height    | <label>            |
+ *   +---------------------------------+
  *
  * The `device` row is always a PropertyComboBox (String properties are
  * always editable in QComboBox). When the camera type is Local the server
@@ -56,11 +56,11 @@ class CameraEditWidget : public AbstractEditWidget
 {
   Q_OBJECT
 
-protected:
-  void buildForm() final;
+  protected:
+    void buildForm() final;
 
-public:
-  explicit CameraEditWidget(const ObjectPtr& object, QWidget* parent = nullptr);
+  public:
+    explicit CameraEditWidget(const ObjectPtr& object, QWidget* parent = nullptr);
 };
 
 #endif

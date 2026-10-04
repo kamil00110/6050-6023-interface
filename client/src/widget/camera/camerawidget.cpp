@@ -29,7 +29,9 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTimer>
-#include "ipcamerasource.hpp"
+#include <QEvent>
+#include <QMdiSubWindow>
+#include "capture/ipcamerasource.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
@@ -37,8 +39,6 @@
 #include <traintastic/locale/locale.hpp>
 #include <traintastic/enum/cameratype.hpp>
 #include <traintastic/enum/cameraresolution.hpp>
-
-// ─── Constructor ─────────────────────────────────────────────────────────────
 
 CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
                            const QString& cameraObjectId,
@@ -79,6 +79,11 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
         showStatus(Locale::tr("camera:not_found"));
         return;
       }
+
+      // Keep the object alive for the lifetime of this widget: the property
+      // pointers below are owned by it, and if it were released the watches
+      // would silently stop (stale standalone window / preview).
+      m_cameraObject = obj;
 
       // Watch the enabled flag and the stream path so the status shown reflects
       // the real state (disabled vs. connecting vs. streaming).
@@ -179,7 +184,7 @@ CameraWidget::~CameraWidget()
   stopIpStream();
 }
 
-// ─── Public API ──────────────────────────────────────────────────────────────
+// Public API
 
 void CameraWidget::setStreamPath(const QString& urlPath)
 {
@@ -259,7 +264,7 @@ void CameraWidget::reconfigureIp()
   }
 }
 
-// ─── Protected ───────────────────────────────────────────────────────────────
+// Protected
 
 void CameraWidget::resizeEvent(QResizeEvent* event)
 {
@@ -280,7 +285,41 @@ void CameraWidget::resizeEvent(QResizeEvent* event)
   }
 #endif
 }
-// ─── Private ─────────────────────────────────────────────────────────────────
+
+void CameraWidget::showEvent(QShowEvent* event)
+{
+  QWidget::showEvent(event);
+  // On first show (now that we are in the widget hierarchy), watch the enclosing
+  // MDI sub-window's visibility: a nested widget does not receive its own hide
+  // event when an ancestor window is hidden, so pausing has to key off the
+  // sub-window. This covers the wall tiles, the settings preview and the
+  // stand-alone camera windows alike.
+  if(!m_subwindowWatched)
+  {
+    for(QWidget* w = parentWidget(); w; w = w->parentWidget())
+    {
+      if(qobject_cast<QMdiSubWindow*>(w))
+      {
+        w->installEventFilter(this);
+        m_subwindowWatched = true;
+        break;
+      }
+    }
+  }
+}
+
+bool CameraWidget::eventFilter(QObject* watched, QEvent* event)
+{
+  // watched is the enclosing MDI sub-window (see showEvent): pause the stream
+  // while it is hidden so background tabs/windows stop decoding, resume on show.
+  if(event->type() == QEvent::Hide)
+    setActive(false);
+  else if(event->type() == QEvent::Show)
+    setActive(true);
+  return QWidget::eventFilter(watched, event);
+}
+
+// Private
 
 void CameraWidget::startStream()
 {
@@ -296,9 +335,16 @@ void CameraWidget::startStream()
 
   QNetworkRequest req(url);
   req.setRawHeader("Accept", "multipart/x-mixed-replace");
-  // Disable automatic redirect following — MJPEG stream should never redirect
+  // Disable automatic redirect following -- MJPEG stream should never redirect
   req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
                    QNetworkRequest::ManualRedirectPolicy);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+  // Recover from a silent server-side stall (connection stays open but no bytes
+  // arrive): Qt aborts the reply, which emits finished() and lets
+  // onReplyFinished() schedule the usual reconnect. Reset on each chunk by Qt.
+  constexpr int streamTransferTimeoutMs = 5000; // ms without data -> abort + reconnect
+  req.setTransferTimeout(streamTransferTimeoutMs);
+#endif
 
   m_reply = m_nam->get(req);
   connect(m_reply, &QNetworkReply::readyRead,  this, &CameraWidget::onReadyRead);
@@ -436,7 +482,7 @@ void CameraWidget::tryDecodeFrames()
   }
 }
 
-// ─── IP path (direct OpenCV capture on the client) ───────────────────────────
+// IP path (direct OpenCV capture on the client)
 
 void CameraWidget::startIpStream()
 {
@@ -497,8 +543,12 @@ void CameraWidget::showPixmap(const QPixmap& px)
     m_lastFrameH = px.height();
     emit frameSizeChanged(m_lastFrameW, m_lastFrameH);
   }
+  // Fast (nearest/bilinear) scaling on the per-frame hot path: smooth scaling
+  // every frame across several open previews (wall tiles + settings + windows)
+  // is a large, needless CPU cost for live video. The one-off resizeEvent scale
+  // stays smooth so a paused/last frame still looks clean.
   m_videoLabel->setPixmap(
-    px.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    px.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::FastTransformation));
 }
 
 void CameraWidget::showStatus(const QString& text)

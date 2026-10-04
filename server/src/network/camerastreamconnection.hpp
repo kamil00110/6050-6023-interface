@@ -58,45 +58,45 @@ class Camera;
  */
 class CameraStreamConnection : public std::enable_shared_from_this<CameraStreamConnection>
 {
-public:
-  CameraStreamConnection(Server& server,
-                         boost::asio::ip::tcp::socket&& socket,
-                         std::shared_ptr<Camera> camera);
-  ~CameraStreamConnection();
+  public:
+    CameraStreamConnection(Server& server,
+                           boost::asio::ip::tcp::socket&& socket,
+                           std::shared_ptr<Camera> camera);
+    ~CameraStreamConnection();
 
-  /**
-   * @brief Begin streaming.
-   *
-   * Hops onto the stream's executor, sends the HTTP header and only then
-   * subscribes to frames, so a frame write can never race the header on the
-   * socket. Safe to call from any thread.
-   */
-  void start();
+    /**
+     * @brief Begin streaming.
+     *
+     * Hops onto the stream's executor, sends the HTTP header and only then
+     * subscribes to frames, so a frame write can never race the header on the
+     * socket. Safe to call from any thread.
+     */
+    void start();
 
-  /**
-   * @brief Stop streaming and tear the connection down (idempotent).
-   *
-   * Unsubscribes from the camera, shuts the socket down and removes this
-   * connection from the server registry. Called on a socket error.
-   */
-  void close();
+    /**
+     * @brief Stop streaming and tear the connection down (idempotent).
+     *
+     * Unsubscribes from the camera, shuts the socket down and removes this
+     * connection from the server registry. Called on a socket error.
+     */
+    void close();
 
-private:
-  Server&                          m_server;
-  boost::beast::tcp_stream         m_stream;
-  std::weak_ptr<Camera>            m_camera;
-  uint64_t                         m_subscriberId{0};
-  bool                             m_closed{false};
+  private:
+    Server&                          m_server;
+    boost::beast::tcp_stream         m_stream;
+    std::weak_ptr<Camera>            m_camera;
+    uint64_t                         m_subscriberId{0};
+    bool                             m_closed{false};
 
-  std::mutex                       m_writeMutex;
-  std::queue<std::vector<uint8_t>> m_writeQueue;
-  bool                             m_writing{false};
+    std::mutex                       m_writeMutex;
+    std::queue<std::vector<uint8_t>> m_writeQueue;
+    bool                             m_writing{false};
 
-  void sendHttpHeader();
-  void enqueueFrame(std::vector<uint8_t> jpegData);
-  void doWrite();
+    void sendHttpHeader();
+    void enqueueFrame(std::vector<uint8_t> jpegData);
+    void doWrite();
 
-  static std::vector<uint8_t> buildMjpegChunk(const std::vector<uint8_t>& jpeg);
+    static std::vector<uint8_t> buildMjpegChunk(const std::vector<uint8_t>& jpeg);
 };
 
 #endif

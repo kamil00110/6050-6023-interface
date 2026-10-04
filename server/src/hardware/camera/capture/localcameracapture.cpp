@@ -189,9 +189,9 @@ bool LocalCameraCapture::readJpeg(std::vector<uint8_t>& jpegOut)
       // The device hiccuped -- e.g. another camera sharing the same physical
       // device was removed, tearing down the shared capture graph. Re-open and
       // keep going instead of dying (which left the stream frozen until it was
-      // manually re-enabled). This mirrors IpCameraCapture's reconnect, and is
-      // why IP cameras already recovered but local ones did not.
-      std::this_thread::sleep_for(std::chrono::milliseconds(k_reconnectWaitMs));
+      // manually re-enabled), mirroring the reconnect the client-side IP capture
+      // (IpCameraSource) does, so local cameras recover from a transient loss too.
+      std::this_thread::sleep_for(std::chrono::milliseconds(reconnectWaitMs));
       m_cap->release();
       if(m_interrupted || !open())
         return false;

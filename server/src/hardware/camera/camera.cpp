@@ -346,7 +346,7 @@ void Camera::updateResolutionValues()
   if(std::find(values.begin(), values.end(), resolution.value()) == values.end())
     resolution.setValueInternal(CameraResolution::Auto);
 
-  // Tag the camera's native size in the list, e.g. "1280 × 720 (720p) (native)".
+  // Tag the camera's native size in the list, e.g. "1280 x 720 (720p) (native)".
   // Virtual cameras (NVIDIA Broadcast) advertise sizes they render black; the
   // native/current size is the reliable "this one works" hint, found without
   // probing. Only tag a size that is actually on offer. The alias text is built
@@ -619,6 +619,28 @@ void Camera::captureLoop()
     });
 
   captureLoopBody();
+
+  // captureLoopBody() returns either because stopCapture() cleared m_running (a
+  // deliberate stop, which resets the properties itself) or because the stream
+  // was lost while still enabled. In the latter case clear the client-visible
+  // stream state so the preview shows the camera as not streaming instead of
+  // freezing on the last frame and reporting a stale resolution.
+  if(m_running)
+  {
+    EventLoop::call(
+      [weak = std::weak_ptr<Camera>(
+          std::static_pointer_cast<Camera>(shared_from_this()))]()
+      {
+        if(auto self = weak.lock())
+        {
+          if(!self->m_running)
+            return; // a deliberate stop/restart already took over
+          self->streamUrl  .setValueInternal("");
+          self->frameWidth .setValueInternal(0u);
+          self->frameHeight.setValueInternal(0u);
+        }
+      });
+  }
 
 #ifdef _WIN32
   CoUninitialize();

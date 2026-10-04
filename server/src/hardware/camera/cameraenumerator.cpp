@@ -22,9 +22,9 @@
 
 #include "cameraenumerator.hpp"
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Linux — V4L2
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// Linux - V4L2
+// =============================================================================
 #ifdef __linux__
 
 #include <algorithm>
@@ -121,9 +121,9 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
   return result;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Windows — Media Foundation
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// Windows - Media Foundation
+// =============================================================================
 #elif defined(_WIN32)
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -359,7 +359,7 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
   const HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if(SUCCEEDED(hr))
   {
-    // DirectShow is the authoritative source — it sees hardware cameras,
+    // DirectShow is the authoritative source - it sees hardware cameras,
     // OBS Virtual Camera, NVIDIA Broadcast, and every other WDM driver.
     // Media Foundation misses pure DirectShow virtual cameras entirely.
     // Strategy: use DirectShow as primary; if it finds nothing fall back
@@ -393,18 +393,18 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
 }
 
 
-// ─────────────────────────────────────────────────────────────────────────────
-// macOS — AVFoundation
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// macOS - AVFoundation
+// =============================================================================
 #elif defined(__APPLE__)
 
-// enumerateLocalCameras() is implemented in cameraenumerator_mac.mm, which needs
+// enumerateLocalCameras() is implemented in os/macos/cameraenumerator.mm, which needs
 // Objective-C++ to query AVFoundation for device names and declared resolutions.
 // Nothing to compile here (this translation unit is empty on macOS).
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Other POSIX — index probing fallback
-// ─────────────────────────────────────────────────────────────────────────────
+// =============================================================================
+// Other POSIX - index probing fallback
+// =============================================================================
 #else
 
 std::vector<LocalCameraInfo> enumerateLocalCameras()

@@ -28,6 +28,7 @@
 #include <QImage>
 #include <cstdint>
 #include <memory>
+#include "../../network/objectptr.hpp"
 
 class QLabel;
 class QNetworkAccessManager;
@@ -57,77 +58,82 @@ class CameraWidget : public QWidget
 {
   Q_OBJECT
 
-public:
-  explicit CameraWidget(std::shared_ptr<Connection> connection,
-                        const QString& cameraObjectId,
-                        QWidget* parent = nullptr);
-  ~CameraWidget() override;
+  public:
+    explicit CameraWidget(std::shared_ptr<Connection> connection,
+                          const QString& cameraObjectId,
+                          QWidget* parent = nullptr);
+    ~CameraWidget() override;
 
-  /** Called when the server sends us a new stream_url property value. */
-  void setStreamPath(const QString& urlPath);
+    /** Called when the server sends us a new stream_url property value. */
+    void setStreamPath(const QString& urlPath);
 
-  /** Pauses/resumes streaming without closing the connection. */
-  void setActive(bool active);
+    /** Pauses/resumes streaming without closing the connection. */
+    void setActive(bool active);
 
-signals:
-  /** Emitted when the displayed frame's source resolution changes (works for
-   *  both the server-MJPEG and client-OpenCV paths). Used to show the real
-   *  stream resolution for IP cameras, which the server no longer reports. */
-  void frameSizeChanged(int width, int height);
+  signals:
+    /** Emitted when the displayed frame's source resolution changes (works for
+     *  both the server-MJPEG and client-OpenCV paths). Used to show the real
+     *  stream resolution for IP cameras, which the server no longer reports. */
+    void frameSizeChanged(int width, int height);
 
-protected:
-  void resizeEvent(QResizeEvent* event) override;
+  protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    // Watches the enclosing MDI sub-window's visibility (installed in showEvent).
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
-private:
-  std::shared_ptr<Connection> m_connection;
-  QString                     m_cameraObjectId;
-  QString                     m_streamPath;   ///< e.g. "/camera/camera_01/stream"
+  private:
+    std::shared_ptr<Connection> m_connection;
+    QString                     m_cameraObjectId;
+    QString                     m_streamPath;   ///< e.g. "/camera/camera_01/stream"
 
-  QLabel*                     m_videoLabel;
-  QLabel*                     m_statusLabel;
+    QLabel*                     m_videoLabel;
+    QLabel*                     m_statusLabel;
 
-  QNetworkAccessManager*      m_nam;
-  QNetworkReply*              m_reply{nullptr};
+    QNetworkAccessManager*      m_nam;
+    QNetworkReply*              m_reply{nullptr};
 
-  QByteArray                  m_buffer;       ///< accumulates raw bytes from reply
-  bool                        m_active{true};
-  bool                        m_enabled{true};  ///< camera's enabled property
-  int                         m_objectRequestId{-1};
+    QByteArray                  m_buffer;       ///< accumulates raw bytes from reply
+    bool                        m_active{true};
+    bool                        m_enabled{true};  ///< camera's enabled property
+    int                         m_objectRequestId{-1};
+    ObjectPtr                   m_cameraObject;   ///< kept alive so the watched properties (and their signals) stay valid
 
-  // Camera type + specs, read/watched from the object. For IP types these drive
-  // the client-side OpenCV capture (IpCameraSource); for Local they are applied
-  // server-side and only `type`/`stream_url` matter here.
-  int64_t                     m_type{0};        ///< CameraType; 0 = Local
-  QString                     m_device;         ///< source URL (IP cameras)
-  double                      m_fps{1.0};
-  bool                        m_flipVertical{false};
-  bool                        m_flipHorizontal{false};
-  bool                        m_requestFromSource{false};
-  int64_t                     m_resolution{0};  ///< CameraResolution; 0 = Auto
-  int                         m_jpegQuality{75};
-  IpCameraSource*             m_ipSource{nullptr}; ///< direct capture for IP cameras
-  int                         m_lastFrameW{0};     ///< last size emitted via frameSizeChanged
-  int                         m_lastFrameH{0};
+    // Camera type + specs, read/watched from the object. For IP types these drive
+    // the client-side OpenCV capture (IpCameraSource); for Local they are applied
+    // server-side and only `type`/`stream_url` matter here.
+    int64_t                     m_type{0};        ///< CameraType; 0 = Local
+    QString                     m_device;         ///< source URL (IP cameras)
+    double                      m_fps{1.0};
+    bool                        m_flipVertical{false};
+    bool                        m_flipHorizontal{false};
+    bool                        m_requestFromSource{false};
+    int64_t                     m_resolution{0};  ///< CameraResolution; 0 = Auto
+    int                         m_jpegQuality{75};
+    IpCameraSource*             m_ipSource{nullptr}; ///< direct capture for IP cameras
+    int                         m_lastFrameW{0};     ///< last size emitted via frameSizeChanged
+    int                         m_lastFrameH{0};
+    bool                        m_subwindowWatched{false}; ///< installed the visibility filter yet
 
-  void updateState();
-  void restart();          ///< tear down both paths, then updateState()
-  void reconfigureIp();    ///< restart the IP source (if an IP type is streaming)
+    void updateState();
+    void restart();          ///< tear down both paths, then updateState()
+    void reconfigureIp();    ///< restart the IP source (if an IP type is streaming)
 
-  // Local path: MJPEG pulled from the server.
-  void startStream();
-  void stopStream();
-  void onReadyRead();
-  void onReplyFinished();
-  void tryDecodeFrames();
-  QUrl buildStreamUrl() const;
+    // Local path: MJPEG pulled from the server.
+    void startStream();
+    void stopStream();
+    void onReadyRead();
+    void onReplyFinished();
+    void tryDecodeFrames();
+    QUrl buildStreamUrl() const;
 
-  // IP path: direct OpenCV capture on the client.
-  void startIpStream();
-  void stopIpStream();
-  void showImage(const QImage& image);
+    // IP path: direct OpenCV capture on the client.
+    void startIpStream();
+    void stopIpStream();
+    void showImage(const QImage& image);
 
-  void showPixmap(const QPixmap& px);
-  void showStatus(const QString& text);
+    void showPixmap(const QPixmap& px);
+    void showStatus(const QString& text);
 };
 
 #endif

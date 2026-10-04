@@ -105,9 +105,9 @@ static SubWindow* createSubWindow(SubWindowType type, Args... args)
 
     case SubWindowType::Throttle:
       return ThrottleSubWindow::create(args...);
-    
-    case SubWindowType::Camera:  
-      return nullptr; 
+
+    case SubWindowType::Camera:
+      return nullptr; // camera windows are opened via MainWindow::showCameraWindow()
   }
   return nullptr;
 }
@@ -849,7 +849,10 @@ void MainWindow::worldChanged()
           {
             if(auto swt = toSubWindowType(v[0]); swt && !v[1].isEmpty())
             {
-              showObject(v[1], *swt);
+              if(*swt == SubWindowType::Camera)
+                showCameraWindow(v[1]); // not created via createSubWindow()
+              else
+                showObject(v[1], *swt);
             }
           }
         }
@@ -1127,13 +1130,13 @@ void MainWindow::showAddInterfaceWizard()
 }
 
 void MainWindow::showCameraWindow(const QString& cameraObjectId)
-   {
-     const QString windowId = SubWindow::windowId(SubWindowType::Camera, cameraObjectId);
-     if(!m_subWindows.contains(windowId))
-       addSubWindow(windowId, CameraSubWindow::create(m_connection, cameraObjectId));
-     else
-       m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
-   }
+{
+  const QString windowId = SubWindow::windowId(SubWindowType::Camera, cameraObjectId);
+  if(!m_subWindows.contains(windowId))
+    addSubWindow(windowId, CameraSubWindow::create(m_connection, cameraObjectId));
+  else
+    m_mdiArea->setActiveSubWindow(m_subWindows[windowId]);
+}
 
 NewBoardWizard* MainWindow::showNewBoardWizard(const ObjectPtr& board)
 {

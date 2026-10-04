@@ -44,9 +44,9 @@
 #include <traintastic/locale/locale.hpp>
 
 namespace {
-  constexpr int kTileW = 240;
-  constexpr int kTileH = 200;
-  constexpr int kSpacing = 10;
+  constexpr int tileWidth = 240;
+  constexpr int tileHeight = 200;
+  constexpr int tileSpacing = 10;
 }
 
 CameraOverviewWidget::CameraOverviewWidget(std::shared_ptr<Connection> connection, QWidget* parent)
@@ -63,8 +63,8 @@ CameraOverviewWidget::CameraOverviewWidget(std::shared_ptr<Connection> connectio
 
   m_container = new QWidget(m_scroll);
   m_grid = new QGridLayout(m_container);
-  m_grid->setContentsMargins(kSpacing, kSpacing, kSpacing, kSpacing);
-  m_grid->setSpacing(kSpacing);
+  m_grid->setContentsMargins(tileSpacing, tileSpacing, tileSpacing, tileSpacing);
+  m_grid->setSpacing(tileSpacing);
   m_scroll->setWidget(m_container);
 
   m_emptyLabel = new QLabel(m_container);
@@ -187,7 +187,7 @@ void CameraOverviewWidget::rebuildTiles(const QStringList& ids)
   {
     auto* tile = new QFrame(m_container);
     tile->setFrameShape(QFrame::StyledPanel);
-    tile->setFixedSize(kTileW, kTileH);
+    tile->setFixedSize(tileWidth, tileHeight);
     auto* v = new QVBoxLayout(tile);
     v->setContentsMargins(4, 4, 4, 4);
     v->setSpacing(3);
@@ -259,7 +259,7 @@ void CameraOverviewWidget::clearTiles()
 int CameraOverviewWidget::computeColumns() const
 {
   const int w = m_scroll->viewport()->width();
-  return std::max(1, (w - kSpacing) / (kTileW + kSpacing));
+  return std::max(1, (w - tileSpacing) / (tileWidth + tileSpacing));
 }
 
 void CameraOverviewWidget::relayout()

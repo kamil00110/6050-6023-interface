@@ -22,6 +22,7 @@
 
 #include "camerasubwindow.hpp"
 #include "../widget/camera/camerawidget.hpp"
+#include "../theme/theme.hpp"
 #include "../network/connection.hpp"
 #include "../network/object.hpp"
 #include "../network/abstractproperty.hpp"
@@ -53,6 +54,7 @@ CameraSubWindow::CameraSubWindow(std::shared_ptr<Connection> connection,
 {
   setWidget(m_cameraWidget);
   setWindowTitle(Locale::tr("camera:camera"));
+  Theme::setWindowIcon(*this, QStringLiteral("camera")); // match the other tabs, not the Qt default
   // Initial size comes from defaultSize() / saved geometry via SubWindow::showEvent.
 
   // Track name property for window title

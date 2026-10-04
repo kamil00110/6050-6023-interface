@@ -30,7 +30,7 @@
 
 struct LocalCameraInfo
 {
-  std::string device; ///< index string ("0", "1", …) passed to OpenCV
+  std::string device; ///< index string ("0", "1", ...) passed to OpenCV
   std::string name;   ///< human-readable label shown in the UI
   /// Resolutions the device reports it supports (width, height). May be empty
   /// when the platform can't enumerate them; the camera then falls back to its
@@ -55,7 +55,7 @@ struct LocalCameraInfo
 /// Windows : DirectShow (primary) + Media Foundation, with IAMStreamConfig for
 ///           the declared resolutions; falls back to bare indices if COM fails.
 /// macOS   : AVFoundation -- AVCaptureDevice for the device names and declared
-///           resolutions (implemented in cameraenumerator_mac.mm).
+///           resolutions (implemented in os/macos/cameraenumerator.mm).
 /// other   : a few bare indices (no SDK-free enumeration).
 std::vector<LocalCameraInfo> enumerateLocalCameras();
 

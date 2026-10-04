@@ -30,7 +30,6 @@
 #include <memory>
 
 #include "camerawidget.hpp"
-#include "../../mainwindow.hpp"
 #include "../../theme/theme.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
@@ -44,39 +43,42 @@
 #include "../propertyvaluelabel.hpp"
 #include "../createwidget.hpp"
 #include <traintastic/locale/locale.hpp>
+#include <traintastic/enum/cameratype.hpp>
 
-static constexpr int64_t kCameraTypeLocal = 0;
-static constexpr int64_t kCameraTypeRTSP  = 1;
-static constexpr int64_t kCameraTypeMJPEG = 2;
-static constexpr int64_t kCameraTypeRTMP  = 3;
-static constexpr int64_t kCameraTypeHLS   = 4;
+// The camera type as the int64 the property stores, derived from the shared enum
+// so these can never drift from it.
+static constexpr int64_t cameraTypeLocal = static_cast<int64_t>(CameraType::Local);
+static constexpr int64_t cameraTypeRTSP  = static_cast<int64_t>(CameraType::RTSP);
+static constexpr int64_t cameraTypeMJPEG = static_cast<int64_t>(CameraType::MJPEG);
+static constexpr int64_t cameraTypeRTMP  = static_cast<int64_t>(CameraType::RTMP);
+static constexpr int64_t cameraTypeHLS   = static_cast<int64_t>(CameraType::HLS);
 
 static int64_t detectTypeFromUrl(const QString& url)
 {
   // RTSP / RTSPS
   if(url.startsWith(QStringLiteral("rtsp://"),  Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("rtsps://"), Qt::CaseInsensitive))
-    return kCameraTypeRTSP;
+    return cameraTypeRTSP;
 
   // RTMP / RTMPS / RTMPE / RTMPT
   if(url.startsWith(QStringLiteral("rtmp://"),  Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("rtmps://"), Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("rtmpe://"), Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("rtmpt://"), Qt::CaseInsensitive))
-    return kCameraTypeRTMP;
+    return cameraTypeRTMP;
 
-  // HLS — m3u8 playlist over HTTP/HTTPS
+  // HLS: m3u8 playlist over HTTP/HTTPS
   if((url.startsWith(QStringLiteral("http://"),  Qt::CaseInsensitive) ||
       url.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive)) &&
      url.endsWith(QStringLiteral(".m3u8"), Qt::CaseInsensitive))
-    return kCameraTypeHLS;
+    return cameraTypeHLS;
 
-  // MJPEG — plain HTTP/HTTPS without m3u8
+  // MJPEG: plain HTTP/HTTPS without m3u8
   if(url.startsWith(QStringLiteral("http://"),  Qt::CaseInsensitive) ||
      url.startsWith(QStringLiteral("https://"), Qt::CaseInsensitive))
-    return kCameraTypeMJPEG;
+    return cameraTypeMJPEG;
 
-  return -1; // unrecognised — leave type unchanged
+  return -1; // unrecognised; leave type unchanged
 }
 
 // Grayed-out example URL shown in the (empty) URL field for the selected type.
@@ -84,10 +86,10 @@ static QString urlPlaceholderForType(int64_t type)
 {
   switch(type)
   {
-    case kCameraTypeRTSP:  return QStringLiteral("rtsp://192.168.1.100:554/stream");
-    case kCameraTypeRTMP:  return QStringLiteral("rtmp://192.168.1.100/live/stream");
-    case kCameraTypeHLS:   return QStringLiteral("http://192.168.1.100/stream.m3u8");
-    case kCameraTypeMJPEG:
+    case cameraTypeRTSP:  return QStringLiteral("rtsp://192.168.1.100:554/stream");
+    case cameraTypeRTMP:  return QStringLiteral("rtmp://192.168.1.100/live/stream");
+    case cameraTypeHLS:   return QStringLiteral("http://192.168.1.100/stream.m3u8");
+    case cameraTypeMJPEG:
     default:               return QStringLiteral("http://192.168.1.100/video");
   }
 }
@@ -113,19 +115,19 @@ void CameraEditWidget::buildForm()
   mainLayout->setContentsMargins(0, 0, 0, 0);
   mainLayout->setSpacing(0);
 
-  // ── Live stream preview ───────────────────────────────────────────────
+  // Live stream preview
   CameraWidget* preview = nullptr;
   {
     const QString objectId = m_object->getProperty("id")
                                ? m_object->getProperty("id")->toString()
                                : QString();
-    preview = new CameraWidget(MainWindow::instance->connection(), objectId, this);
+    preview = new CameraWidget(m_object->connection(), objectId, this);
     preview->setMinimumHeight(200);
     preview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     mainLayout->addWidget(preview);
   }
 
-  // ── Settings form ─────────────────────────────────────────────────────
+  // Settings form
   auto* formContainer = new QWidget(this);
   auto* form = new QFormLayout(formContainer);
   form->setContentsMargins(6, 6, 6, 6);
@@ -144,7 +146,7 @@ void CameraEditWidget::buildForm()
   addRow("name");
   addRow("type");
 
-  // ── device — two rows, one active at a time ───────────────────────────
+  // device: two rows, one active at a time
   Property* deviceProp = dynamic_cast<Property*>(m_object->getProperty("device"));
   Property* typeProp   = dynamic_cast<Property*>(m_object->getProperty("type"));
 
@@ -153,23 +155,23 @@ void CameraEditWidget::buildForm()
 
   if(deviceProp)
   {
-    // Row 1 — local camera selector (combo populated by server)
+    // Row 1: local camera selector (combo populated by server)
     deviceCombo = new PropertyComboBox(*deviceProp, formContainer);
     form->addRow(new QLabel(Locale::tr("camera:local_camera"), formContainer),
                  deviceCombo);
 
-    // Row 2 — IP camera URL (plain line edit, bound to same property)
+    // Row 2: IP camera URL (plain line edit, bound to same property)
     urlEdit = new QLineEdit(formContainer);
     urlEdit->setPlaceholderText(
-      urlPlaceholderForType(typeProp ? typeProp->toInt64() : kCameraTypeMJPEG));
+      urlPlaceholderForType(typeProp ? typeProp->toInt64() : cameraTypeMJPEG));
 
     // Initialise with current value only when it is a real URL (never the
     // numeric local-camera index).
-    if(typeProp && typeProp->toInt64() != kCameraTypeLocal &&
+    if(typeProp && typeProp->toInt64() != cameraTypeLocal &&
        looksLikeUrl(deviceProp->toString()))
       urlEdit->setText(deviceProp->toString());
 
-    // ── Auto-detect type from URL ─────────────────────────────────────
+    // Auto-detect type from URL.
     // When the user finishes editing the URL field:
     //   1. Push the value to the server (device property).
     //   2. If the URL prefix reveals the type (rtsp:// or http://) and
@@ -205,7 +207,7 @@ void CameraEditWidget::buildForm()
         // Only update the URL field when we are in IP mode and the value is a
         // real URL; in Local mode the value is a numeric index and must never
         // appear in the URL field.
-        if(typeProp && typeProp->toInt64() != kCameraTypeLocal && looksLikeUrl(value))
+        if(typeProp && typeProp->toInt64() != cameraTypeLocal && looksLikeUrl(value))
         {
           if(urlEdit->text() != value)
             urlEdit->setText(value);
@@ -215,10 +217,10 @@ void CameraEditWidget::buildForm()
     form->addRow(new QLabel(Locale::tr("camera:url"), formContainer), urlEdit);
   }
 
-  // ── Enable / disable rows based on type and server edit permission ────
+  // Enable / disable rows based on type and server edit permission
   const auto applyTypeState = [deviceCombo, urlEdit](int64_t typeValue, bool serverEnabled)
   {
-    const bool isLocal = (typeValue == kCameraTypeLocal);
+    const bool isLocal = (typeValue == cameraTypeLocal);
     if(deviceCombo)
       deviceCombo->setEnabled(serverEnabled && isLocal);
     if(urlEdit)
@@ -248,7 +250,7 @@ void CameraEditWidget::buildForm()
         // When switching to an IP type, populate the URL field with the
         // current device value (which the server just reset to "0" when
         // switching to Local, so this is safe in both directions).
-        if(newType != kCameraTypeLocal && urlEdit)
+        if(newType != cameraTypeLocal && urlEdit)
         {
           const QString current = deviceProp->toString();
           if(looksLikeUrl(current))
@@ -269,7 +271,7 @@ void CameraEditWidget::buildForm()
       });
   }
 
-  // ── Remaining properties ──────────────────────────────────────────────
+  // Remaining properties
   addRow("request_from_source");
   addRow("fps");
   addRow("resolution");
@@ -303,7 +305,7 @@ void CameraEditWidget::buildForm()
 
   // Actual stream resolution. Local cameras report it from the server
   // (frame_width/height); IP cameras are decoded on the client, so the server
-  // reports 0×0 -- use the size the preview actually decoded (frameSizeChanged),
+  // reports 0x0 -- use the size the preview actually decoded (frameSizeChanged),
   // which also works for local cameras. Prefer the client size, fall back to the
   // server properties, else "-".
   {
@@ -319,7 +321,7 @@ void CameraEditWidget::buildForm()
         int h = clientSize->height();
         if(w <= 0 || h <= 0) { w = wProp->toInt(); h = hProp->toInt(); }
         resLabel->setText((w > 0 && h > 0)
-          ? QStringLiteral("%1 × %2").arg(w).arg(h)
+          ? QStringLiteral("%1 x %2").arg(w).arg(h)
           : QStringLiteral("-"));
       };
       if(preview)

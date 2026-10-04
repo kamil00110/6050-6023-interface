@@ -29,6 +29,8 @@
 #include <QFrame>
 #include <QToolButton>
 #include <QResizeEvent>
+#include <QEvent>
+#include <QMouseEvent>
 #include <QAbstractItemModel>
 #include "camerawidget.hpp"
 #include "../../mainwindow.hpp"
@@ -199,6 +201,21 @@ void CameraOverviewWidget::rebuildTiles(const QStringList& ids)
     v->addWidget(preview, 1);
     m_tiles.push_back(tile);
 
+    // Make the whole tile open this camera in its own floating window on click.
+    // The tile carries the camera id; the event filter is installed on the tile
+    // and every child (incl. the CameraWidget's video label) so a click anywhere
+    // on the tile counts. A pointing-hand cursor signals it is clickable.
+    tile->setProperty("cameraId", id);
+    tile->setCursor(Qt::PointingHandCursor);
+    tile->setToolTip(QStringLiteral("Open in window"));
+    tile->installEventFilter(this);
+    const auto tileChildren = tile->findChildren<QWidget*>();
+    for(QWidget* child : tileChildren)
+    {
+      child->setCursor(Qt::PointingHandCursor);
+      child->installEventFilter(this);
+    }
+
     // Upgrade the tile title from the object id to the camera's name, and keep
     // the object alive (so the cached camera object the stream relies on stays).
     const int rid = m_connection->getObject(id,
@@ -279,4 +296,36 @@ void CameraOverviewWidget::resizeEvent(QResizeEvent* event)
   }
   if(!m_tiles.empty() && computeColumns() != m_columns)
     relayout();
+}
+
+bool CameraOverviewWidget::eventFilter(QObject* watched, QEvent* event)
+{
+  if(event->type() == QEvent::MouseButtonRelease &&
+     static_cast<QMouseEvent*>(event)->button() == Qt::LeftButton)
+  {
+    // The clicked widget may be a tile child (video label, name label, ...);
+    // walk up to the tile, which carries the "cameraId" property.
+    QWidget* w = qobject_cast<QWidget*>(watched);
+    while(w && w->property("cameraId").isNull())
+      w = w->parentWidget();
+    if(w)
+    {
+      const QString id = w->property("cameraId").toString();
+      if(!id.isEmpty())
+      {
+        openCameraWindow(id);
+        return true; // consume: the click opened the floating window
+      }
+    }
+  }
+  return QWidget::eventFilter(watched, event);
+}
+
+void CameraOverviewWidget::openCameraWindow(const QString& cameraId)
+{
+  // Opens an independent camera sub-window (just the video, no settings). It is
+  // keyed per camera, so a second click re-focuses the existing one, and it is a
+  // separate MDI window -- the wall can be closed without affecting it.
+  if(MainWindow::instance)
+    MainWindow::instance->showCameraWindow(cameraId);
 }

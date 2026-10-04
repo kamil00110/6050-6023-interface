@@ -55,8 +55,13 @@ class CameraOverviewWidget : public QWidget
 
   protected:
     void resizeEvent(QResizeEvent* event) override;
+    // Clicking a tile (anywhere, incl. the video) opens that camera in its own
+    // floating window; caught via an event filter installed on each tile + child.
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
   private:
+    void openCameraWindow(const QString& cameraId);
+
     std::shared_ptr<Connection> m_connection;
     ObjectPtr m_listObject;
     TableModelPtr m_tableModel;

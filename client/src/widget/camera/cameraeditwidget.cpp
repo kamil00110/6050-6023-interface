@@ -26,6 +26,8 @@
 #include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QSize>
+#include <memory>
 
 #include "camerawidget.hpp"
 #include "../../mainwindow.hpp"
@@ -112,11 +114,12 @@ void CameraEditWidget::buildForm()
   mainLayout->setSpacing(0);
 
   // ── Live stream preview ───────────────────────────────────────────────
+  CameraWidget* preview = nullptr;
   {
     const QString objectId = m_object->getProperty("id")
                                ? m_object->getProperty("id")->toString()
                                : QString();
-    auto* preview = new CameraWidget(MainWindow::instance->connection(), objectId, this);
+    preview = new CameraWidget(MainWindow::instance->connection(), objectId, this);
     preview->setMinimumHeight(200);
     preview->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     mainLayout->addWidget(preview);
@@ -298,24 +301,33 @@ void CameraEditWidget::buildForm()
 
   addReadOnlyRow("stream_url");
 
-  // Actual stream resolution: frame_width and frame_height joined into one row.
+  // Actual stream resolution. Local cameras report it from the server
+  // (frame_width/height); IP cameras are decoded on the client, so the server
+  // reports 0×0 -- use the size the preview actually decoded (frameSizeChanged),
+  // which also works for local cameras. Prefer the client size, fall back to the
+  // server properties, else "-".
   {
     Property* wProp = dynamic_cast<Property*>(m_object->getProperty("frame_width"));
     Property* hProp = dynamic_cast<Property*>(m_object->getProperty("frame_height"));
     if(wProp && hProp)
     {
       auto* resLabel = new QLabel(formContainer);
-      const auto updateRes = [resLabel, wProp, hProp]()
+      auto clientSize = std::make_shared<QSize>(0, 0);
+      const auto updateRes = [resLabel, wProp, hProp, clientSize]()
       {
-        const int w = wProp->toInt();
-        const int h = hProp->toInt();
+        int w = clientSize->width();
+        int h = clientSize->height();
+        if(w <= 0 || h <= 0) { w = wProp->toInt(); h = hProp->toInt(); }
         resLabel->setText((w > 0 && h > 0)
           ? QStringLiteral("%1 × %2").arg(w).arg(h)
           : QStringLiteral("-"));
       };
-      updateRes();
+      if(preview)
+        connect(preview, &CameraWidget::frameSizeChanged, this,
+          [clientSize, updateRes](int w, int h) { *clientSize = QSize(w, h); updateRes(); });
       connect(wProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
       connect(hProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
+      updateRes();
       form->addRow(new QLabel(Locale::tr("camera:stream_resolution"), formContainer),
                    resLabel);
     }

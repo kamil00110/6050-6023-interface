@@ -238,6 +238,13 @@ void Camera::addToWorld()
 void Camera::loaded()
 {
   IdObject::loaded();
+  // Apply the layout for the LOADED type. These run from the `type` setter on an
+  // interactive change, but loading sets `type` via setValueInternal (no setter),
+  // so without this an IP camera loaded from the world file keeps the ctor's
+  // default (Local) layout -- the device combo instead of the URL field, and the
+  // local-only controls (resolution/brightness) visible.
+  updateDeviceAttribute(); // device combo (Local) vs URL field (IP)
+  updateSpecVisibility();  // hide the local-only controls for IP types
   updateResolutionValues(); // reflect the loaded device's resolution list
   if(enabled)
     startCapture();

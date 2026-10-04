@@ -35,6 +35,14 @@ CameraSubWindow* CameraSubWindow::create(std::shared_ptr<Connection> connection,
   return new CameraSubWindow(std::move(connection), cameraObjectId, parent);
 }
 
+CameraSubWindow::~CameraSubWindow()
+{
+  // Cancel the in-flight name lookup so its callback can't fire into this
+  // destroyed window (use-after-free when closed before the response arrives).
+  if(m_objectRequestId != -1 && m_connection)
+    m_connection->cancelRequest(m_objectRequestId);
+}
+
 CameraSubWindow::CameraSubWindow(std::shared_ptr<Connection> connection,
                                  const QString& cameraObjectId,
                                  QWidget* parent)
@@ -45,12 +53,13 @@ CameraSubWindow::CameraSubWindow(std::shared_ptr<Connection> connection,
 {
   setWidget(m_cameraWidget);
   setWindowTitle(Locale::tr("camera:camera"));
-  resize(480, 360);
+  // Initial size comes from defaultSize() / saved geometry via SubWindow::showEvent.
 
   // Track name property for window title
   m_objectRequestId = connection->getObject(cameraObjectId,
     [this](const ObjectPtr& obj, std::optional<const Error> /*err*/)
     {
+      m_objectRequestId = -1; // request completed; don't cancel a reused id later
       if(!obj)
         return;
       if(auto* name = obj->getProperty("name"))

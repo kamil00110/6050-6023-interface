@@ -42,12 +42,14 @@ public:
   explicit CameraSubWindow(std::shared_ptr<Connection> connection,
                            const QString& cameraObjectId,
                            QWidget* parent = nullptr);
+  ~CameraSubWindow() override;
 
   CameraWidget* cameraWidget() const { return m_cameraWidget; }
 
 protected:
   // SubWindow pure virtual — camera sets its widget directly, not via this path
   QWidget* createWidget(const ObjectPtr& /*object*/) override { return nullptr; }
+  QSize defaultSize() const override { return QSize(480, 360); }
 
 private:
   std::shared_ptr<Connection> m_connection;

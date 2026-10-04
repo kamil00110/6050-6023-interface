@@ -116,7 +116,18 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
       {
         m_fps = p->toDouble();
         connect(p, &AbstractProperty::valueChangedDouble, this,
-          [this](double v) { m_fps = v; if(m_ipSource) m_ipSource->setFps(v); });
+          [this](double v)
+          {
+            m_fps = v;
+            // For MJPEG with request-from-source, fps is sent in the request URL,
+            // so a change must rebuild the source to re-request at the new rate
+            // (otherwise it only takes effect on the next reconnect / re-enable).
+            // For every other case fps is a live client-side cap.
+            if(m_type == static_cast<int64_t>(CameraType::MJPEG) && m_requestFromSource)
+              reconfigureIp();
+            else if(m_ipSource)
+              m_ipSource->setFps(v);
+          });
       }
       if(auto* p = obj->getProperty("flip_vertical"))
       {
@@ -477,6 +488,15 @@ void CameraWidget::showPixmap(const QPixmap& px)
 {
   m_statusLabel->hide();
   m_videoLabel->show();
+  // Report the source frame resolution (px is the full-size frame; only the
+  // label display is scaled). Lets the edit widget show the real stream size for
+  // IP cameras, which the server no longer reports via frame_width/height.
+  if(px.width() != m_lastFrameW || px.height() != m_lastFrameH)
+  {
+    m_lastFrameW = px.width();
+    m_lastFrameH = px.height();
+    emit frameSizeChanged(m_lastFrameW, m_lastFrameH);
+  }
   m_videoLabel->setPixmap(
     px.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }

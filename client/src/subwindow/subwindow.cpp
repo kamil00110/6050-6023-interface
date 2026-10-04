@@ -81,7 +81,11 @@ SubWindow::~SubWindow()
 
 QString SubWindow::settingsGroupName() const
 {
-  QString uuid = m_connection->worldUUID();
+  // m_connection is null for sub-windows built with the no-connection
+  // constructor (e.g. CameraSubWindow, which sets its widget directly rather
+  // than going through the object/connection path). Guard it so show() and the
+  // destructor don't dereference a null connection -- the fallback UUID is used.
+  QString uuid = m_connection ? m_connection->worldUUID() : QString();
   if(uuid.isEmpty())
     uuid = "00000000-0000-0000-0000-000000000000";
   return uuid + "/" + toString(m_type) + "/" + m_id;

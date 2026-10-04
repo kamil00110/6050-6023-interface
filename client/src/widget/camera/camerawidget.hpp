@@ -69,6 +69,12 @@ public:
   /** Pauses/resumes streaming without closing the connection. */
   void setActive(bool active);
 
+signals:
+  /** Emitted when the displayed frame's source resolution changes (works for
+   *  both the server-MJPEG and client-OpenCV paths). Used to show the real
+   *  stream resolution for IP cameras, which the server no longer reports. */
+  void frameSizeChanged(int width, int height);
+
 protected:
   void resizeEvent(QResizeEvent* event) override;
 
@@ -100,6 +106,8 @@ private:
   int64_t                     m_resolution{0};  ///< CameraResolution; 0 = Auto
   int                         m_jpegQuality{75};
   IpCameraSource*             m_ipSource{nullptr}; ///< direct capture for IP cameras
+  int                         m_lastFrameW{0};     ///< last size emitted via frameSizeChanged
+  int                         m_lastFrameH{0};
 
   void updateState();
   void restart();          ///< tear down both paths, then updateState()

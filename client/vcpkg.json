@@ -4,10 +4,6 @@
       "name": "libarchive",
       "default-features": false,
       "features": []
-    },
-    {
-      "name": "opencv",
-      "features": ["ffmpeg", "jpeg"]
     }
   ]
 }

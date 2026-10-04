@@ -22,22 +22,104 @@
 
 #include "propertyslider.hpp"
 #include <limits>
-#include <QSlider>
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QSignalBlocker>
-#include <QColor>
 #include <QPalette>
+#include <QPainter>
+#include <QPen>
+#include <QStyle>
+#include <QStyleOptionSlider>
 #include <QEvent>
 #include "../network/property.hpp"
 #include "../network/object.hpp"
 #include "../network/connection.hpp"
 #include "../network/error.hpp"
 
+PropertySliderBar::PropertySliderBar(QWidget* parent)
+  : QSlider(Qt::Horizontal, parent)
+{
+  setMinimumHeight(22); // leave room for the pill handle
+}
+
+void PropertySliderBar::setFill(Fill fill)
+{
+  if(fill != m_fill)
+  {
+    m_fill = fill;
+    update();
+  }
+}
+
+void PropertySliderBar::setColors(const QColor& groove, const QColor& accent,
+                                  const QColor& handle, const QColor& disabled)
+{
+  m_groove = groove;
+  m_accent = accent;
+  m_handle = handle;
+  m_disabled = disabled;
+  update();
+}
+
+void PropertySliderBar::paintEvent(QPaintEvent*)
+{
+  QStyleOptionSlider opt;
+  initStyleOption(&opt);
+
+  // Use the style's groove/handle geometry so the drawn handle lines up exactly
+  // with where the slider hit-tests (no custom metrics -> no interaction drift).
+  const QRect groove = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderGroove, this);
+  const QRect handleRect = style()->subControlRect(QStyle::CC_Slider, &opt, QStyle::SC_SliderHandle, this);
+  const bool on = isEnabled();
+
+  QPainter painter(this);
+  painter.setRenderHint(QPainter::Antialiasing, true);
+  painter.setPen(Qt::NoPen);
+
+  constexpr int trackHeight = 6;
+  const int cy = groove.center().y();
+  const QRect track(groove.left(), cy - trackHeight / 2, groove.width(), trackHeight);
+  const qreal radius = trackHeight / 2.0;
+
+  painter.setBrush(on ? m_groove : m_disabled);
+  painter.drawRoundedRect(track, radius, radius);
+
+  if(on && m_fill != Fill::Off)
+  {
+    const int hx = handleRect.center().x();
+    int x0 = track.left();
+    int x1 = hx;
+    if(m_fill == Fill::Right)
+    {
+      x0 = hx;
+      x1 = track.right();
+    }
+    else if(m_fill == Fill::Center)
+    {
+      const int cx = track.center().x();
+      x0 = qMin(cx, hx);
+      x1 = qMax(cx, hx);
+    }
+    if(x1 > x0)
+    {
+      painter.setBrush(m_accent);
+      painter.drawRoundedRect(QRect(x0, track.top(), x1 - x0, trackHeight), radius, radius);
+    }
+  }
+
+  constexpr int handleWidth = 12;
+  constexpr int handleHeight = 20;
+  const QRect pill(handleRect.center().x() - handleWidth / 2, cy - handleHeight / 2,
+                   handleWidth, handleHeight);
+  painter.setPen(QPen(on ? m_accent : m_disabled, 1));
+  painter.setBrush(on ? m_handle : m_disabled);
+  painter.drawRoundedRect(pill, handleWidth / 2.0, handleWidth / 2.0);
+}
+
 PropertySlider::PropertySlider(Property& property, QWidget* parent) :
   QWidget(parent),
   m_property{property},
-  m_slider{new QSlider(Qt::Horizontal, this)},
+  m_slider{new PropertySliderBar(this)},
   m_valueLabel{new QLabel(this)},
   m_requestId{Connection::invalidRequestId}
 {
@@ -50,12 +132,13 @@ PropertySlider::PropertySlider(Property& property, QWidget* parent) :
   m_valueLabel->setMinimumWidth(44);
   m_valueLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-  applyThumbStyle();
+  applyColors();
 
   setEnabled(m_property.getAttributeBool(AttributeName::Enabled, true));
   setVisible(m_property.getAttributeBool(AttributeName::Visible, true));
   updateRange();
   updateStep();
+  updateFill();
   m_unit = m_property.getAttributeString(AttributeName::Unit, QString());
   {
     QSignalBlocker block(m_slider);
@@ -90,6 +173,7 @@ PropertySlider::PropertySlider(Property& property, QWidget* parent) :
         case AttributeName::Min:
         case AttributeName::Max:
           updateRange();
+          updateFill(); // a range change can flip bipolar <-> unipolar
           break;
 
         case AttributeName::Step:
@@ -132,13 +216,6 @@ PropertySlider::PropertySlider(Property& property, QWidget* parent) :
     });
 }
 
-void PropertySlider::changeEvent(QEvent* event)
-{
-  QWidget::changeEvent(event);
-  if(event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange)
-    applyThumbStyle(); // keep the pill colours in sync with a runtime theme change
-}
-
 PropertySlider::~PropertySlider()
 {
   cancelRequest();
@@ -167,6 +244,18 @@ void PropertySlider::updateStep()
     m_slider->setSingleStep(step);
 }
 
+void PropertySlider::updateFill()
+{
+  // Center the fill for a signed (bipolar) range -- filling from the minimum
+  // would read as a magnitude from the most-negative value, which is wrong for
+  // e.g. brightness (-100..0..100). Otherwise fill from the left as usual.
+  const int min = m_property.getAttributeInt(AttributeName::Min, 0);
+  const int max = m_property.getAttributeInt(AttributeName::Max, 0);
+  m_slider->setFill((min < 0 && max > 0)
+    ? PropertySliderBar::Fill::Center
+    : PropertySliderBar::Fill::Left);
+}
+
 void PropertySlider::updateValueLabel(int value)
 {
   m_valueLabel->setText(m_unit.isEmpty()
@@ -174,18 +263,19 @@ void PropertySlider::updateValueLabel(int value)
     : QStringLiteral("%1 %2").arg(value).arg(m_unit));
 }
 
-void PropertySlider::applyThumbStyle()
+void PropertySlider::applyColors()
 {
-  // Pill-shaped handle drawn from the palette so it tracks the active theme.
-  const QColor groove = palette().color(QPalette::Mid);
-  const QColor accent = palette().color(QPalette::Highlight);
-  const QColor handle = palette().color(QPalette::Light);
-  m_slider->setStyleSheet(QStringLiteral(
-      "QSlider::groove:horizontal { height: 6px; border-radius: 3px; background: %1; }"
-      "QSlider::add-page:horizontal { height: 6px; border-radius: 3px; background: %1; }"
-      "QSlider::sub-page:horizontal { height: 6px; border-radius: 3px; background: %2; }"
-      "QSlider::handle:horizontal { width: 12px; height: 20px; margin: -7px 0;"
-      " border-radius: 6px; background: %3; border: 1px solid %2; }"
-      "QSlider::handle:horizontal:disabled { background: %1; border: 1px solid %1; }")
-    .arg(groove.name(), accent.name(), handle.name()));
+  const QPalette pal = palette();
+  m_slider->setColors(
+    pal.color(QPalette::Mid),
+    pal.color(QPalette::Highlight),
+    pal.color(QPalette::Light),
+    pal.color(QPalette::Disabled, QPalette::Mid));
+}
+
+void PropertySlider::changeEvent(QEvent* event)
+{
+  QWidget::changeEvent(event);
+  if(event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange)
+    applyColors(); // keep the bar colours in sync with a runtime theme change
 }

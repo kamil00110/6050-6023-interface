@@ -24,19 +24,53 @@
 #define TRAINTASTIC_CLIENT_WIDGET_PROPERTYSLIDER_HPP
 
 #include <QWidget>
+#include <QSlider>
 #include <QString>
+#include <QColor>
 
-class QSlider;
 class QLabel;
 class QEvent;
+class QPaintEvent;
 class Property;
+
+/**
+ * @brief Custom-painted horizontal slider: a pill handle, palette-themed colours
+ *        that dim when disabled, and a configurable track fill.
+ *
+ * The fill marks the "amount" part of the track. Left (the usual) fills from the
+ * minimum to the handle; Right fills from the handle to the maximum; Center fills
+ * between the track midpoint and the handle (for signed ranges where filling from
+ * the minimum would be misleading, e.g. brightness -100..100); Off draws no fill.
+ */
+class PropertySliderBar : public QSlider
+{
+  public:
+    enum class Fill { Off, Left, Right, Center };
+
+    explicit PropertySliderBar(QWidget* parent = nullptr);
+
+    void setFill(Fill fill);
+    void setColors(const QColor& groove, const QColor& accent, const QColor& handle,
+                   const QColor& disabled);
+
+  protected:
+    void paintEvent(QPaintEvent* event) override;
+
+  private:
+    Fill m_fill{Fill::Left};
+    QColor m_groove;
+    QColor m_accent;
+    QColor m_handle;
+    QColor m_disabled;
+};
 
 /**
  * @brief Horizontal slider bound to an integer Property, with a numeric readout.
  *
- * Honours the usual property attributes: Min/Max (range), Step (single step),
- * Unit (suffix on the readout) and Enabled/Visible. The handle is drawn as a
- * rounded pill using the widget palette so it matches the active theme.
+ * Honours the usual property attributes: Min/Max (range), Step (single step, and
+ * snapping of the committed value when step > 1), Unit (suffix on the readout)
+ * and Enabled/Visible. The track fill is chosen from the range -- centered for a
+ * signed (bipolar) range, left-filled otherwise.
  */
 class PropertySlider : public QWidget
 {
@@ -44,7 +78,7 @@ class PropertySlider : public QWidget
 
   protected:
     Property& m_property;
-    QSlider* m_slider;
+    PropertySliderBar* m_slider;
     QLabel* m_valueLabel;
     QString m_unit;
     int m_requestId;
@@ -52,10 +86,11 @@ class PropertySlider : public QWidget
     void cancelRequest();
     void updateRange();
     void updateStep();
+    void updateFill();  ///< pick the track fill from the range (centered for bipolar)
     void updateValueLabel(int value);
-    void applyThumbStyle(); ///< pill-shaped handle, palette-themed
+    void applyColors(); ///< push palette colours into the bar
 
-    void changeEvent(QEvent* event) override; ///< re-theme the pill when the palette changes
+    void changeEvent(QEvent* event) override; ///< re-theme the bar when the palette changes
 
   public:
     PropertySlider(Property& property, QWidget* parent = nullptr);

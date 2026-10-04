@@ -981,7 +981,16 @@ void MainWindow::viewCameraWall()
       m_cameraWallWindow = nullptr;
     });
   m_mdiArea->addSubWindow(m_cameraWallWindow);
-  m_cameraWallWindow->resize(820, 560);
+  {
+    // Restore the wall's last size/position for this world (saved in
+    // saveWorldWorkspace), falling back to a sensible default.
+    QSettings s;
+    s.beginGroup(m_world ? m_world->getPropertyValueString("uuid") : QString());
+    const QSize sz = s.value("camera_wall_size").toSize();
+    m_cameraWallWindow->resize(sz.isValid() ? sz : QSize(820, 560));
+    if(s.contains("camera_wall_pos"))
+      m_cameraWallWindow->move(s.value("camera_wall_pos").toPoint());
+  }
   m_cameraWallWindow->show();
 }
 
@@ -1080,9 +1089,14 @@ void MainWindow::saveWorldWorkspace()
   s.beginGroup(m_world->getPropertyValueString("uuid"));
   s.setValue("sub_windows", QVariant::fromValue(m_subWindows.keys()));
   // The camera wall is a singleton view, not an object sub-window in
-  // m_subWindows, so persist its open state separately (otherwise it is the one
-  // window that disappears on reconnect/restart while everything else restores).
+  // m_subWindows, so persist its open state (and geometry) separately -- it is
+  // not a SubWindow, so it does not get SubWindow's own size/pos persistence.
   s.setValue("camera_wall", m_cameraWallWindow != nullptr);
+  if(m_cameraWallWindow)
+  {
+    s.setValue("camera_wall_size", m_cameraWallWindow->size());
+    s.setValue("camera_wall_pos", m_cameraWallWindow->pos());
+  }
 }
 
 void MainWindow::showAbout()

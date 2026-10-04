@@ -36,7 +36,6 @@
 #include <string_view>
 #include <functional>
 #include <utility>
-#include <map>
 
 #ifdef _WIN32
   #ifndef WIN32_LEAN_AND_MEAN
@@ -113,13 +112,13 @@ private:
   std::vector<std::string>       m_deviceValues;
   std::vector<std::string>       m_deviceNamesStr;
   std::vector<std::string_view>  m_deviceNames;
-  std::vector<std::vector<std::pair<uint32_t, uint32_t>>> m_deviceResolutions; ///< declared per device, largest-first
-  std::map<std::string, std::vector<std::pair<uint32_t, uint32_t>>> m_deviceUsableResolutions; ///< device -> sizes verified to deliver video
+  std::vector<std::vector<std::pair<uint32_t, uint32_t>>> m_deviceResolutions; ///< declared per device (from the OS), largest-first
 
   void updateSpecVisibility();
   void updateBrightnessEnabled();
   void updateResolutionValues();                     ///< offer only the selected camera's resolutions
-  std::vector<std::pair<uint32_t, uint32_t>> deviceResolutions(const std::string& dev) const; ///< declared sizes of a device, largest-first
+  std::vector<std::pair<uint32_t, uint32_t>> deviceResolutions(const std::string& dev) const; ///< OS-declared sizes of a device, largest-first
+  std::pair<uint32_t, uint32_t> autoResolution() const; ///< Auto: a single safe size to open (no probing)
   void startCapture();
   void stopCapture();
   void captureLoop();

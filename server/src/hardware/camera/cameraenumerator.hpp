@@ -41,9 +41,15 @@ struct LocalCameraInfo
   std::vector<std::pair<uint32_t, uint32_t>> resolutions{};
 };
 
-/// Enumerate locally attached video-capture devices.
-/// Linux  : queries V4L2 (VIDIOC_QUERYCAP) for indices 0-15.
-/// Windows / macOS : offers indices 0-9 (no lightweight SDK-free enumeration).
+/// Enumerate locally attached video-capture devices, with the resolutions each
+/// one declares (see LocalCameraInfo::resolutions).
+/// Linux   : V4L2 -- VIDIOC_QUERYCAP for devices /dev/video0-15, plus
+///           VIDIOC_ENUM_FRAMESIZES for the declared resolutions.
+/// Windows : DirectShow (primary) + Media Foundation, with IAMStreamConfig for
+///           the declared resolutions; falls back to bare indices if COM fails.
+/// macOS   : AVFoundation -- AVCaptureDevice for the device names and declared
+///           resolutions (implemented in cameraenumerator_mac.mm).
+/// other   : a few bare indices (no SDK-free enumeration).
 std::vector<LocalCameraInfo> enumerateLocalCameras();
 
 #endif

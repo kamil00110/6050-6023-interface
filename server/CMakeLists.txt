@@ -317,6 +317,16 @@ endif()
 
 if(APPLE)
   add_definitions(-D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION) # remove once boost is updated
+  # Local camera enumeration (device names + resolutions) uses AVFoundation,
+  # which needs the Objective-C++ compiler for cameraenumerator_mac.mm.
+  enable_language(OBJCXX)
+  list(APPEND SOURCES "src/hardware/camera/cameraenumerator_mac.mm")
+  # CXX_STANDARD governs only .cpp; pin the Objective-C++ standard to match so
+  # the .mm compiles as C++20 like the rest of the server.
+  set_target_properties(traintastic-server PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+  if(BUILD_TESTING)
+    set_target_properties(traintastic-server-test PROPERTIES OBJCXX_STANDARD 20 OBJCXX_STANDARD_REQUIRED ON)
+  endif()
 endif()
 
 if(WIN32)
@@ -452,6 +462,19 @@ if(WIN32)
   target_link_libraries(traintastic-server PRIVATE strmiids)
   if(BUILD_TESTING)
     target_link_libraries(traintastic-server-test PRIVATE strmiids)
+  endif()
+endif()
+
+# AVFoundation (macOS local camera enumeration — device names and resolutions)
+if(APPLE)
+  find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
+  find_library(COREMEDIA_FRAMEWORK CoreMedia REQUIRED)
+  find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+  set(CAMERA_MACOS_FRAMEWORKS
+    ${AVFOUNDATION_FRAMEWORK} ${COREMEDIA_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
+  target_link_libraries(traintastic-server PRIVATE ${CAMERA_MACOS_FRAMEWORKS})
+  if(BUILD_TESTING)
+    target_link_libraries(traintastic-server-test PRIVATE ${CAMERA_MACOS_FRAMEWORKS})
   endif()
 endif()
 

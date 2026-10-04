@@ -20,7 +20,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "localcameracapture.hpp"
-#include <algorithm>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -47,12 +46,13 @@ namespace
 }
 
 LocalCameraCapture::LocalCameraCapture(const std::string& device, double fps,
-                                        std::vector<std::pair<uint32_t, uint32_t>> resolutions,
+                                        uint32_t reqWidth, uint32_t reqHeight,
                                         int jpegQuality, bool flipVertical, bool flipHorizontal,
                                         int brightness, bool applyBrightness,
                                         Object& logObject)
   : m_device(device)
-  , m_resolutions(std::move(resolutions))
+  , m_reqWidth(reqWidth)
+  , m_reqHeight(reqHeight)
   , m_initBrightness(brightness)
   , m_applyBrightness(applyBrightness)
   , m_logObject(logObject)
@@ -87,18 +87,17 @@ bool LocalCameraCapture::open()
   backends = numeric ? std::vector<int>{cv::CAP_ANY} : std::vector<int>{cv::CAP_V4L2};
 #endif
 
-  // Candidate sizes to try, largest-first. A {0,0} entry means "don't request a
-  // size" (let the camera keep its own default).
-  std::vector<std::pair<uint32_t, uint32_t>> candidates = m_resolutions;
-  if(candidates.empty())
-    candidates.push_back({0, 0});
-
   const auto backendName = [](int backend)
   {
     return cv::videoio_registry::getBackendName(static_cast<cv::VideoCaptureAPIs>(backend));
   };
 
-  const auto openAt = [&](int backend, uint32_t cw, uint32_t ch) -> bool
+  // Open the device on one backend and request the chosen size. The size is
+  // decided up front by Camera (Auto resolves to a single safe size, 1280x720):
+  // we open ONCE and never reopen to probe other sizes -- reopening in a tight
+  // loop destabilises some virtual cameras (NVIDIA Broadcast goes permanently
+  // black). A size of 0 means "leave the camera default".
+  const auto openBackend = [&](int backend) -> bool
   {
     const bool ok = numeric ? m_cap->open(idx, backend)
                             : m_cap->open(m_device, backend);
@@ -107,10 +106,10 @@ bool LocalCameraCapture::open()
       m_cap->release();
       return false;
     }
-    if(cw > 0 && ch > 0)
+    if(m_reqWidth > 0 && m_reqHeight > 0)
     {
-      m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(cw));
-      m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(ch));
+      m_cap->set(cv::CAP_PROP_FRAME_WIDTH,  static_cast<double>(m_reqWidth));
+      m_cap->set(cv::CAP_PROP_FRAME_HEIGHT, static_cast<double>(m_reqHeight));
     }
     m_cap->set(cv::CAP_PROP_FPS, m_fps.load());
     // Manual mode applies the requested brightness; auto mode forces neutral (0)
@@ -126,79 +125,43 @@ bool LocalCameraCapture::open()
     m_height = static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT));
   };
 
-  const auto deliversContent = [this]() -> bool
+  // Open the first backend that delivers non-black frames. One open per backend
+  // (no per-size reopening). A device may hand back a few black frames at start-up,
+  // so warm up a few reads before judging a backend black.
+  int fallbackBackend = -1;
+  for(int backend : backends)
   {
-    // A device may hand back a few black frames at start-up, so warm up a few
-    // reads. Returns true as soon as a non-black frame arrives.
+    if(m_interrupted)
+      return false;
+    if(!openBackend(backend))
+      continue;
+
     cv::Mat frame;
+    bool hasContent = false;
     for(int i = 0; i < 15 && !m_interrupted; ++i)
     {
       if(m_cap->read(frame) && frameHasContent(frame))
-        return true;
+      {
+        hasContent = true;
+        break;
+      }
       std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
-    return false;
-  };
 
-  // For each backend (DirectShow first), probe every candidate size and record
-  // the ones that actually deliver non-black frames (by their real, read-back
-  // size). The resolution list the UI shows is built from exactly these verified
-  // sizes -- so a camera like NVIDIA Broadcast, which accepts every size but only
-  // delivers video at 1280x720, lists only 1280x720, not the sizes it renders
-  // black. Trying all of a backend's sizes before moving on means the working
-  // backend is found without probing the other (Media Foundation can't grab the
-  // Broadcast camera at all). The largest usable size is used for capture.
-  m_usableResolutions.clear();
-  int fallbackBackend = -1;
-  uint32_t fallbackW = 0, fallbackH = 0;
-  for(int backend : backends)
-  {
-    std::vector<std::pair<uint32_t, uint32_t>> usable;
-    for(const auto& [cw, ch] : candidates)
+    if(hasContent)
     {
-      if(m_interrupted)
-        return false;
-      if(!openAt(backend, cw, ch))
-        continue;
-      if(deliversContent())
-        usable.emplace_back(static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_WIDTH)),
-                            static_cast<uint32_t>(m_cap->get(cv::CAP_PROP_FRAME_HEIGHT)));
-      else if(fallbackBackend < 0) // opened but only black -- remember as a last resort
-      {
-        fallbackBackend = backend;
-        fallbackW = cw;
-        fallbackH = ch;
-      }
-      m_cap->release();
+      finalizeSize();
+      Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(backend));
+      return true;
     }
-
-    if(!usable.empty())
-    {
-      // A camera may round several requests to the same actual size: deduplicate,
-      // then sort largest-first and capture at the largest usable size.
-      std::sort(usable.begin(), usable.end(),
-        [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b)
-        {
-          const uint64_t pa = static_cast<uint64_t>(a.first) * a.second;
-          const uint64_t pb = static_cast<uint64_t>(b.first) * b.second;
-          return (pa != pb) ? (pa > pb) : (a > b); // area desc, then a total-order tiebreak
-        });
-      usable.erase(std::unique(usable.begin(), usable.end()), usable.end());
-      m_usableResolutions = usable;
-
-      const auto [uw, uh] = usable.front();
-      if(openAt(backend, uw, uh))
-      {
-        finalizeSize();
-        Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(backend));
-        return true;
-      }
-    }
+    if(fallbackBackend < 0) // opened but only black -- remember as a last resort
+      fallbackBackend = backend;
+    m_cap->release();
   }
 
-  // Nothing produced real content; open the first combination that at least
-  // opened and warn -- the usual "connected but black" case for virtual cameras.
-  if(!m_interrupted && fallbackBackend >= 0 && openAt(fallbackBackend, fallbackW, fallbackH))
+  // Nothing produced real content; open the first backend that at least opened
+  // and warn -- the usual "connected but black" case for virtual cameras.
+  if(!m_interrupted && fallbackBackend >= 0 && openBackend(fallbackBackend))
   {
     finalizeSize();
     Log::log(m_logObject, LogMessage::I2010_CAMERA_CAPTURE_BACKEND_X, backendName(fallbackBackend));

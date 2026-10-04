@@ -27,10 +27,56 @@
 // ─────────────────────────────────────────────────────────────────────────────
 #ifdef __linux__
 
+#include <algorithm>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
+
+// Ask the driver (via VIDIOC_ENUM_FRAMESIZES) which capture resolutions it
+// declares, across all pixel formats. Returns them largest-first, deduplicated.
+// Not every declared size necessarily yields a usable (non-black) frame in
+// OpenCV -- that is handled at capture time.
+static std::vector<std::pair<uint32_t, uint32_t>> enumerateV4l2Resolutions(int fd)
+{
+  std::vector<std::pair<uint32_t, uint32_t>> result;
+
+  struct v4l2_fmtdesc fmt{};
+  fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  for(fmt.index = 0; ::ioctl(fd, VIDIOC_ENUM_FMT, &fmt) == 0; ++fmt.index)
+  {
+    struct v4l2_frmsizeenum fsize{};
+    fsize.pixel_format = fmt.pixelformat;
+    for(fsize.index = 0; ::ioctl(fd, VIDIOC_ENUM_FRAMESIZES, &fsize) == 0; ++fsize.index)
+    {
+      if(fsize.type == V4L2_FRMSIZE_TYPE_DISCRETE)
+      {
+        const uint32_t w = fsize.discrete.width;
+        const uint32_t h = fsize.discrete.height;
+        if(w != 0 && h != 0)
+          result.emplace_back(w, h);
+      }
+      else // stepwise / continuous: a single entry describes the whole range
+      {
+        const uint32_t w = fsize.stepwise.max_width;
+        const uint32_t h = fsize.stepwise.max_height;
+        if(w != 0 && h != 0)
+          result.emplace_back(w, h);
+        break;
+      }
+    }
+  }
+
+  std::sort(result.begin(), result.end(),
+    [](const std::pair<uint32_t, uint32_t>& a, const std::pair<uint32_t, uint32_t>& b)
+    {
+      const uint64_t pa = static_cast<uint64_t>(a.first) * a.second;
+      const uint64_t pb = static_cast<uint64_t>(b.first) * b.second;
+      return (pa != pb) ? (pa > pb) : (a > b); // area desc, then a total-order tiebreak
+    });
+  result.erase(std::unique(result.begin(), result.end()), result.end());
+  return result;
+}
 
 std::vector<LocalCameraInfo> enumerateLocalCameras()
 {
@@ -51,7 +97,8 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
       const std::string displayName = cardName.empty()
         ? path
         : cardName + " (" + path + ")";
-      result.push_back({std::to_string(i), displayName});
+      auto resolutions = enumerateV4l2Resolutions(fd);
+      result.push_back({std::to_string(i), displayName, std::move(resolutions)});
     }
     ::close(fd);
   }
@@ -313,7 +360,16 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
 
 
 // ─────────────────────────────────────────────────────────────────────────────
-// macOS and other POSIX — index probing fallback
+// macOS — AVFoundation
+// ─────────────────────────────────────────────────────────────────────────────
+#elif defined(__APPLE__)
+
+// enumerateLocalCameras() is implemented in cameraenumerator_mac.mm, which needs
+// Objective-C++ to query AVFoundation for device names and declared resolutions.
+// Nothing to compile here (this translation unit is empty on macOS).
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Other POSIX — index probing fallback
 // ─────────────────────────────────────────────────────────────────────────────
 #else
 

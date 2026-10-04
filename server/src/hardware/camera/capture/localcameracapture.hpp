@@ -27,8 +27,6 @@
 #include <string>
 #include <memory>
 #include <atomic>
-#include <utility>
-#include <vector>
 
 class Object;
 namespace cv { class VideoCapture; }
@@ -36,12 +34,8 @@ namespace cv { class VideoCapture; }
 class LocalCameraCapture final : public CameraCapture
 {
 public:
-  /// resolutions: candidate capture sizes to try, largest-first. The first that
-  /// delivers non-black frames is used. Empty / {0,0} entry = let the camera use
-  /// its own default. (For "Auto" the camera passes the device's declared sizes;
-  /// for an explicit choice, a single size.)
   LocalCameraCapture(const std::string& device, double fps,
-                     std::vector<std::pair<uint32_t, uint32_t>> resolutions,
+                     uint32_t reqWidth, uint32_t reqHeight,
                      int jpegQuality, bool flipVertical, bool flipHorizontal,
                      int brightness, bool applyBrightness,
                      Object& logObject);
@@ -52,12 +46,11 @@ public:
   uint32_t height()  const override { return m_height; }
   bool     readJpeg(std::vector<uint8_t>& jpegOut) override;
   void     interrupt() override { m_interrupted = true; }
-  std::vector<std::pair<uint32_t, uint32_t>> usableResolutions() const override { return m_usableResolutions; }
 
 private:
   std::string                       m_device;
-  std::vector<std::pair<uint32_t, uint32_t>> m_resolutions;        ///< candidates to probe, largest-first
-  std::vector<std::pair<uint32_t, uint32_t>> m_usableResolutions;  ///< probed to deliver video, largest-first
+  uint32_t                          m_reqWidth{0};   ///< 0 = keep camera default
+  uint32_t                          m_reqHeight{0};
   int                               m_initBrightness{0};
   bool                              m_applyBrightness{false}; ///< false = auto (force neutral)
   Object&                           m_logObject;

@@ -36,9 +36,16 @@ struct LocalCameraInfo
   /// when the platform can't enumerate them; the camera then falls back to its
   /// own default. Not every reported size necessarily yields a usable (non-black)
   /// frame -- that is checked at capture time. Default-initialized so the 2-field
-  /// aggregate initializers (Linux / Media Foundation / fallbacks) stay valid
-  /// under -Werror=missing-field-initializers.
+  /// aggregate initializers (Media Foundation / fallbacks) stay valid under
+  /// -Werror=missing-field-initializers.
   std::vector<std::pair<uint32_t, uint32_t>> resolutions{};
+  /// The device's current / default ("native") format (width, height), as the OS
+  /// reports it without forcing a size: DirectShow IAMStreamConfig::GetFormat,
+  /// V4L2 VIDIOC_G_FMT, AVFoundation activeFormat. {0, 0} when unknown. Virtual
+  /// cameras (e.g. NVIDIA Broadcast) advertise many sizes but only deliver video
+  /// at a few; the native size is the reliable "this one works" hint, used to
+  /// tag that entry in the UI without probing.
+  std::pair<uint32_t, uint32_t> nativeResolution{0, 0};
 };
 
 /// Enumerate locally attached video-capture devices, with the resolutions each

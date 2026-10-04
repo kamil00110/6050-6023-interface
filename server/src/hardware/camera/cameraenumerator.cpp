@@ -33,13 +33,24 @@
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
 
-// Ask the driver (via VIDIOC_ENUM_FRAMESIZES) which capture resolutions it
-// declares, across all pixel formats. Returns them largest-first, deduplicated.
-// Not every declared size necessarily yields a usable (non-black) frame in
-// OpenCV -- that is handled at capture time.
-static std::vector<std::pair<uint32_t, uint32_t>> enumerateV4l2Resolutions(int fd)
+// Ask the driver which capture resolutions it declares (VIDIOC_ENUM_FRAMESIZES
+// across all pixel formats) and its current/default ("native") format
+// (VIDIOC_G_FMT). Returns the declared sizes largest-first, deduplicated, and
+// writes the native size to nativeOut ({0,0} if unavailable). Not every declared
+// size necessarily yields a usable (non-black) frame in OpenCV -- that is handled
+// at capture time; the native size is the reliable "this one works" hint.
+static std::vector<std::pair<uint32_t, uint32_t>> enumerateV4l2Resolutions(
+  int fd, std::pair<uint32_t, uint32_t>& nativeOut)
 {
   std::vector<std::pair<uint32_t, uint32_t>> result;
+
+  nativeOut = {0, 0};
+  struct v4l2_format cur{};
+  cur.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+  if(::ioctl(fd, VIDIOC_G_FMT, &cur) == 0 &&
+     cur.fmt.pix.width != 0 && cur.fmt.pix.height != 0)
+    nativeOut = {static_cast<uint32_t>(cur.fmt.pix.width),
+                 static_cast<uint32_t>(cur.fmt.pix.height)};
 
   struct v4l2_fmtdesc fmt{};
   fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -97,8 +108,9 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
       const std::string displayName = cardName.empty()
         ? path
         : cardName + " (" + path + ")";
-      auto resolutions = enumerateV4l2Resolutions(fd);
-      result.push_back({std::to_string(i), displayName, std::move(resolutions)});
+      std::pair<uint32_t, uint32_t> native{0, 0};
+      auto resolutions = enumerateV4l2Resolutions(fd, native);
+      result.push_back({std::to_string(i), displayName, std::move(resolutions), native});
     }
     ::close(fd);
   }
@@ -139,12 +151,17 @@ static void freeMediaType(AM_MEDIA_TYPE* pmt)
   CoTaskMemFree(pmt);
 }
 
-// Ask the device (via IAMStreamConfig) which capture resolutions it declares.
-// Returns them largest-first, deduplicated. Not every declared size necessarily
-// yields a usable (non-black) frame in OpenCV -- that is checked at capture time.
-static std::vector<std::pair<uint32_t, uint32_t>> enumerateDirectShowResolutions(IMoniker* pMoniker)
+// Ask the device (via IAMStreamConfig) which capture resolutions it declares,
+// and its current/default ("native") format. Returns the declared sizes
+// largest-first, deduplicated, and writes the native size to nativeOut ({0,0}
+// if unavailable). Not every declared size necessarily yields a usable
+// (non-black) frame in OpenCV -- that is checked at capture time; the native
+// size is the reliable "this one works" hint.
+static std::vector<std::pair<uint32_t, uint32_t>> enumerateDirectShowResolutions(
+  IMoniker* pMoniker, std::pair<uint32_t, uint32_t>& nativeOut)
 {
   std::vector<std::pair<uint32_t, uint32_t>> result;
+  nativeOut = {0, 0};
 
   IBaseFilter* pFilter = nullptr;
   if(FAILED(pMoniker->BindToObject(nullptr, nullptr, IID_IBaseFilter,
@@ -164,6 +181,22 @@ static std::vector<std::pair<uint32_t, uint32_t>> enumerateDirectShowResolutions
         if(SUCCEEDED(pPin->QueryInterface(IID_IAMStreamConfig,
             reinterpret_cast<void**>(&pConfig))) && pConfig)
         {
+          // Current/default media type = the device's native resolution.
+          AM_MEDIA_TYPE* pmtCur = nullptr;
+          if(SUCCEEDED(pConfig->GetFormat(&pmtCur)) && pmtCur)
+          {
+            if(pmtCur->formattype == FORMAT_VideoInfo && pmtCur->pbFormat &&
+               pmtCur->cbFormat >= sizeof(VIDEOINFOHEADER))
+            {
+              const auto* vih = reinterpret_cast<const VIDEOINFOHEADER*>(pmtCur->pbFormat);
+              const long w = vih->bmiHeader.biWidth;
+              const long h = vih->bmiHeader.biHeight;
+              nativeOut = {static_cast<uint32_t>(w < 0 ? -w : w),
+                           static_cast<uint32_t>(h < 0 ? -h : h)};
+            }
+            freeMediaType(pmtCur);
+          }
+
           int count = 0, size = 0;
           if(SUCCEEDED(pConfig->GetNumberOfCapabilities(&count, &size)) &&
              size == sizeof(VIDEO_STREAM_CONFIG_CAPS))
@@ -259,8 +292,9 @@ static std::vector<LocalCameraInfo> enumerateViaDirectShow()
       pPropBag->Release();
     }
 
-    auto resolutions = enumerateDirectShowResolutions(pMoniker);
-    result.push_back({std::to_string(index), displayName, std::move(resolutions)});
+    std::pair<uint32_t, uint32_t> native{0, 0};
+    auto resolutions = enumerateDirectShowResolutions(pMoniker, native);
+    result.push_back({std::to_string(index), displayName, std::move(resolutions), native});
     pMoniker->Release();
     ++index;
   }

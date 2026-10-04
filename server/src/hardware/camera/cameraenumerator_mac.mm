@@ -91,7 +91,20 @@ std::vector<LocalCameraInfo> enumerateLocalCameras()
       }
 
       auto resolutions = enumerateAVFoundationResolutions(device);
-      result.push_back({std::to_string(index), name, std::move(resolutions)});
+
+      // Current/default ("native") format = the device's activeFormat.
+      std::pair<uint32_t, uint32_t> native{0, 0};
+      if(AVCaptureDeviceFormat* active = device.activeFormat)
+      {
+        if(CMFormatDescriptionRef desc = active.formatDescription)
+        {
+          const CMVideoDimensions dim = CMVideoFormatDescriptionGetDimensions(desc);
+          if(dim.width > 0 && dim.height > 0)
+            native = {static_cast<uint32_t>(dim.width), static_cast<uint32_t>(dim.height)};
+        }
+      }
+
+      result.push_back({std::to_string(index), name, std::move(resolutions), native});
       ++index;
     }
   }

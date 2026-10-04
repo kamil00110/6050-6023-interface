@@ -388,6 +388,10 @@
         "definition": "Automatisch"
     },
     {
+        "term": "camera_resolution:native",
+        "definition": "nativ"
+    },
+    {
         "term": "camera_type:hls",
         "definition": "HLS"
     },

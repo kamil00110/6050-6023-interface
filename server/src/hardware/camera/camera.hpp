@@ -113,11 +113,22 @@ private:
   std::vector<std::string>       m_deviceNamesStr;
   std::vector<std::string_view>  m_deviceNames;
   std::vector<std::vector<std::pair<uint32_t, uint32_t>>> m_deviceResolutions; ///< declared per device (from the OS), largest-first
+  std::vector<std::pair<uint32_t, uint32_t>> m_deviceNativeResolution;         ///< current/default ("native") size per device, {0,0} if unknown
+
+  // Backing storage for the resolution property's aliases (tags the native size
+  // in the dropdown, e.g. "1280 × 720 (720p) (native)"). The alias attribute
+  // stores pointers to these, so they must outlive it -- mirrors the device
+  // dropdown's m_deviceValues/m_deviceNames. m_resolutionAliasValues are views
+  // into m_resolutionAliasValueStrings, so rebuild the strings first.
+  std::vector<CameraResolution>   m_resolutionAliasKeys;
+  std::vector<std::string>        m_resolutionAliasValueStrings;
+  std::vector<std::string_view>   m_resolutionAliasValues;
 
   void updateSpecVisibility();
   void updateBrightnessEnabled();
   void updateResolutionValues();                     ///< offer only the selected camera's resolutions
   std::vector<std::pair<uint32_t, uint32_t>> deviceResolutions(const std::string& dev) const; ///< OS-declared sizes of a device, largest-first
+  std::pair<uint32_t, uint32_t> deviceNativeResolution(const std::string& dev) const; ///< device's current/default size, {0,0} if unknown
   std::pair<uint32_t, uint32_t> autoResolution() const; ///< Auto: a single safe size to open (no probing)
   void startCapture();
   void stopCapture();

@@ -179,10 +179,29 @@ void PropertyComboBox::updateValues()
           break;
         }
         case ValueType::Enum:
+        {
+          const QVariantList aliasKeys = m_property.getAttribute(AttributeName::AliasKeys, QVariant()).toList();
+          const QVariantList aliasValues = m_property.getAttribute(AttributeName::AliasValues, QVariant()).toList();
+
           for(QVariant& v : values.toList())
           {
             const qint64 value = v.toLongLong();
-            addItem(translateEnum(m_property.enumName(), value), value);
+            // A per-value alias overrides the standard enum label -- used to tag
+            // the camera's native resolution, e.g. "1280 × 720 (720p) (native)".
+            // Match by numeric value (robust to QVariant int subtype), and guard
+            // against a transient AliasKeys/AliasValues size mismatch (they arrive
+            // as two separate attribute messages). Alias text may embed
+            // $locale.tokens$, so run it through Locale::parse.
+            QString label;
+            bool aliased = false;
+            for(int i = 0; i < aliasKeys.size() && i < aliasValues.size(); ++i)
+              if(aliasKeys[i].toLongLong() == value)
+              {
+                label = Locale::instance->parse(aliasValues[i].toString());
+                aliased = true;
+                break;
+              }
+            addItem(aliased ? label : translateEnum(m_property.enumName(), value), value);
             if(m_property.toInt64() == value)
             {
               setCurrentIndex(count() - 1);
@@ -190,6 +209,7 @@ void PropertyComboBox::updateValues()
             }
           }
           break;
+        }
 
         case ValueType::String:
         {

@@ -854,6 +854,11 @@ void MainWindow::worldChanged()
           }
         }
       }
+
+      // Reopen the camera wall if it was open (saved separately from
+      // sub_windows; viewCameraWall() no-ops if it already exists).
+      if(s.value("camera_wall").toBool())
+        viewCameraWall();
     }
   }
 
@@ -1071,6 +1076,10 @@ void MainWindow::saveWorldWorkspace()
   QSettings s;
   s.beginGroup(m_world->getPropertyValueString("uuid"));
   s.setValue("sub_windows", QVariant::fromValue(m_subWindows.keys()));
+  // The camera wall is a singleton view, not an object sub-window in
+  // m_subWindows, so persist its open state separately (otherwise it is the one
+  // window that disappears on reconnect/restart while everything else restores).
+  s.setValue("camera_wall", m_cameraWallWindow != nullptr);
 }
 
 void MainWindow::showAbout()

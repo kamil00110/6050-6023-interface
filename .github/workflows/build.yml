@@ -112,7 +112,7 @@ jobs:
     # Ubuntu only (added libarchive-dev to match upstream):
     - name: Install packages
       if: startswith(matrix.config.os, 'ubuntu')
-      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev libarchive-dev
+      run: sudo apt install qt6-base-dev qt6-svg-dev qt6-websockets-dev libarchive-dev libopencv-dev
 
     # Cache vcpkg's compiled packages (LibArchive) for the Windows/macOS client.
     - name: Create vcpkg binary cache directory

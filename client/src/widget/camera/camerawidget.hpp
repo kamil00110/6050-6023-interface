@@ -25,6 +25,8 @@
 
 #include <QWidget>
 #include <QUrl>
+#include <QImage>
+#include <cstdint>
 #include <memory>
 
 class QLabel;
@@ -32,21 +34,24 @@ class QNetworkAccessManager;
 class QNetworkReply;
 class QTimer;
 class Connection;
+class IpCameraSource;
 
 /**
- * @brief Widget that fetches and displays a MJPEG camera stream from the server.
+ * @brief Widget that displays a camera stream, by one of two paths chosen from
+ *        the camera's type:
  *
- * The server exposes each camera as an MJPEG stream at
- *   http://<host>:<port>/camera/<id>/stream
+ * - Local (hardware) cameras: the server captures them and serves an MJPEG
+ *   stream at http://<host>:<port>/camera/<id>/stream. This widget opens a
+ *   persistent GET and parses the multipart/x-mixed-replace response (scanning
+ *   JPEG SOI/EOI markers), decoding each frame via QPixmap.
  *
- * This widget opens a single persistent GET request to that URL and parses
- * the multipart/x-mixed-replace response in a streaming fashion:
- *   - Accumulates bytes into m_buffer
- *   - Scans for the JPEG SOI marker (0xFF 0xD8) and EOI marker (0xFF 0xD9)
- *   - Decodes and displays each complete JPEG frame via QPixmap
+ * - Network cameras (RTSP/MJPEG/RTMP/HLS): captured DIRECTLY here via OpenCV
+ *   (IpCameraSource) from the camera's `device` URL, with the wished specs (fps
+ *   cap, flip) applied locally -- so the server does not pull and re-encode the
+ *   stream, which would double the bandwidth. No server stream is used for these.
  *
- * No local camera capture takes place on the client; all processing is
- * server-side.  This keeps the Qt client dependency-free of OpenCV.
+ * The camera object's `type`/`device` and spec properties are read (and watched)
+ * in the getObject callback; updateState() picks the path.
  */
 class CameraWidget : public QWidget
 {
@@ -83,17 +88,38 @@ private:
   bool                        m_enabled{true};  ///< camera's enabled property
   int                         m_objectRequestId{-1};
 
+  // Camera type + specs, read/watched from the object. For IP types these drive
+  // the client-side OpenCV capture (IpCameraSource); for Local they are applied
+  // server-side and only `type`/`stream_url` matter here.
+  int64_t                     m_type{0};        ///< CameraType; 0 = Local
+  QString                     m_device;         ///< source URL (IP cameras)
+  double                      m_fps{1.0};
+  bool                        m_flipVertical{false};
+  bool                        m_flipHorizontal{false};
+  bool                        m_requestFromSource{false};
+  int64_t                     m_resolution{0};  ///< CameraResolution; 0 = Auto
+  int                         m_jpegQuality{75};
+  IpCameraSource*             m_ipSource{nullptr}; ///< direct capture for IP cameras
+
   void updateState();
+  void restart();          ///< tear down both paths, then updateState()
+  void reconfigureIp();    ///< restart the IP source (if an IP type is streaming)
+
+  // Local path: MJPEG pulled from the server.
   void startStream();
   void stopStream();
   void onReadyRead();
   void onReplyFinished();
-
   void tryDecodeFrames();
+  QUrl buildStreamUrl() const;
+
+  // IP path: direct OpenCV capture on the client.
+  void startIpStream();
+  void stopIpStream();
+  void showImage(const QImage& image);
+
   void showPixmap(const QPixmap& px);
   void showStatus(const QString& text);
-
-  QUrl buildStreamUrl() const;
 };
 
 #endif

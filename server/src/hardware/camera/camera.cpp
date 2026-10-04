@@ -26,7 +26,6 @@
 #include "list/cameralisttablemodel.hpp"
 #include "capture/cameracapture.hpp"
 #include "capture/localcameracapture.hpp"
-#include "capture/ipcameracapture.hpp"
 #include "../../core/objectproperty.tpp"
 #include "../../core/eventloop.hpp"
 #include "../../world/world.hpp"
@@ -144,6 +143,7 @@ Camera::Camera(World& world, std::string_view _id)
     m_deviceValues.push_back(cam.device);
     m_deviceNamesStr.push_back(cam.name);
     m_deviceResolutions.push_back(cam.resolutions);
+    m_deviceNativeResolution.push_back(cam.nativeResolution);
   }
   m_deviceNames.reserve(m_deviceNamesStr.size());
   for(const auto& s : m_deviceNamesStr)
@@ -194,6 +194,10 @@ Camera::Camera(World& world, std::string_view _id)
   // setValues(std::vector), which requires a VectorAttribute.
   Attributes::addValues(resolution,
     std::vector<CameraResolution>(cameraResolutionValues.begin(), cameraResolutionValues.end()));
+  // Per-camera aliases tag the native size in the list; filled by
+  // updateResolutionValues(). Register the (initially empty) attribute here so
+  // the client receives later updates.
+  Attributes::addAliases(resolution, &m_resolutionAliasKeys, &m_resolutionAliasValues);
   Attributes::addEnabled(resolution, editable);
   Attributes::addVisible(resolution, localType);
   m_interfaceItems.add(resolution);
@@ -335,7 +339,55 @@ void Camera::updateResolutionValues()
   if(std::find(values.begin(), values.end(), resolution.value()) == values.end())
     resolution.setValueInternal(CameraResolution::Auto);
 
+  // Tag the camera's native size in the list, e.g. "1280 × 720 (720p) (native)".
+  // Virtual cameras (NVIDIA Broadcast) advertise sizes they render black; the
+  // native/current size is the reliable "this one works" hint, found without
+  // probing. Only tag a size that is actually on offer. The alias text is built
+  // from locale tokens so the client renders the size exactly like the other
+  // items and localizes the "native" suffix. m_resolutionAliasValues are views
+  // into m_resolutionAliasValueStrings, so finish the strings before viewing.
+  m_resolutionAliasKeys.clear();
+  m_resolutionAliasValueStrings.clear();
+  m_resolutionAliasValues.clear();
+  if(type.value() == CameraType::Local)
+  {
+    const auto native = deviceNativeResolution(device.value());
+    if(native.first != 0 && native.second != 0)
+      for(const CameraResolution r : values)
+      {
+        if(r == CameraResolution::Auto)
+          continue;
+        const auto size = toResolutionSize(r);
+        if(size.first == native.first && size.second == native.second)
+        {
+          m_resolutionAliasKeys.push_back(r);
+          m_resolutionAliasValueStrings.push_back(
+            "$camera_resolution:" + std::to_string(native.first) + "x" +
+            std::to_string(native.second) + "$ ($camera_resolution:native$)");
+          break;
+        }
+      }
+  }
+  m_resolutionAliasValues.reserve(m_resolutionAliasValueStrings.size());
+  for(const auto& s : m_resolutionAliasValueStrings)
+    m_resolutionAliasValues.emplace_back(s);
+
   Attributes::setValues(resolution, std::move(values));
+
+  // The alias backing vectors were registered once in the ctor (addAliases) and
+  // are referenced by pointer; their CONTENTS were just rebuilt, but the pointers
+  // are unchanged, so Attributes::setAliases() would be a no-op --
+  // VectorRefAttribute::setValues() compares the pointer and skips changed(), so
+  // the new native tag would never reach already-connected clients (it would be
+  // stale/wrong after a device or type switch). Force the re-send on both alias
+  // attributes, exactly as SerialDeviceProperty does when its port list changes.
+  // (auto& -- the return type is the nested InterfaceItem::Attributes map, not
+  // the global Attributes helper struct that this file's Attributes:: calls use.)
+  const auto& attrs = resolution.attributes();
+  if(auto it = attrs.find(AttributeName::AliasKeys); it != attrs.end())
+    static_cast<VectorRefAttribute<CameraResolution>&>(*it->second).internalChanged();
+  if(auto it = attrs.find(AttributeName::AliasValues); it != attrs.end())
+    static_cast<VectorRefAttribute<std::string_view>&>(*it->second).internalChanged();
 }
 
 std::vector<std::pair<uint32_t, uint32_t>> Camera::deviceResolutions(const std::string& dev) const
@@ -345,6 +397,15 @@ std::vector<std::pair<uint32_t, uint32_t>> Camera::deviceResolutions(const std::
       if(m_deviceValues[i] == dev)
         return m_deviceResolutions[i];
   return {};
+}
+
+std::pair<uint32_t, uint32_t> Camera::deviceNativeResolution(const std::string& dev) const
+{
+  if(type.value() == CameraType::Local)
+    for(size_t i = 0; i < m_deviceValues.size() && i < m_deviceNativeResolution.size(); ++i)
+      if(m_deviceValues[i] == dev)
+        return m_deviceNativeResolution[i];
+  return {0, 0};
 }
 
 std::pair<uint32_t, uint32_t> Camera::autoResolution() const
@@ -424,15 +485,13 @@ void Camera::startCapture()
       case CameraType::MJPEG:
       case CameraType::RTMP:
       case CameraType::HLS:
-      {
-        const auto [reqW, reqH] = toResolutionSize(resolution.value());
-        const bool appendSpecs = (type.value() == CameraType::MJPEG) && requestFromSource.value();
-        m_capture = std::make_unique<IpCameraCapture>(
-          device.value(), fps.value(), reqW, reqH,
-          jpegQuality.value(), flipVertical.value(), flipHorizontal.value(),
-          appendSpecs, *this);
-        break;
-      }
+        // Network cameras are captured DIRECTLY by the client -- it sits on the
+        // same network as the camera, so having the server open and re-encode the
+        // stream would double the bandwidth (camera->server, then server->client).
+        // The server starts nothing here; the client reads `type`/`device` and the
+        // spec properties and decodes the source itself. `enabled` is just a stored
+        // flag the client observes. (stream_url stays empty for these types.)
+        return;
     }
   }
   catch(const std::exception& e)

@@ -579,10 +579,12 @@ bool Server::handleCameraStreamRequest(const http::request<http::string_body>& r
       auto camera = world
         ? std::dynamic_pointer_cast<Camera>(world->getObjectById(cameraId))
         : nullptr;
-      if(!camera || !camera->enabled.value())
+      if(!camera || !camera->enabled.value() || camera->type.value() != CameraType::Local)
       {
-        // Unknown or disabled camera: just drop the connection (the client sees
-        // the same "no stream" result as a stream that fails to start).
+        // Unknown, disabled, or a network (IP) camera: drop the connection. Only
+        // local cameras are captured and served as MJPEG by the server; IP cameras
+        // are captured directly by the client, so there is no server stream for
+        // them. The client sees the same "no stream" result as a failed start.
         boost::system::error_code ec;
         socket->shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         socket->close(ec);

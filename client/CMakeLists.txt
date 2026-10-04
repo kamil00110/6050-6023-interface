@@ -127,6 +127,11 @@ target_link_libraries(traintastic-client PRIVATE ZLIB::ZLIB)
 find_package(LibArchive REQUIRED)
 target_link_libraries(traintastic-client PRIVATE LibArchive::LibArchive)
 
+# OpenCV — direct capture/decode of network cameras (RTSP/MJPEG/RTMP/HLS) on the
+# client, so the server no longer re-encodes them (same components as the server).
+find_package(OpenCV REQUIRED COMPONENTS core videoio imgcodecs)
+target_link_libraries(traintastic-client PRIVATE ${OpenCV_LIBS})
+
 ### PLATFORM ###
 
 if(WIN32)

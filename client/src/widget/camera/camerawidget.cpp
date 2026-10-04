@@ -29,11 +29,14 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTimer>
+#include "ipcamerasource.hpp"
 #include "../../network/connection.hpp"
 #include "../../network/object.hpp"
 #include "../../network/property.hpp"
 #include "../../network/error.hpp"
 #include <traintastic/locale/locale.hpp>
+#include <traintastic/enum/cameratype.hpp>
+#include <traintastic/enum/cameraresolution.hpp>
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
@@ -77,8 +80,8 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
         return;
       }
 
-      // Watch the enabled flag and the stream path together so the status shown
-      // reflects the real state (disabled vs. connecting vs. streaming).
+      // Watch the enabled flag and the stream path so the status shown reflects
+      // the real state (disabled vs. connecting vs. streaming).
       if(auto* enabledProp = obj->getProperty("enabled"))
       {
         m_enabled = enabledProp->toBool();
@@ -91,6 +94,65 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
         connect(urlProp, &AbstractProperty::valueChangedString, this,
           [this](const QString& path) { m_streamPath = path; updateState(); });
       }
+
+      // type/device pick the path; changing either must fully restart.
+      if(auto* p = obj->getProperty("type"))
+      {
+        m_type = p->toInt64();
+        connect(p, &AbstractProperty::valueChangedInt64, this,
+          [this](int64_t v) { m_type = v; restart(); });
+      }
+      if(auto* p = obj->getProperty("device"))
+      {
+        m_device = p->toString();
+        connect(p, &AbstractProperty::valueChangedString, this,
+          [this](const QString& v) { m_device = v; restart(); });
+      }
+
+      // Specs (applied client-side for IP cameras, server-side for Local):
+      // fps and flip are live-adjustable on a running IP source -- push them in
+      // place (no reconnect / black-flash, and no stacking of capture threads).
+      if(auto* p = obj->getProperty("fps"))
+      {
+        m_fps = p->toDouble();
+        connect(p, &AbstractProperty::valueChangedDouble, this,
+          [this](double v) { m_fps = v; if(m_ipSource) m_ipSource->setFps(v); });
+      }
+      if(auto* p = obj->getProperty("flip_vertical"))
+      {
+        m_flipVertical = p->toBool();
+        connect(p, &AbstractProperty::valueChangedBool, this,
+          [this](bool v) { m_flipVertical = v;
+            if(m_ipSource) m_ipSource->setFlip(m_flipVertical, m_flipHorizontal); });
+      }
+      if(auto* p = obj->getProperty("flip_horizontal"))
+      {
+        m_flipHorizontal = p->toBool();
+        connect(p, &AbstractProperty::valueChangedBool, this,
+          [this](bool v) { m_flipHorizontal = v;
+            if(m_ipSource) m_ipSource->setFlip(m_flipVertical, m_flipHorizontal); });
+      }
+      // These only affect the source URL (request-from-source query params), so a
+      // change requires rebuilding the source -> reconfigureIp() restarts it.
+      if(auto* p = obj->getProperty("request_from_source"))
+      {
+        m_requestFromSource = p->toBool();
+        connect(p, &AbstractProperty::valueChangedBool, this,
+          [this](bool v) { m_requestFromSource = v; reconfigureIp(); });
+      }
+      if(auto* p = obj->getProperty("resolution"))
+      {
+        m_resolution = p->toInt64();
+        connect(p, &AbstractProperty::valueChangedInt64, this,
+          [this](int64_t v) { m_resolution = v; reconfigureIp(); });
+      }
+      if(auto* p = obj->getProperty("jpeg_quality"))
+      {
+        m_jpegQuality = p->toInt();
+        connect(p, &AbstractProperty::valueChangedInt, this,
+          [this](int v) { m_jpegQuality = v; reconfigureIp(); });
+      }
+
       updateState();
     });
 }
@@ -103,6 +165,7 @@ CameraWidget::~CameraWidget()
   if(m_objectRequestId != -1)
     m_connection->cancelRequest(m_objectRequestId);
   stopStream();
+  stopIpStream();
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -123,29 +186,66 @@ void CameraWidget::setActive(bool active)
 
 void CameraWidget::updateState()
 {
-  // Status/stream reflect both the camera's enabled flag and its stream path:
-  //   disabled           -> camera not enabled
-  //   connecting         -> enabled but no stream yet (starting, or capture failed)
-  //   <video> / connecting-> enabled with a stream path (connecting until frames arrive)
   if(!m_enabled)
   {
     stopStream();
+    stopIpStream();
     showStatus(Locale::tr("camera:disabled"));
-    return;
-  }
-  if(m_streamPath.isEmpty())
-  {
-    stopStream();
-    showStatus(Locale::tr("camera:connecting"));
     return;
   }
   if(!m_active)
   {
     stopStream();
+    stopIpStream();
     return;
   }
-  if(!m_reply)
-    startStream(); // shows "connecting" until the first frame arrives
+
+  if(m_type == static_cast<int64_t>(CameraType::Local))
+  {
+    // Local camera: the server captures it and serves MJPEG; pull from the server.
+    stopIpStream();
+    if(m_streamPath.isEmpty())
+    {
+      stopStream();
+      showStatus(Locale::tr("camera:connecting")); // enabled but capture not up yet
+      return;
+    }
+    if(!m_reply)
+      startStream(); // "connecting" until the first frame arrives
+  }
+  else
+  {
+    // Network camera (RTSP/MJPEG/RTMP/HLS): capture the source directly here.
+    stopStream();
+    if(m_device.isEmpty())
+    {
+      stopIpStream();
+      showStatus(Locale::tr("camera:connecting"));
+      return;
+    }
+    if(!m_ipSource)
+      startIpStream(); // "connecting" until the first frame arrives
+  }
+}
+
+void CameraWidget::restart()
+{
+  // Full teardown of both paths, then re-pick based on the current type/state.
+  stopStream();
+  stopIpStream();
+  updateState();
+}
+
+void CameraWidget::reconfigureIp()
+{
+  // A spec changed. For IP cameras the specs are applied client-side, so restart
+  // the source to pick them up. For Local cameras the server applies them and
+  // pushes frames, so nothing to do here.
+  if(m_type != static_cast<int64_t>(CameraType::Local) && m_ipSource)
+  {
+    stopIpStream();
+    updateState();
+  }
 }
 
 // ─── Protected ───────────────────────────────────────────────────────────────
@@ -232,13 +332,19 @@ void CameraWidget::onReplyFinished()
     m_reply = nullptr;
   }
 
-  // Auto-reconnect after a short delay unless we were deliberately stopped
-  if(m_active && m_enabled && !m_streamPath.isEmpty())
+  // Auto-reconnect after a short delay unless we were deliberately stopped. This
+  // is the Local (MJPEG-from-server) path only; the fire-time guard re-checks the
+  // full Local precondition so a pending timer cannot start a server pull after
+  // the camera was switched to an IP type (which captures via m_ipSource and
+  // leaves m_reply null / m_streamPath empty).
+  if(m_active && m_enabled && m_type == static_cast<int64_t>(CameraType::Local) &&
+     !m_streamPath.isEmpty())
   {
     QTimer::singleShot(2000, this,
       [this]()
       {
-        if(m_active && m_enabled && !m_reply)
+        if(m_active && m_enabled && !m_reply && !m_ipSource &&
+           m_type == static_cast<int64_t>(CameraType::Local) && !m_streamPath.isEmpty())
           startStream();
       });
     showStatus(Locale::tr("camera:reconnecting"));
@@ -317,6 +423,54 @@ void CameraWidget::tryDecodeFrames()
     if(px.loadFromData(latest, "JPEG"))
       showPixmap(px);
   }
+}
+
+// ─── IP path (direct OpenCV capture on the client) ───────────────────────────
+
+void CameraWidget::startIpStream()
+{
+  Q_ASSERT(!m_ipSource);
+  if(m_device.isEmpty())
+    return;
+
+  // Request-from-source specs (MJPEG only, mirrors the server's appendSpecs).
+  const auto size = toResolutionSize(static_cast<CameraResolution>(m_resolution));
+  const bool appendSpecs =
+    (m_type == static_cast<int64_t>(CameraType::MJPEG)) && m_requestFromSource;
+
+  // Created with no parent: it self-deletes when its capture loop exits (see
+  // IpCameraSource). We only keep a raw pointer and clear it in stopIpStream().
+  m_ipSource = new IpCameraSource(m_device, m_fps, size.first, size.second,
+                                  m_jpegQuality, m_flipVertical, m_flipHorizontal,
+                                  appendSpecs);
+  // Guard deliveries by the source pointer: a frame/status already queued from a
+  // previous (now stopped/replaced) source has src != m_ipSource and is dropped,
+  // so it can't paint a stale frame over the current one (queued cross-thread
+  // events aren't retracted by disconnect()).
+  IpCameraSource* const src = m_ipSource;
+  connect(m_ipSource, &IpCameraSource::frameReady, this,
+    [this, src](const QImage& image) { if(src == m_ipSource) showImage(image); });
+  connect(m_ipSource, &IpCameraSource::streamLost, this,
+    [this, src]() { if(src == m_ipSource) showStatus(Locale::tr("camera:reconnecting")); });
+  m_ipSource->start();
+
+  showStatus(Locale::tr("camera:connecting"));
+}
+
+void CameraWidget::stopIpStream()
+{
+  if(m_ipSource)
+  {
+    m_ipSource->disconnect(this); // stop frames/status reaching this (now) stale view
+    m_ipSource->stop();           // fire-and-forget; the source self-deletes when done
+    m_ipSource = nullptr;
+  }
+}
+
+void CameraWidget::showImage(const QImage& image)
+{
+  if(!image.isNull())
+    showPixmap(QPixmap::fromImage(image));
 }
 
 void CameraWidget::showPixmap(const QPixmap& px)

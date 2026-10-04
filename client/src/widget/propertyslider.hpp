@@ -24,13 +24,19 @@
 #define TRAINTASTIC_CLIENT_WIDGET_PROPERTYSLIDER_HPP
 
 #include <QWidget>
+#include <QString>
 
 class QSlider;
 class QLabel;
+class QEvent;
 class Property;
 
 /**
  * @brief Horizontal slider bound to an integer Property, with a numeric readout.
+ *
+ * Honours the usual property attributes: Min/Max (range), Step (single step),
+ * Unit (suffix on the readout) and Enabled/Visible. The handle is drawn as a
+ * rounded pill using the widget palette so it matches the active theme.
  */
 class PropertySlider : public QWidget
 {
@@ -40,11 +46,16 @@ class PropertySlider : public QWidget
     Property& m_property;
     QSlider* m_slider;
     QLabel* m_valueLabel;
+    QString m_unit;
     int m_requestId;
 
     void cancelRequest();
     void updateRange();
+    void updateStep();
     void updateValueLabel(int value);
+    void applyThumbStyle(); ///< pill-shaped handle, palette-themed
+
+    void changeEvent(QEvent* event) override; ///< re-theme the pill when the palette changes
 
   public:
     PropertySlider(Property& property, QWidget* parent = nullptr);

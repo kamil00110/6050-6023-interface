@@ -24,35 +24,27 @@
 #define TRAINTASTIC_CLIENT_WIDGET_CAMERA_CAMERAWIDGET_HPP
 
 #include <QWidget>
-#include <QUrl>
-#include <QImage>
-#include <cstdint>
+#include <QString>
+#include <QSize>
+#include <QPixmap>
+#include <QSharedPointer>
 #include <memory>
-#include "../../network/objectptr.hpp"
 
 class QLabel;
-class QNetworkAccessManager;
-class QNetworkReply;
-class QTimer;
+class QEvent;
+class QShowEvent;
+class QResizeEvent;
 class Connection;
-class IpCameraSource;
+class CameraStream;
 
 /**
- * @brief Widget that displays a camera stream, by one of two paths chosen from
- *        the camera's type:
+ * @brief A view of a camera stream: shows the frames decoded by a (shared)
+ *        CameraStream, scaled to this widget's size.
  *
- * - Local (hardware) cameras: the server captures them and serves an MJPEG
- *   stream at http://<host>:<port>/camera/<id>/stream. This widget opens a
- *   persistent GET and parses the multipart/x-mixed-replace response (scanning
- *   JPEG SOI/EOI markers), decoding each frame via QPixmap.
- *
- * - Network cameras (RTSP/MJPEG/RTMP/HLS): captured DIRECTLY here via OpenCV
- *   (IpCameraSource) from the camera's `device` URL, with the wished specs (fps
- *   cap, flip) applied locally -- so the server does not pull and re-encode the
- *   stream, which would double the bandwidth. No server stream is used for these.
- *
- * The camera object's `type`/`device` and spec properties are read (and watched)
- * in the getObject callback; updateState() picks the path.
+ * The widget owns no capture itself. It acquires the shared CameraStream for its
+ * camera (so the wall tile, the settings preview and any stand-alone window of
+ * the same camera all share a single decode), renders the frames it emits, and
+ * reports its own visibility so the stream only captures while a view is shown.
  */
 class CameraWidget : public QWidget
 {
@@ -64,16 +56,15 @@ class CameraWidget : public QWidget
                           QWidget* parent = nullptr);
     ~CameraWidget() override;
 
-    /** Called when the server sends us a new stream_url property value. */
-    void setStreamPath(const QString& urlPath);
-
-    /** Pauses/resumes streaming without closing the connection. */
-    void setActive(bool active);
+    /** Current source frame size of the shared stream, {0,0} if not yet known.
+     *  Lets a view attaching to an already-running camera seed its resolution
+     *  readout without waiting for the next frameSizeChanged. */
+    QSize currentFrameSize() const;
 
   signals:
-    /** Emitted when the displayed frame's source resolution changes (works for
-     *  both the server-MJPEG and client-OpenCV paths). Used to show the real
-     *  stream resolution for IP cameras, which the server no longer reports. */
+    /** Emitted when the displayed frame's source resolution changes. Used to show
+     *  the real stream resolution for IP cameras, which the server does not
+     *  report. Forwarded from the shared CameraStream. */
     void frameSizeChanged(int width, int height);
 
   protected:
@@ -83,57 +74,16 @@ class CameraWidget : public QWidget
     bool eventFilter(QObject* watched, QEvent* event) override;
 
   private:
-    std::shared_ptr<Connection> m_connection;
-    QString                     m_cameraObjectId;
-    QString                     m_streamPath;   ///< e.g. "/camera/camera_01/stream"
-
-    QLabel*                     m_videoLabel;
-    QLabel*                     m_statusLabel;
-
-    QNetworkAccessManager*      m_nam;
-    QNetworkReply*              m_reply{nullptr};
-
-    QByteArray                  m_buffer;       ///< accumulates raw bytes from reply
-    bool                        m_active{true};
-    bool                        m_enabled{true};  ///< camera's enabled property
-    int                         m_objectRequestId{-1};
-    ObjectPtr                   m_cameraObject;   ///< kept alive so the watched properties (and their signals) stay valid
-
-    // Camera type + specs, read/watched from the object. For IP types these drive
-    // the client-side OpenCV capture (IpCameraSource); for Local they are applied
-    // server-side and only `type`/`stream_url` matter here.
-    int64_t                     m_type{0};        ///< CameraType; 0 = Local
-    QString                     m_device;         ///< source URL (IP cameras)
-    double                      m_fps{1.0};
-    bool                        m_flipVertical{false};
-    bool                        m_flipHorizontal{false};
-    bool                        m_requestFromSource{false};
-    int64_t                     m_resolution{0};  ///< CameraResolution; 0 = Auto
-    int                         m_jpegQuality{75};
-    IpCameraSource*             m_ipSource{nullptr}; ///< direct capture for IP cameras
-    int                         m_lastFrameW{0};     ///< last size emitted via frameSizeChanged
-    int                         m_lastFrameH{0};
-    bool                        m_subwindowWatched{false}; ///< installed the visibility filter yet
-
-    void updateState();
-    void restart();          ///< tear down both paths, then updateState()
-    void reconfigureIp();    ///< restart the IP source (if an IP type is streaming)
-
-    // Local path: MJPEG pulled from the server.
-    void startStream();
-    void stopStream();
-    void onReadyRead();
-    void onReplyFinished();
-    void tryDecodeFrames();
-    QUrl buildStreamUrl() const;
-
-    // IP path: direct OpenCV capture on the client.
-    void startIpStream();
-    void stopIpStream();
-    void showImage(const QImage& image);
-
+    void setStreamActive(bool active); ///< ref/deref the shared stream on visibility
     void showPixmap(const QPixmap& px);
     void showStatus(const QString& text);
+
+    QSharedPointer<CameraStream> m_stream;
+    QLabel*                      m_videoLabel;
+    QLabel*                      m_statusLabel;
+    QPixmap                      m_frame;                   ///< last full-size frame, so resize rescales from the source
+    bool                         m_active{false};           ///< currently counted as a visible viewer (and painting)
+    bool                         m_subwindowWatched{false}; ///< installed the visibility filter yet
 };
 
 #endif

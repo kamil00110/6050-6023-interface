@@ -325,8 +325,11 @@ void CameraEditWidget::buildForm()
           : QStringLiteral("-"));
       };
       if(preview)
+      {
+        *clientSize = preview->currentFrameSize(); // seed from an already-running shared stream
         connect(preview, &CameraWidget::frameSizeChanged, this,
           [clientSize, updateRes](int w, int h) { *clientSize = QSize(w, h); updateRes(); });
+      }
       connect(wProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
       connect(hProp, &Property::valueChanged, this, [updateRes]() { updateRes(); });
       updateRes();

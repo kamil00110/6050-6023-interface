@@ -25,28 +25,15 @@
 #include <QLabel>
 #include <QResizeEvent>
 #include <QPixmap>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QTimer>
 #include <QEvent>
 #include <QMdiSubWindow>
-#include "capture/ipcamerasource.hpp"
-#include "../../network/connection.hpp"
-#include "../../network/object.hpp"
-#include "../../network/property.hpp"
-#include "../../network/error.hpp"
+#include "capture/camerastream.hpp"
 #include <traintastic/locale/locale.hpp>
-#include <traintastic/enum/cameratype.hpp>
-#include <traintastic/enum/cameraresolution.hpp>
 
 CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
                            const QString& cameraObjectId,
                            QWidget* parent)
   : QWidget(parent)
-  , m_connection(std::move(connection))
-  , m_cameraObjectId(cameraObjectId)
-  , m_nam(new QNetworkAccessManager(this))
 {
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
   setMinimumSize(160, 120);
@@ -67,223 +54,64 @@ CameraWidget::CameraWidget(std::shared_ptr<Connection> connection,
   m_statusLabel->hide();
   layout->addWidget(m_statusLabel);
 
-  showStatus(Locale::tr("camera:connecting"));
+  // Share a single capture+decode with every other view of this camera.
+  m_stream = CameraStream::acquire(std::move(connection), cameraObjectId);
+  // Only a visible view paints: a hidden view keeps its stream reference (so the
+  // single decode persists for the visible ones) but skips the per-frame scale.
+  connect(m_stream.data(), &CameraStream::frameReady, this,
+    [this](const QPixmap& frame) { if(m_active) showPixmap(frame); });
+  connect(m_stream.data(), &CameraStream::statusChanged, this,
+    [this](const QString& text) { if(m_active) showStatus(text); });
+  connect(m_stream.data(), &CameraStream::frameSizeChanged, this, &CameraWidget::frameSizeChanged);
 
-  // Fetch the camera object so we can read and watch its stream_url property.
-  m_objectRequestId = m_connection->getObject(m_cameraObjectId,
-    [this](const ObjectPtr& obj, std::optional<const Error> /*err*/)
-    {
-      m_objectRequestId = -1;
-      if(!obj)
-      {
-        showStatus(Locale::tr("camera:not_found"));
-        return;
-      }
+  // Render whatever the stream already has, so a view attaching to a running
+  // camera is not blank until the next frame.
+  if(const QPixmap& frame = m_stream->lastFrame(); !frame.isNull())
+    showPixmap(frame);
+  else
+    showStatus(m_stream->status());
+}
 
-      // Keep the object alive for the lifetime of this widget: the property
-      // pointers below are owned by it, and if it were released the watches
-      // would silently stop (stale standalone window / preview).
-      m_cameraObject = obj;
-
-      // Watch the enabled flag and the stream path so the status shown reflects
-      // the real state (disabled vs. connecting vs. streaming).
-      if(auto* enabledProp = obj->getProperty("enabled"))
-      {
-        m_enabled = enabledProp->toBool();
-        connect(enabledProp, &AbstractProperty::valueChangedBool, this,
-          [this](bool enabled) { m_enabled = enabled; updateState(); });
-      }
-      if(auto* urlProp = obj->getProperty("stream_url"))
-      {
-        m_streamPath = urlProp->toString();
-        connect(urlProp, &AbstractProperty::valueChangedString, this,
-          [this](const QString& path) { m_streamPath = path; updateState(); });
-      }
-
-      // type/device pick the path; changing either must fully restart.
-      if(auto* p = obj->getProperty("type"))
-      {
-        m_type = p->toInt64();
-        connect(p, &AbstractProperty::valueChangedInt64, this,
-          [this](int64_t v) { m_type = v; restart(); });
-      }
-      if(auto* p = obj->getProperty("device"))
-      {
-        m_device = p->toString();
-        connect(p, &AbstractProperty::valueChangedString, this,
-          [this](const QString& v) { m_device = v; restart(); });
-      }
-
-      // Specs (applied client-side for IP cameras, server-side for Local):
-      // fps and flip are live-adjustable on a running IP source -- push them in
-      // place (no reconnect / black-flash, and no stacking of capture threads).
-      if(auto* p = obj->getProperty("fps"))
-      {
-        m_fps = p->toDouble();
-        connect(p, &AbstractProperty::valueChangedDouble, this,
-          [this](double v)
-          {
-            m_fps = v;
-            // For MJPEG with request-from-source, fps is sent in the request URL,
-            // so a change must rebuild the source to re-request at the new rate
-            // (otherwise it only takes effect on the next reconnect / re-enable).
-            // For every other case fps is a live client-side cap.
-            if(m_type == static_cast<int64_t>(CameraType::MJPEG) && m_requestFromSource)
-              reconfigureIp();
-            else if(m_ipSource)
-              m_ipSource->setFps(v);
-          });
-      }
-      if(auto* p = obj->getProperty("flip_vertical"))
-      {
-        m_flipVertical = p->toBool();
-        connect(p, &AbstractProperty::valueChangedBool, this,
-          [this](bool v) { m_flipVertical = v;
-            if(m_ipSource) m_ipSource->setFlip(m_flipVertical, m_flipHorizontal); });
-      }
-      if(auto* p = obj->getProperty("flip_horizontal"))
-      {
-        m_flipHorizontal = p->toBool();
-        connect(p, &AbstractProperty::valueChangedBool, this,
-          [this](bool v) { m_flipHorizontal = v;
-            if(m_ipSource) m_ipSource->setFlip(m_flipVertical, m_flipHorizontal); });
-      }
-      // These only affect the source URL (request-from-source query params), so a
-      // change requires rebuilding the source -> reconfigureIp() restarts it.
-      if(auto* p = obj->getProperty("request_from_source"))
-      {
-        m_requestFromSource = p->toBool();
-        connect(p, &AbstractProperty::valueChangedBool, this,
-          [this](bool v) { m_requestFromSource = v; reconfigureIp(); });
-      }
-      if(auto* p = obj->getProperty("resolution"))
-      {
-        m_resolution = p->toInt64();
-        connect(p, &AbstractProperty::valueChangedInt64, this,
-          [this](int64_t v) { m_resolution = v; reconfigureIp(); });
-      }
-      if(auto* p = obj->getProperty("jpeg_quality"))
-      {
-        m_jpegQuality = p->toInt();
-        connect(p, &AbstractProperty::valueChangedInt, this,
-          [this](int v) { m_jpegQuality = v; reconfigureIp(); });
-      }
-
-      updateState();
-    });
+QSize CameraWidget::currentFrameSize() const
+{
+  return m_stream ? m_stream->frameSize() : QSize();
 }
 
 CameraWidget::~CameraWidget()
 {
-  // Cancel the in-flight object request so its callback can never fire into
-  // this (now destroyed) widget -- otherwise destroying a camera tile / preview
-  // while the getObject response is still in transit is a use-after-free.
-  if(m_objectRequestId != -1)
-    m_connection->cancelRequest(m_objectRequestId);
-  stopStream();
-  stopIpStream();
+  if(m_active && m_stream)
+    m_stream->removeVisibleViewer();
+  // Dropping m_stream here releases our share; the stream is torn down when the
+  // last view is gone.
 }
 
-// Public API
-
-void CameraWidget::setStreamPath(const QString& urlPath)
+void CameraWidget::setStreamActive(bool active)
 {
-  if(m_streamPath == urlPath)
+  if(active == m_active || !m_stream)
     return;
-  m_streamPath = urlPath;
-  updateState();
-}
-
-void CameraWidget::setActive(bool active)
-{
   m_active = active;
-  updateState();
-}
-
-void CameraWidget::updateState()
-{
-  if(!m_enabled)
+  if(active)
   {
-    stopStream();
-    stopIpStream();
-    showStatus(Locale::tr("camera:disabled"));
-    return;
-  }
-  if(!m_active)
-  {
-    stopStream();
-    stopIpStream();
-    return;
-  }
-
-  if(m_type == static_cast<int64_t>(CameraType::Local))
-  {
-    // Local camera: the server captures it and serves MJPEG; pull from the server.
-    stopIpStream();
-    if(m_streamPath.isEmpty())
-    {
-      stopStream();
-      showStatus(Locale::tr("camera:connecting")); // enabled but capture not up yet
-      return;
-    }
-    if(!m_reply)
-      startStream(); // "connecting" until the first frame arrives
+    m_stream->addVisibleViewer();
+    // We skipped painting while hidden, so bring this view up to date now.
+    if(const QPixmap& frame = m_stream->lastFrame(); !frame.isNull())
+      showPixmap(frame);
+    else
+      showStatus(m_stream->status());
   }
   else
-  {
-    // Network camera (RTSP/MJPEG/RTMP/HLS): capture the source directly here.
-    stopStream();
-    if(m_device.isEmpty())
-    {
-      stopIpStream();
-      showStatus(Locale::tr("camera:connecting"));
-      return;
-    }
-    if(!m_ipSource)
-      startIpStream(); // "connecting" until the first frame arrives
-  }
+    m_stream->removeVisibleViewer();
 }
-
-void CameraWidget::restart()
-{
-  // Full teardown of both paths, then re-pick based on the current type/state.
-  stopStream();
-  stopIpStream();
-  updateState();
-}
-
-void CameraWidget::reconfigureIp()
-{
-  // A spec changed. For IP cameras the specs are applied client-side, so restart
-  // the source to pick them up. For Local cameras the server applies them and
-  // pushes frames, so nothing to do here.
-  if(m_type != static_cast<int64_t>(CameraType::Local) && m_ipSource)
-  {
-    stopIpStream();
-    updateState();
-  }
-}
-
-// Protected
 
 void CameraWidget::resizeEvent(QResizeEvent* event)
 {
   QWidget::resizeEvent(event);
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-  const QPixmap px = m_videoLabel->pixmap();
-  if(!px.isNull())
-  {
+  // Rescale from the stored full-size frame (not the already-downscaled label
+  // pixmap), so resizing -- including the first layout after attaching to a
+  // running stream -- stays crisp. Smooth here as it is a one-off, not per frame.
+  if(!m_frame.isNull())
     m_videoLabel->setPixmap(
-      px.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-  }
-#else
-  const QPixmap* px = m_videoLabel->pixmap();
-  if(px && !px->isNull())
-  {
-    m_videoLabel->setPixmap(
-      px->scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
-  }
-#endif
+      m_frame.scaled(m_videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
 }
 
 void CameraWidget::showEvent(QShowEvent* event)
@@ -306,6 +134,7 @@ void CameraWidget::showEvent(QShowEvent* event)
       }
     }
   }
+  setStreamActive(true);
 }
 
 bool CameraWidget::eventFilter(QObject* watched, QEvent* event)
@@ -313,236 +142,17 @@ bool CameraWidget::eventFilter(QObject* watched, QEvent* event)
   // watched is the enclosing MDI sub-window (see showEvent): pause the stream
   // while it is hidden so background tabs/windows stop decoding, resume on show.
   if(event->type() == QEvent::Hide)
-    setActive(false);
+    setStreamActive(false);
   else if(event->type() == QEvent::Show)
-    setActive(true);
+    setStreamActive(true);
   return QWidget::eventFilter(watched, event);
-}
-
-// Private
-
-void CameraWidget::startStream()
-{
-  Q_ASSERT(!m_reply);
-  m_buffer.clear();
-
-  const QUrl url = buildStreamUrl();
-  if(!url.isValid())
-  {
-    showStatus(Locale::tr("camera:invalid_url"));
-    return;
-  }
-
-  QNetworkRequest req(url);
-  req.setRawHeader("Accept", "multipart/x-mixed-replace");
-  // Disable automatic redirect following -- MJPEG stream should never redirect
-  req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-                   QNetworkRequest::ManualRedirectPolicy);
-#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
-  // Recover from a silent server-side stall (connection stays open but no bytes
-  // arrive): Qt aborts the reply, which emits finished() and lets
-  // onReplyFinished() schedule the usual reconnect. Reset on each chunk by Qt.
-  constexpr int streamTransferTimeoutMs = 5000; // ms without data -> abort + reconnect
-  req.setTransferTimeout(streamTransferTimeoutMs);
-#endif
-
-  m_reply = m_nam->get(req);
-  connect(m_reply, &QNetworkReply::readyRead,  this, &CameraWidget::onReadyRead);
-  connect(m_reply, &QNetworkReply::finished,   this, &CameraWidget::onReplyFinished);
-  connect(m_reply, &QNetworkReply::errorOccurred, this,
-    [this](QNetworkReply::NetworkError)
-    {
-      showStatus(Locale::tr("camera:connection_error").arg(m_reply->errorString()));
-    });
-
-  showStatus(Locale::tr("camera:connecting"));
-}
-
-void CameraWidget::stopStream()
-{
-  if(m_reply)
-  {
-    // Detach and null the member BEFORE abort(): abort() can synchronously emit
-    // finished()/errorOccurred(), which would re-enter onReplyFinished() and free
-    // m_reply underneath us -- then the old code dereferenced a dangling/null
-    // m_reply. Disconnect first so no slot fires during teardown.
-    QNetworkReply* reply = m_reply;
-    m_reply = nullptr;
-    reply->disconnect(this);
-    reply->abort();
-    reply->deleteLater();
-  }
-  m_buffer.clear();
-}
-
-void CameraWidget::onReadyRead()
-{
-  m_buffer.append(m_reply->readAll());
-  tryDecodeFrames();
-}
-
-void CameraWidget::onReplyFinished()
-{
-  if(m_reply)
-  {
-    m_reply->deleteLater();
-    m_reply = nullptr;
-  }
-
-  // Auto-reconnect after a short delay unless we were deliberately stopped. This
-  // is the Local (MJPEG-from-server) path only; the fire-time guard re-checks the
-  // full Local precondition so a pending timer cannot start a server pull after
-  // the camera was switched to an IP type (which captures via m_ipSource and
-  // leaves m_reply null / m_streamPath empty).
-  if(m_active && m_enabled && m_type == static_cast<int64_t>(CameraType::Local) &&
-     !m_streamPath.isEmpty())
-  {
-    QTimer::singleShot(2000, this,
-      [this]()
-      {
-        if(m_active && m_enabled && !m_reply && !m_ipSource &&
-           m_type == static_cast<int64_t>(CameraType::Local) && !m_streamPath.isEmpty())
-          startStream();
-      });
-    showStatus(Locale::tr("camera:reconnecting"));
-  }
-}
-
-void CameraWidget::tryDecodeFrames()
-{
-  // JPEG frames are identified by their SOI (0xFF 0xD8) and EOI (0xFF 0xD9) markers.
-  // The MJPEG multipart framing (boundary, Content-Length header) is used to find
-  // the start of each JPEG payload, but we also accept direct SOI/EOI scanning
-  // which is more robust against header variations.
-  //
-  // Strategy: find Content-Length in the part header, extract exactly that many
-  // bytes as the JPEG payload, advance past it. Decoding JPEG is the expensive
-  // part, so if several complete frames have piled up in the buffer we keep only
-  // the MOST RECENT one and decode just that -- dropping stale frames keeps the
-  // preview current and cheap instead of spending CPU decoding frames nobody sees.
-
-  QByteArray latest;
-
-  while(true)
-  {
-    // Locate the blank line that separates part headers from JPEG data.
-    // Part headers look like:
-    //   --frame\r\nContent-Type: image/jpeg\r\nContent-Length: N\r\n\r\n
-    const int sep = m_buffer.indexOf("\r\n\r\n");
-    if(sep < 0)
-      break; // need more data
-
-    const QByteArray partHeader = m_buffer.left(sep);
-
-    // Parse Content-Length from the part header
-    int contentLength = -1;
-    for(const QByteArray& line : partHeader.split('\n'))
-    {
-      const QByteArray trimmed = line.trimmed();
-      if(trimmed.toLower().startsWith("content-length:"))
-      {
-        bool ok = false;
-        contentLength = trimmed.mid(15).trimmed().toInt(&ok);
-        if(!ok) contentLength = -1;
-        break;
-      }
-    }
-
-    if(contentLength <= 0)
-    {
-      // No Content-Length: fall back to SOI/EOI scan
-      const int soi = m_buffer.indexOf("\xff\xd8", sep + 4);
-      const int eoi = (soi >= 0) ? m_buffer.indexOf("\xff\xd9", soi + 2) : -1;
-      if(soi < 0 || eoi < 0)
-        break;
-
-      latest = m_buffer.mid(soi, eoi - soi + 2);
-      m_buffer.remove(0, eoi + 2);
-      continue;
-    }
-
-    // We know Content-Length: wait until we have the full payload
-    const int payloadStart = sep + 4;
-    if(m_buffer.size() < payloadStart + contentLength)
-      break; // need more data
-
-    latest = m_buffer.mid(payloadStart, contentLength);
-    m_buffer.remove(0, payloadStart + contentLength);
-
-    // Strip leading \r\n boundary separator if present
-    if(m_buffer.startsWith("\r\n"))
-      m_buffer.remove(0, 2);
-  }
-
-  if(!latest.isEmpty())
-  {
-    QPixmap px;
-    if(px.loadFromData(latest, "JPEG"))
-      showPixmap(px);
-  }
-}
-
-// IP path (direct OpenCV capture on the client)
-
-void CameraWidget::startIpStream()
-{
-  Q_ASSERT(!m_ipSource);
-  if(m_device.isEmpty())
-    return;
-
-  // Request-from-source specs (MJPEG only, mirrors the server's appendSpecs).
-  const auto size = toResolutionSize(static_cast<CameraResolution>(m_resolution));
-  const bool appendSpecs =
-    (m_type == static_cast<int64_t>(CameraType::MJPEG)) && m_requestFromSource;
-
-  // Created with no parent: it self-deletes when its capture loop exits (see
-  // IpCameraSource). We only keep a raw pointer and clear it in stopIpStream().
-  m_ipSource = new IpCameraSource(m_device, m_fps, size.first, size.second,
-                                  m_jpegQuality, m_flipVertical, m_flipHorizontal,
-                                  appendSpecs);
-  // Guard deliveries by the source pointer: a frame/status already queued from a
-  // previous (now stopped/replaced) source has src != m_ipSource and is dropped,
-  // so it can't paint a stale frame over the current one (queued cross-thread
-  // events aren't retracted by disconnect()).
-  IpCameraSource* const src = m_ipSource;
-  connect(m_ipSource, &IpCameraSource::frameReady, this,
-    [this, src](const QImage& image) { if(src == m_ipSource) showImage(image); });
-  connect(m_ipSource, &IpCameraSource::streamLost, this,
-    [this, src]() { if(src == m_ipSource) showStatus(Locale::tr("camera:reconnecting")); });
-  m_ipSource->start();
-
-  showStatus(Locale::tr("camera:connecting"));
-}
-
-void CameraWidget::stopIpStream()
-{
-  if(m_ipSource)
-  {
-    m_ipSource->disconnect(this); // stop frames/status reaching this (now) stale view
-    m_ipSource->stop();           // fire-and-forget; the source self-deletes when done
-    m_ipSource = nullptr;
-  }
-}
-
-void CameraWidget::showImage(const QImage& image)
-{
-  if(!image.isNull())
-    showPixmap(QPixmap::fromImage(image));
 }
 
 void CameraWidget::showPixmap(const QPixmap& px)
 {
   m_statusLabel->hide();
   m_videoLabel->show();
-  // Report the source frame resolution (px is the full-size frame; only the
-  // label display is scaled). Lets the edit widget show the real stream size for
-  // IP cameras, which the server no longer reports via frame_width/height.
-  if(px.width() != m_lastFrameW || px.height() != m_lastFrameH)
-  {
-    m_lastFrameW = px.width();
-    m_lastFrameH = px.height();
-    emit frameSizeChanged(m_lastFrameW, m_lastFrameH);
-  }
+  m_frame = px; // keep the full-size frame so resizeEvent rescales from the source
   // Fast (nearest/bilinear) scaling on the per-frame hot path: smooth scaling
   // every frame across several open previews (wall tiles + settings + windows)
   // is a large, needless CPU cost for live video. The one-off resizeEvent scale
@@ -553,20 +163,8 @@ void CameraWidget::showPixmap(const QPixmap& px)
 
 void CameraWidget::showStatus(const QString& text)
 {
+  m_frame = QPixmap(); // drop the frame so a later resize cannot repaint it under the status
   m_videoLabel->clear();
-  m_statusLabel->setText(text);
+  m_statusLabel->setText(text.isEmpty() ? Locale::tr("camera:connecting") : text);
   m_statusLabel->show();
-}
-
-QUrl CameraWidget::buildStreamUrl() const
-{
-  if(!m_connection || m_streamPath.isEmpty())
-    return {};
-
-  QUrl url;
-  url.setScheme(QStringLiteral("http"));
-  url.setHost(m_connection->peerAddress().toString());
-  url.setPort(m_connection->peerPort());
-  url.setPath(m_streamPath);
-  return url;
 }
